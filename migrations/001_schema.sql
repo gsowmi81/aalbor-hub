@@ -82,8 +82,9 @@ create table steps (
   check (end_date is null or (start_date is not null and end_date >= start_date)),
   check ((kind = 'rework') = (rework_id is not null))
 );
--- One of each standard step per job; rework steps can repeat.
-create unique index steps_one_per_kind on steps (job_id, kind) where kind <> 'rework';
+-- One of each standard step per job (label ''). Extra named steps on a row,
+-- such as "Install painted doors", carry a label; rework steps can repeat.
+create unique index steps_one_per_kind on steps (job_id, kind) where kind <> 'rework' and label = '';
 create index steps_dates on steps (start_date, end_date);
 
 -- An "OK as is" on a Needs a decision item. The fingerprint is the dates the

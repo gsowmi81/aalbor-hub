@@ -3,6 +3,8 @@ import { config } from '../config.js';
 
 // Dates stay as 'YYYY-MM-DD' strings everywhere; never let pg turn them into JS Dates.
 pg.types.setTypeParser(1082, (v) => v);
+// Timestamps as ISO strings too (UTC); show them with sydneyDate() / Intl in Australia/Sydney.
+pg.types.setTypeParser(1184, (v) => new Date(v).toISOString());
 // numeric comes back as a string; the hub only uses small values, so a number is safe.
 pg.types.setTypeParser(1700, (v) => (v === null ? null : Number(v)));
 

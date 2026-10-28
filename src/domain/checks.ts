@@ -62,7 +62,8 @@ export function overdue(jobs: JobRow[], steps: StepRow[], today: Iso): StepRow[]
 
 export interface DecisionField {
   stepId: number | null;
-  kind: StepKind;
+  /** 'site_start' edits the job's site start rather than a step. */
+  kind: StepKind | 'site_start';
   label: string;
   start: Iso | null;
   end: Iso | null;
@@ -104,7 +105,7 @@ export function needsDecision(
 
   for (const j of jobs.filter((x) => x.status === 'live')) {
     const js = byJob.get(j.id) ?? [];
-    const std = new Map(js.filter((s) => s.kind !== 'rework').map((s) => [s.kind, s]));
+    const std = new Map(js.filter((s) => s.kind !== 'rework' && !s.label).map((s) => [s.kind, s]));
     const title = jobTitle(j);
     const open = (k: StepKind) => {
       const s = std.get(k);
@@ -113,9 +114,12 @@ export function needsDecision(
 
     // Missing site start or install date.
     const install = std.get('install');
-    if (!j.site_start || !install?.start_date) {
+    // A job starting more than 8 weeks out isn't expected to have an install date yet.
+    const soon = !j.site_start || cal.workingDaysBetween(today, j.site_start) <= 40;
+    if (soon && (!j.site_start || !install?.start_date)) {
       const missing = [!j.site_start && 'site start', !install?.start_date && 'install date'].filter(Boolean).join(' or ');
       const fields = [install ?? std.get('check_measure'), std.get('factory')].filter((s): s is StepRow => !!s).map(field);
+      if (!j.site_start) fields.unshift({ stepId: null, kind: 'site_start', label: 'Site start', start: null, end: null, range: false });
       out.push({
         key: `job:${j.id}:missing`, jobId: j.id, title,
         fact: `No ${missing}.`,
@@ -129,6 +133,7 @@ export function needsDecision(
     // The factory chain finishes after delivery (or after the install starts if there's no delivery).
     const delivery = std.get('delivery');
     const needBy = delivery?.start_date ?? install?.start_date;
+    let chainRaised = false;
     if (needBy && !(install?.done_at)) {
       const chain = (['factory', 'doors_back'] as StepKind[])
         .map((k) => open(k))
@@ -144,14 +149,18 @@ export function needsDecision(
           fields: [latest.s, delivery, install].filter((s): s is StepRow => !!s).map(field),
           fingerprint: fp([latest.d, needBy]),
         });
+        chainRaised = true;
       }
     }
 
-    // Steps out of order.
-    const dated = FLOW.map((k) => open(k)).filter((s): s is StepRow => !!s && !!s.start_date);
+    // Steps out of order. Materials are often ordered early on purpose, so ordering is left out.
+    // If the factory chain is already flagged above, its clash with delivery isn't raised twice.
+    const chainKinds: StepKind[] = ['factory', 'doors_to_painting', 'doors_back'];
+    const dated = FLOW.filter((k) => k !== 'materials_ordered').map((k) => open(k)).filter((s): s is StepRow => !!s && !!s.start_date);
     for (let i = 0; i < dated.length - 1; i++) {
       const a = dated[i];
       const b = dated[i + 1];
+      if (chainRaised && chainKinds.includes(a.kind) && (b.kind === 'delivery' || b.kind === 'install')) continue;
       const bad = a.kind === 'delivery' || b.kind === 'delivery' ? lastDate(a)! > b.start_date! : a.start_date! > b.start_date!;
       if (bad) {
         out.push({

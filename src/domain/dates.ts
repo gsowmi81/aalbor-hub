@@ -40,6 +40,11 @@ export function todaySydney(now = new Date()): Iso {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Australia/Sydney', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
 }
 
+/** The Sydney calendar date of a stored timestamp. */
+export function sydneyDate(ts: string): Iso {
+  return todaySydney(new Date(ts));
+}
+
 /** "Thu 04 Feb" */
 export function fmtShort(d: Iso): string {
   const t = new Date(toMs(d));

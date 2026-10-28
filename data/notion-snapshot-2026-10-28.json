@@ -1,0 +1,1433 @@
+{
+ "source": "Notion Production Hub (page 3a66ec81921a81a2b3d3ca7827833f7d)",
+ "read_on": "2026-10-28",
+ "what": "Jobs with status Active, Booked (pre-contract) or On hold, and their operations that are dated or not \"Not started\". Material take-off operations left out (not a hub step). Read through the Notion connector by Claude. Street addresses and contact names removed from notes; \"A1 Poly\" corrected to \"the painter\" (George, 28 Oct 2026).",
+ "notion_ids": {
+  "mcging": "3da6ec81921a813c876bdc208d4797a9",
+  "parry": "3da6ec81921a81128349db945ce9b268",
+  "sharpe": "3da6ec81921a815e8b08e9decc8f59a7",
+  "delaat": "3da6ec81921a81cc9418c97b73070322",
+  "tesoriero": "3da6ec81921a8138a354dadf61eb9771",
+  "gutmann": "3da6ec81921a8159a3d3de74242ceeb4",
+  "patch": "3da6ec81921a8155bbb4da960c0816b1",
+  "boontan": "4056ec81921a8139a113d88d346b9e77",
+  "jones": "3da6ec81921a81009aa7d4dbf5066c31",
+  "sheridan": "4056ec81921a8110bf1ac23e944fcb52",
+  "wilson": "4056ec81921a81c18d6bd48f909e9b66",
+  "bisset": "4056ec81921a811c8494dd82ed7db223",
+  "vassiniotis": "4056ec81921a81de97b2d702992c4722",
+  "steven": "3a66ec81921a81d6b497f5454660dcba",
+  "bathroom": "4056ec81921a81e2a1faf1aaa26caa53",
+  "yamamoto": "3da6ec81921a819f921cf1551672c7b9",
+  "wissam2": "3da6ec81921a8166a337eb3f9f3d9926",
+  "wissam3": "3da6ec81921a81ca9cc4f00b702dfa45",
+  "zzfactory": "3da6ec81921a81ddbef1d8adbf61cd6a"
+ },
+ "jobs": [
+  {
+   "key": "mcging",
+   "title": "260909 — Sean McGing — Brighton-Le-Sands",
+   "status": "Active",
+   "health": "On track",
+   "benchtop": "Stone",
+   "finish": "Satin white laminate, finger pull. AC Stone Snow White 20mm pencil edge; splashback AC Stone Snow White.",
+   "scope": "Supply and install kitchen + laundry joinery and benchtops as per plan agreed onsite. Drawings to follow at contract stage.",
+   "start": "2026-09-09",
+   "notes": "Check measure 18 Sep, then draft. Expect all materials in stock — confirm enough Satin White (NOT Classic White) before cutting."
+  },
+  {
+   "key": "parry",
+   "title": "260916 — Nicola Parry — Lilyfield",
+   "status": "Active",
+   "health": "On track",
+   "benchtop": "Stone",
+   "finish": "Vanities Polytec Verdelho Smooth; shaving cabinets + laundry Polytec Classic White Matte; AC Stone White Canvas (AC900) 20mm pencil; finger pull.",
+   "scope": "Supply and install bathroom + laundry joinery and benchtops as per plan agreed onsite.",
+   "start": "2026-09-16",
+   "notes": "Check measure ~23 Sep (Start + 1 wk). Laundry bifold measurements to confirm at check measure.\nCabinet install Fri 30 Oct (George, 26 Oct). BT shows 2–3 Nov, not yet updated. Laundry bifold measure Fri 30 Oct, header solution from PM."
+  },
+  {
+   "key": "sharpe",
+   "title": "260922 — Melissa Sharpe — Annandale",
+   "status": "Active",
+   "health": "On track",
+   "benchtop": "Stone",
+   "finish": "2-pac flat panel, Dulux colour TBC; finger pull except Kethy PM125 Graphite 192mm on integrated fridge + pantry. AC Stone Oro Lusso (AC1011) 40mm pencil; splashback Oro Lusso.",
+   "scope": "Supply and install kitchen joinery and benchtops as per existing layout (minor changes).",
+   "start": "2026-09-22",
+   "notes": "Check measure ~28 Sep. 2-pac job — doors go to the painter (~2 wk turnaround); Dulux colour still TBC. Island config settled at drawing stage."
+  },
+  {
+   "key": "delaat",
+   "title": "260923 — Nicole Delaat — Lilyfield",
+   "status": "Booked (pre-contract)",
+   "health": "On track",
+   "benchtop": "Stone",
+   "finish": "Polytec Tasmanian Oak Woodmatt throughout; AC Stone White Canvas 20mm pencil; finger pull.",
+   "scope": "Supply and install bathroom + laundry/toilet joinery and benchtops as per plan agreed onsite. Drawings to follow at contract stage.",
+   "start": "2026-09-23",
+   "notes": "Check measure ~29 Sep."
+  },
+  {
+   "key": "tesoriero",
+   "title": "260924 — Nick Tesoriero — North Bondi",
+   "status": "Active",
+   "health": "On track",
+   "benchtop": "Stone",
+   "finish": "White semi-gloss 2-pac poly, slab doors, kickboards to match; white shadowline finger pull. Cotton Ice 20mm pencil (3 slabs, benchtops + splashback). Raw MDF bulkhead (painted by others).",
+   "scope": "Supply and install kitchen joinery and benchtops as previously drawn and quoted, with fridge-wall changes. Technical drawings to follow at contract stage.",
+   "start": "2026-09-24",
+   "notes": "Check measure ~30 Sep. 2-pac job — the painter ~2 wk turnaround. 3 slabs of Cotton Ice.\nCabinetry defects to be finalised (Doc 26 Oct)."
+  },
+  {
+   "key": "gutmann",
+   "title": "261006 — Hannah Gutmann — Lewisham",
+   "status": "Active",
+   "health": "On track",
+   "benchtop": "Stone",
+   "finish": "Kitchen uppers Polytec Alabaster Matte; lowers + tall Polytec Florentine Walnut; Caesarstone Aterra Blanca 40mm pencil + splashback. Laundry + vanity Florentine Walnut; Caesarstone Adamina 20mm pencil. Finger pull.",
+   "scope": "Supply and install kitchen, laundry + bathroom joinery and benchtops as per plan agreed onsite. Kitchen extended into sunroom to fireplace (~4360mm run).",
+   "start": "2026-10-06",
+   "notes": "Check measure ~12 Oct. Two Caesarstone colours on one job (Aterra Blanca kitchen, Adamina laundry + vanity)."
+  },
+  {
+   "key": "patch",
+   "title": "261008 — Malcolm Patch — North Bondi",
+   "status": "Active",
+   "health": "On track",
+   "benchtop": "Stone",
+   "finish": "Doors/drawer fronts 2-pac poly, colour TBC; white melamine carcass. Sharknose finger pull on base doors, overhang finger pull on top cabinets. AC Stone White Silk 20mm.",
+   "scope": "Laundry joinery and benchtop.",
+   "start": "2026-10-08",
+   "notes": "Check measure ~12 Oct. 2-pac job — the painter ~2 wk turnaround; colour TBC.\nCabinet install w/c 2 Nov (George, 26 Oct); exact days TBC. BT shows 29 Oct–3 Nov, not yet updated. Doors back from painter Fri 6 Nov."
+  },
+  {
+   "key": "boontan",
+   "title": "261020 — Boon Tan and Min Siew — Double Bay",
+   "status": "Active",
+   "health": null,
+   "benchtop": "TBC",
+   "finish": null,
+   "scope": null,
+   "start": "2026-10-20",
+   "notes": "Check measure Tue 27 Oct (George, 26 Oct); BT shows 21 Oct, not yet updated. Materials ordered before the check measure on purpose (George). BT demolition log 21 Oct mentions a stone splashback to the kitchen walls; Benchtop left TBC. Contract: BT demolition completed 21 Oct."
+  },
+  {
+   "key": "jones",
+   "title": "261022 — Peter Jones — Surry Hills",
+   "status": "Active",
+   "health": "On track",
+   "benchtop": "Stone",
+   "finish": "Laundry matte white melamine, AC Stone White Canvas AC900 20mm pencil, bench ~900H. Kitchen Polytec Plantation Ash, AC Stone Bianco Perla AC9003 20mm bullnose (40mm bullnose, curved edges, on nib-wall upper bench), bench ~950H. Finger pull.",
+   "scope": "Supply and install kitchen, laundry + bathroom joinery and benchtops as per plan agreed onsite. Drawings to follow at contract stage. (Bathroom scope not yet detailed in the sales note.)",
+   "start": "2026-10-22",
+   "notes": "Check measure ~19 Oct. Bullnose profiles (not pencil) — flag to Lunastone. Bathroom joinery scope missing from the note — get from sales.\nBT log 23 Oct: shaving cabinet not recessed."
+  },
+  {
+   "key": "sheridan",
+   "title": "261026 — Jonathan Sheridan — Mosman",
+   "status": "Booked (pre-contract)",
+   "health": null,
+   "benchtop": "TBC",
+   "finish": null,
+   "scope": null,
+   "start": "2026-10-26",
+   "notes": "BT install starts Sat 28 Nov. Contract status to confirm (George)."
+  },
+  {
+   "key": "wilson",
+   "title": "261028 — Callum Wilson — Maroubra",
+   "status": "Booked (pre-contract)",
+   "health": null,
+   "benchtop": "TBC",
+   "finish": null,
+   "scope": null,
+   "start": "2026-10-28",
+   "notes": "BT: cabinetry installation inspection Sat 28 Nov. Materials ordered before the check measure on purpose (George). Contract status to confirm (George)."
+  },
+  {
+   "key": "bisset",
+   "title": "261030 — Sarah Bisset — Woolloomooloo",
+   "status": "Booked (pre-contract)",
+   "health": null,
+   "benchtop": "TBC",
+   "finish": null,
+   "scope": null,
+   "start": "2026-10-30",
+   "notes": "BT: cabinetry installation inspection Sat 28 Nov. Contract status to confirm (George)."
+  },
+  {
+   "key": "vassiniotis",
+   "title": "261102 — Jenny Vassiniotis — Maroubra",
+   "status": "Booked (pre-contract)",
+   "health": null,
+   "benchtop": "TBC",
+   "finish": null,
+   "scope": null,
+   "start": "2026-11-02",
+   "notes": "Stone install Mon 4 Jan 2027 (BT), straight after the Christmas break. Contract status to confirm (George)."
+  },
+  {
+   "key": "steven",
+   "title": "261104 — Greg Steven — Darlinghurst",
+   "status": "Active",
+   "health": "At risk",
+   "benchtop": "Stone",
+   "finish": null,
+   "scope": null,
+   "start": "2026-11-04",
+   "notes": "Restarted. Renumbered 260805 → 261104 on 26 Oct (start moved). BT: cabinetry inspection 2 Dec."
+  },
+  {
+   "key": "bathroom",
+   "title": "261110 — Bathroom Products Australia P/L — Botany",
+   "status": "Active",
+   "health": null,
+   "benchtop": "TBC",
+   "finish": null,
+   "scope": null,
+   "start": "2026-11-10",
+   "notes": "Contract signed 26 Oct 2026, 11:33am, (DocuSign, per George). No stone items in BT, so no stone ops created. Materials order date not given."
+  },
+  {
+   "key": "yamamoto",
+   "title": "270308 — Nathalia Yamamoto — Rosebery",
+   "status": "Booked (pre-contract)",
+   "health": "On track",
+   "benchtop": "Stone",
+   "finish": "Kitchen + laundry: uppers Polytec Florentine Walnut, lowers white matte melamine; Caesarstone Bianco Drift 40mm pencil (kitchen incl. breakfast bar; splashback) / 20mm (laundry). Vanities ×3 Florentine Walnut, AC Stone White Canvas 20mm pencil. Finger pull.",
+   "scope": "Supply and install kitchen, laundry + bathroom joinery (3 vanities) and benchtops as per plan agreed onsite. Drawings to follow at contract stage.",
+   "start": "2027-03-08",
+   "notes": "Check measure ~26 Oct. Three wall-hung all-drawer vanities (1200, 1800 double basin, 924 wall-to-wall)."
+  },
+  {
+   "key": "wissam2",
+   "title": "Wissam — Croydon — Stage 2 Study + daughter's wardrobe",
+   "status": "Active",
+   "health": "On track",
+   "benchtop": "None",
+   "finish": "TBC",
+   "scope": "Study + daughter's wardrobe — joinery (Stage 2 of 3). Plans and development running in parallel with Stage 1.",
+   "start": null,
+   "notes": "Created 13 Sep 2026 as a separate stage so the kitchen/laundry stage can move through the factory independently. Finishes for these rooms TBC."
+  },
+  {
+   "key": "wissam3",
+   "title": "Wissam — Croydon — Stage 3 Master wardrobe",
+   "status": "Active",
+   "health": "At risk",
+   "benchtop": "None",
+   "finish": "TBC — aluminium-framed glass doors",
+   "scope": "Master wardrobe (Stage 3 of 3). Aluminium-framed glass doors — cabinet solution still to be developed.",
+   "start": null,
+   "notes": "Created 13 Sep 2026. Design blocker: need a cabinet solution for aluminium-framed glass doors before drafting can finish. Health At risk until the solution is settled."
+  }
+ ],
+ "operations": [
+  {
+   "job": "steven",
+   "type": "Check measure",
+   "status": "Not started",
+   "start": "2026-11-12",
+   "end": null,
+   "owner": "Gus",
+   "name": null
+  },
+  {
+   "job": "steven",
+   "type": "Draft",
+   "status": "Not started",
+   "start": "2026-11-13",
+   "end": null,
+   "owner": "Christine",
+   "name": null
+  },
+  {
+   "job": "steven",
+   "type": "Order materials",
+   "status": "Done",
+   "start": "2026-07-24",
+   "end": null,
+   "owner": "Angela",
+   "name": null
+  },
+  {
+   "job": "steven",
+   "type": "Receive materials",
+   "status": "Done",
+   "start": "2026-07-28",
+   "end": null,
+   "owner": "Michael",
+   "name": null
+  },
+  {
+   "job": "steven",
+   "type": "Cut & edge",
+   "status": "Not started",
+   "start": "2026-11-16",
+   "end": "2026-11-17",
+   "owner": "Phil",
+   "name": null
+  },
+  {
+   "job": "steven",
+   "type": "Assemble",
+   "status": "Not started",
+   "start": "2026-11-16",
+   "end": "2026-11-17",
+   "owner": "Phil",
+   "name": null
+  },
+  {
+   "job": "steven",
+   "type": "Deliver",
+   "status": "Not started",
+   "start": "2026-11-27",
+   "end": null,
+   "owner": "Michael",
+   "name": null
+  },
+  {
+   "job": "steven",
+   "type": "Install cabinets",
+   "status": "Not started",
+   "start": "2026-11-30",
+   "end": "2026-12-02",
+   "owner": "Installer",
+   "name": null
+  },
+  {
+   "job": "steven",
+   "type": "Stone measure",
+   "status": "Not started",
+   "start": "2026-12-03",
+   "end": null,
+   "owner": "Lunastone",
+   "name": null
+  },
+  {
+   "job": "steven",
+   "type": "Stone install",
+   "status": "Not started",
+   "start": "2026-12-10",
+   "end": null,
+   "owner": "Lunastone",
+   "name": null
+  },
+  {
+   "job": "jones",
+   "type": "Check measure",
+   "status": "Not started",
+   "start": "2026-10-29",
+   "end": null,
+   "owner": "Gus",
+   "name": null
+  },
+  {
+   "job": "jones",
+   "type": "Draft",
+   "status": "Not started",
+   "start": "2026-10-30",
+   "end": "2026-11-02",
+   "owner": "Christine",
+   "name": null
+  },
+  {
+   "job": "jones",
+   "type": "Order materials",
+   "status": "Not started",
+   "start": "2026-10-27",
+   "end": null,
+   "owner": "Angela",
+   "name": null
+  },
+  {
+   "job": "jones",
+   "type": "Cut & edge",
+   "status": "Not started",
+   "start": "2026-11-03",
+   "end": "2026-11-04",
+   "owner": "Phil",
+   "name": null
+  },
+  {
+   "job": "jones",
+   "type": "Assemble",
+   "status": "Not started",
+   "start": "2026-11-03",
+   "end": "2026-11-04",
+   "owner": "Phil",
+   "name": null
+  },
+  {
+   "job": "jones",
+   "type": "Deliver",
+   "status": "Not started",
+   "start": "2026-11-16",
+   "end": null,
+   "owner": "Michael",
+   "name": null
+  },
+  {
+   "job": "jones",
+   "type": "Install cabinets",
+   "status": "Not started",
+   "start": "2026-11-17",
+   "end": "2026-11-18",
+   "owner": "Installer",
+   "name": null
+  },
+  {
+   "job": "jones",
+   "type": "Stone measure",
+   "status": "Not started",
+   "start": "2026-11-19",
+   "end": null,
+   "owner": "Lunastone",
+   "name": null
+  },
+  {
+   "job": "jones",
+   "type": "Stone install",
+   "status": "Not started",
+   "start": "2026-11-26",
+   "end": null,
+   "owner": "Lunastone",
+   "name": null
+  },
+  {
+   "job": "parry",
+   "type": "Check measure",
+   "status": "Done",
+   "start": "2026-10-12",
+   "end": null,
+   "owner": "Gus",
+   "name": null
+  },
+  {
+   "job": "parry",
+   "type": "Install cabinets",
+   "status": "Not started",
+   "start": "2026-10-30",
+   "end": null,
+   "owner": "Installer",
+   "name": null
+  },
+  {
+   "job": "parry",
+   "type": "Stone measure",
+   "status": "Not started",
+   "start": "2026-11-02",
+   "end": null,
+   "owner": "Lunastone",
+   "name": null
+  },
+  {
+   "job": "parry",
+   "type": "Stone install",
+   "status": "Not started",
+   "start": "2026-11-06",
+   "end": null,
+   "owner": "Lunastone",
+   "name": null
+  },
+  {
+   "job": "tesoriero",
+   "type": "Install cabinets",
+   "status": "Not started",
+   "start": "2026-11-05",
+   "end": null,
+   "owner": "Sione",
+   "name": "Doors installed"
+  },
+  {
+   "job": "tesoriero",
+   "type": "Check measure",
+   "status": "Done",
+   "start": "2026-10-01",
+   "end": null,
+   "owner": "Gus",
+   "name": null
+  },
+  {
+   "job": "tesoriero",
+   "type": "Draft",
+   "status": "Done",
+   "start": "2026-10-01",
+   "end": null,
+   "owner": "Christine",
+   "name": null
+  },
+  {
+   "job": "tesoriero",
+   "type": "Order materials",
+   "status": "Done",
+   "start": "2026-10-09",
+   "end": null,
+   "owner": "Angela",
+   "name": null
+  },
+  {
+   "job": "tesoriero",
+   "type": "Receive materials",
+   "status": "Done",
+   "start": "2026-10-16",
+   "end": null,
+   "owner": "Michael",
+   "name": null
+  },
+  {
+   "job": "tesoriero",
+   "type": "Cut & edge",
+   "status": "Done",
+   "start": "2026-10-19",
+   "end": null,
+   "owner": "Phil",
+   "name": null
+  },
+  {
+   "job": "tesoriero",
+   "type": "Doors to painter",
+   "status": "Not started",
+   "start": "2026-10-20",
+   "end": null,
+   "owner": "Phil",
+   "name": null
+  },
+  {
+   "job": "tesoriero",
+   "type": "Doors back from painter",
+   "status": "Not started",
+   "start": "2026-11-03",
+   "end": null,
+   "owner": "Michael",
+   "name": null
+  },
+  {
+   "job": "tesoriero",
+   "type": "Assemble",
+   "status": "Done",
+   "start": "2026-10-20",
+   "end": "2026-10-21",
+   "owner": "Phil",
+   "name": null
+  },
+  {
+   "job": "tesoriero",
+   "type": "QC & wrap",
+   "status": "Done",
+   "start": "2026-10-21",
+   "end": null,
+   "owner": "Phil",
+   "name": null
+  },
+  {
+   "job": "tesoriero",
+   "type": "Deliver",
+   "status": "Done",
+   "start": "2026-10-19",
+   "end": null,
+   "owner": "Michael",
+   "name": null
+  },
+  {
+   "job": "tesoriero",
+   "type": "Install cabinets",
+   "status": "In progress",
+   "start": "2026-10-20",
+   "end": "2026-10-22",
+   "owner": "Sione",
+   "name": null
+  },
+  {
+   "job": "tesoriero",
+   "type": "Stone measure",
+   "status": "Not started",
+   "start": "2026-10-27",
+   "end": null,
+   "owner": "Lunastone",
+   "name": null
+  },
+  {
+   "job": "tesoriero",
+   "type": "Stone install",
+   "status": "Not started",
+   "start": "2026-11-07",
+   "end": null,
+   "owner": "Lunastone",
+   "name": null
+  },
+  {
+   "job": "mcging",
+   "type": "Check measure",
+   "status": "Done",
+   "start": "2026-09-23",
+   "end": null,
+   "owner": "Gus",
+   "name": null
+  },
+  {
+   "job": "mcging",
+   "type": "Draft",
+   "status": "Done",
+   "start": "2026-09-24",
+   "end": null,
+   "owner": "Christine",
+   "name": null
+  },
+  {
+   "job": "mcging",
+   "type": "Order materials",
+   "status": "Done",
+   "start": "2026-09-24",
+   "end": null,
+   "owner": "Angela",
+   "name": null
+  },
+  {
+   "job": "mcging",
+   "type": "Receive materials",
+   "status": "Done",
+   "start": "2026-09-24",
+   "end": null,
+   "owner": "Michael",
+   "name": null
+  },
+  {
+   "job": "mcging",
+   "type": "Cut & edge",
+   "status": "Done",
+   "start": "2026-09-25",
+   "end": null,
+   "owner": "Phil",
+   "name": null
+  },
+  {
+   "job": "mcging",
+   "type": "Assemble",
+   "status": "Done",
+   "start": "2026-09-28",
+   "end": "2026-09-29",
+   "owner": "Phil",
+   "name": null
+  },
+  {
+   "job": "mcging",
+   "type": "QC & wrap",
+   "status": "Done",
+   "start": "2026-09-29",
+   "end": null,
+   "owner": "Phil",
+   "name": null
+  },
+  {
+   "job": "mcging",
+   "type": "Deliver",
+   "status": "Done",
+   "start": "2026-09-30",
+   "end": null,
+   "owner": "Michael",
+   "name": null
+  },
+  {
+   "job": "mcging",
+   "type": "Install cabinets",
+   "status": "Done",
+   "start": "2026-10-15",
+   "end": "2026-10-19",
+   "owner": "Installer",
+   "name": null
+  },
+  {
+   "job": "mcging",
+   "type": "Stone measure",
+   "status": "Not started",
+   "start": "2026-10-23",
+   "end": null,
+   "owner": "Lunastone",
+   "name": null
+  },
+  {
+   "job": "mcging",
+   "type": "Stone install",
+   "status": "Not started",
+   "start": "2026-10-30",
+   "end": null,
+   "owner": "Lunastone",
+   "name": null
+  },
+  {
+   "job": "patch",
+   "type": "Check measure",
+   "status": "Done",
+   "start": "2026-10-06",
+   "end": null,
+   "owner": "Gus",
+   "name": null
+  },
+  {
+   "job": "patch",
+   "type": "Draft",
+   "status": "Done",
+   "start": null,
+   "end": null,
+   "owner": "Christine",
+   "name": null
+  },
+  {
+   "job": "patch",
+   "type": "Order materials",
+   "status": "Done",
+   "start": null,
+   "end": null,
+   "owner": "Angela",
+   "name": null
+  },
+  {
+   "job": "patch",
+   "type": "Receive materials",
+   "status": "Done",
+   "start": null,
+   "end": null,
+   "owner": "Michael",
+   "name": null
+  },
+  {
+   "job": "patch",
+   "type": "Cut & edge",
+   "status": "Done",
+   "start": null,
+   "end": null,
+   "owner": "Phil",
+   "name": null
+  },
+  {
+   "job": "patch",
+   "type": "Doors to painter",
+   "status": "Done",
+   "start": null,
+   "end": null,
+   "owner": "Phil",
+   "name": null
+  },
+  {
+   "job": "patch",
+   "type": "Doors back from painter",
+   "status": "Not started",
+   "start": "2026-11-06",
+   "end": null,
+   "owner": "Michael",
+   "name": null
+  },
+  {
+   "job": "patch",
+   "type": "Assemble",
+   "status": "Done",
+   "start": null,
+   "end": null,
+   "owner": "Phil",
+   "name": null
+  },
+  {
+   "job": "patch",
+   "type": "QC & wrap",
+   "status": "Done",
+   "start": null,
+   "end": null,
+   "owner": "Phil",
+   "name": null
+  },
+  {
+   "job": "patch",
+   "type": "Deliver",
+   "status": "Not started",
+   "start": "2026-10-26",
+   "end": null,
+   "owner": "Michael",
+   "name": null
+  },
+  {
+   "job": "patch",
+   "type": "Install cabinets",
+   "status": "Not started",
+   "start": "2026-11-02",
+   "end": "2026-11-06",
+   "owner": "Installer",
+   "name": null
+  },
+  {
+   "job": "patch",
+   "type": "Stone measure",
+   "status": "Not started",
+   "start": "2026-11-04",
+   "end": null,
+   "owner": "Lunastone",
+   "name": null
+  },
+  {
+   "job": "patch",
+   "type": "Stone install",
+   "status": "Not started",
+   "start": "2026-11-18",
+   "end": null,
+   "owner": "Lunastone",
+   "name": null
+  },
+  {
+   "job": "gutmann",
+   "type": "Draft",
+   "status": "In progress",
+   "start": null,
+   "end": null,
+   "owner": "Christine",
+   "name": null
+  },
+  {
+   "job": "sharpe",
+   "type": "Check measure",
+   "status": "Done",
+   "start": "2026-09-24",
+   "end": null,
+   "owner": "Gus",
+   "name": null
+  },
+  {
+   "job": "sharpe",
+   "type": "Draft",
+   "status": "Done",
+   "start": "2026-09-24",
+   "end": null,
+   "owner": "Christine",
+   "name": null
+  },
+  {
+   "job": "sharpe",
+   "type": "Order materials",
+   "status": "Done",
+   "start": "2026-09-28",
+   "end": null,
+   "owner": "Angela",
+   "name": null
+  },
+  {
+   "job": "sharpe",
+   "type": "Receive materials",
+   "status": "Done",
+   "start": "2026-10-02",
+   "end": null,
+   "owner": "Michael",
+   "name": null
+  },
+  {
+   "job": "sharpe",
+   "type": "Cut & edge",
+   "status": "Done",
+   "start": "2026-10-19",
+   "end": null,
+   "owner": "Phil",
+   "name": null
+  },
+  {
+   "job": "sharpe",
+   "type": "Doors to painter",
+   "status": "Not started",
+   "start": "2026-10-05",
+   "end": null,
+   "owner": "Phil",
+   "name": null
+  },
+  {
+   "job": "sharpe",
+   "type": "Doors back from painter",
+   "status": "Not started",
+   "start": "2026-10-19",
+   "end": null,
+   "owner": "Michael",
+   "name": null
+  },
+  {
+   "job": "sharpe",
+   "type": "Assemble",
+   "status": "Done",
+   "start": "2026-10-20",
+   "end": "2026-10-21",
+   "owner": "Phil",
+   "name": null
+  },
+  {
+   "job": "sharpe",
+   "type": "QC & wrap",
+   "status": "Done",
+   "start": "2026-10-21",
+   "end": null,
+   "owner": "Phil",
+   "name": null
+  },
+  {
+   "job": "sharpe",
+   "type": "Deliver",
+   "status": "Done",
+   "start": "2026-10-22",
+   "end": null,
+   "owner": "Michael",
+   "name": null
+  },
+  {
+   "job": "sharpe",
+   "type": "Install cabinets",
+   "status": "In progress",
+   "start": "2026-10-19",
+   "end": "2026-10-30",
+   "owner": "Installer",
+   "name": null
+  },
+  {
+   "job": "sharpe",
+   "type": "Stone measure",
+   "status": "Not started",
+   "start": "2026-10-30",
+   "end": null,
+   "owner": "Lunastone",
+   "name": null
+  },
+  {
+   "job": "sharpe",
+   "type": "Stone install",
+   "status": "Not started",
+   "start": "2026-11-11",
+   "end": null,
+   "owner": "Lunastone",
+   "name": null
+  },
+  {
+   "job": "wissam2",
+   "type": "Check measure",
+   "status": "Done",
+   "start": null,
+   "end": null,
+   "owner": "Gus",
+   "name": null
+  },
+  {
+   "job": "wissam2",
+   "type": "Draft",
+   "status": "In progress",
+   "start": "2026-10-27",
+   "end": null,
+   "owner": "Christine",
+   "name": null
+  },
+  {
+   "job": "wissam2",
+   "type": "Cut & edge",
+   "status": "Not started",
+   "start": "2026-10-27",
+   "end": "2026-10-29",
+   "owner": "Phil",
+   "name": null
+  },
+  {
+   "job": "wissam2",
+   "type": "Assemble",
+   "status": "Not started",
+   "start": "2026-10-27",
+   "end": "2026-10-29",
+   "owner": "Phil",
+   "name": null
+  },
+  {
+   "job": "yamamoto",
+   "type": "Check measure",
+   "status": "Not started",
+   "start": "2026-10-26",
+   "end": null,
+   "owner": "Gus",
+   "name": null
+  },
+  {
+   "job": "wissam3",
+   "type": "Check measure",
+   "status": "Done",
+   "start": null,
+   "end": null,
+   "owner": "Gus",
+   "name": null
+  },
+  {
+   "job": "wissam3",
+   "type": "Draft",
+   "status": "In progress",
+   "start": "2026-10-29",
+   "end": "2026-10-30",
+   "owner": "Christine",
+   "name": null
+  },
+  {
+   "job": "delaat",
+   "type": "Check measure",
+   "status": "Not started",
+   "start": "2026-10-27",
+   "end": null,
+   "owner": "Gus",
+   "name": null
+  },
+  {
+   "job": "delaat",
+   "type": "Install cabinets",
+   "status": "Not started",
+   "start": "2026-11-16",
+   "end": null,
+   "owner": "Installer",
+   "name": null
+  },
+  {
+   "job": "delaat",
+   "type": "Stone install",
+   "status": "Not started",
+   "start": "2026-11-23",
+   "end": null,
+   "owner": "Lunastone",
+   "name": null
+  },
+  {
+   "job": "zzfactory",
+   "type": "Factory / non-job",
+   "status": "Not started",
+   "start": "2026-09-17",
+   "end": null,
+   "owner": "Phil",
+   "name": null
+  },
+  {
+   "job": "zzfactory",
+   "type": "Factory / non-job",
+   "status": "Not started",
+   "start": "2026-09-17",
+   "end": null,
+   "owner": "Michael",
+   "name": null
+  },
+  {
+   "job": "sheridan",
+   "type": "Check measure",
+   "status": "Not started",
+   "start": "2026-10-30",
+   "end": null,
+   "owner": "Gus",
+   "name": null
+  },
+  {
+   "job": "sheridan",
+   "type": "Draft",
+   "status": "Not started",
+   "start": "2026-11-02",
+   "end": null,
+   "owner": "Christine",
+   "name": null
+  },
+  {
+   "job": "sheridan",
+   "type": "Cut & edge",
+   "status": "Not started",
+   "start": "2026-11-03",
+   "end": null,
+   "owner": "Phil",
+   "name": null
+  },
+  {
+   "job": "sheridan",
+   "type": "Doors to painter",
+   "status": "Not started",
+   "start": "2026-11-04",
+   "end": null,
+   "owner": "Phil",
+   "name": null
+  },
+  {
+   "job": "sheridan",
+   "type": "Assemble",
+   "status": "Not started",
+   "start": "2026-11-03",
+   "end": null,
+   "owner": "Phil",
+   "name": null
+  },
+  {
+   "job": "sheridan",
+   "type": "Deliver",
+   "status": "Not started",
+   "start": "2026-11-27",
+   "end": null,
+   "owner": "Michael",
+   "name": null
+  },
+  {
+   "job": "sheridan",
+   "type": "Install cabinets",
+   "status": "Not started",
+   "start": "2026-11-28",
+   "end": "2026-12-01",
+   "owner": "Installer",
+   "name": null
+  },
+  {
+   "job": "sheridan",
+   "type": "Stone measure",
+   "status": "Not started",
+   "start": "2026-12-02",
+   "end": null,
+   "owner": "Lunastone",
+   "name": null
+  },
+  {
+   "job": "sheridan",
+   "type": "Stone install",
+   "status": "Not started",
+   "start": "2026-12-14",
+   "end": null,
+   "owner": "Lunastone",
+   "name": null
+  },
+  {
+   "job": "bisset",
+   "type": "Check measure",
+   "status": "Not started",
+   "start": "2026-11-06",
+   "end": null,
+   "owner": "Gus",
+   "name": null
+  },
+  {
+   "job": "bisset",
+   "type": "Draft",
+   "status": "Not started",
+   "start": "2026-11-09",
+   "end": null,
+   "owner": "Christine",
+   "name": null
+  },
+  {
+   "job": "bisset",
+   "type": "Cut & edge",
+   "status": "Not started",
+   "start": "2026-11-10",
+   "end": "2026-11-11",
+   "owner": "Phil",
+   "name": null
+  },
+  {
+   "job": "bisset",
+   "type": "Assemble",
+   "status": "Not started",
+   "start": "2026-11-10",
+   "end": "2026-11-11",
+   "owner": "Phil",
+   "name": null
+  },
+  {
+   "job": "bisset",
+   "type": "Deliver",
+   "status": "Not started",
+   "start": "2026-11-24",
+   "end": null,
+   "owner": "Michael",
+   "name": null
+  },
+  {
+   "job": "bisset",
+   "type": "Install cabinets",
+   "status": "Not started",
+   "start": "2026-11-25",
+   "end": "2026-11-27",
+   "owner": "Installer",
+   "name": null
+  },
+  {
+   "job": "bisset",
+   "type": "Stone measure",
+   "status": "Not started",
+   "start": "2026-11-30",
+   "end": null,
+   "owner": "Lunastone",
+   "name": null
+  },
+  {
+   "job": "bisset",
+   "type": "Stone install",
+   "status": "Not started",
+   "start": "2026-12-08",
+   "end": null,
+   "owner": "Lunastone",
+   "name": null
+  },
+  {
+   "job": "boontan",
+   "type": "Check measure",
+   "status": "Not started",
+   "start": "2026-10-27",
+   "end": null,
+   "owner": "Gus",
+   "name": null
+  },
+  {
+   "job": "boontan",
+   "type": "Draft",
+   "status": "Not started",
+   "start": "2026-10-28",
+   "end": "2026-10-29",
+   "owner": "Christine",
+   "name": null
+  },
+  {
+   "job": "boontan",
+   "type": "Order materials",
+   "status": "Not started",
+   "start": "2026-10-27",
+   "end": null,
+   "owner": "Angela",
+   "name": null
+  },
+  {
+   "job": "boontan",
+   "type": "Cut & edge",
+   "status": "Not started",
+   "start": "2026-10-30",
+   "end": "2026-11-02",
+   "owner": "Phil",
+   "name": null
+  },
+  {
+   "job": "boontan",
+   "type": "Assemble",
+   "status": "Not started",
+   "start": "2026-10-30",
+   "end": "2026-11-02",
+   "owner": "Phil",
+   "name": null
+  },
+  {
+   "job": "boontan",
+   "type": "Deliver",
+   "status": "Not started",
+   "start": "2026-11-18",
+   "end": null,
+   "owner": "Michael",
+   "name": null
+  },
+  {
+   "job": "boontan",
+   "type": "Install cabinets",
+   "status": "Not started",
+   "start": "2026-11-19",
+   "end": "2026-11-21",
+   "owner": "Installer",
+   "name": null
+  },
+  {
+   "job": "boontan",
+   "type": "Stone measure",
+   "status": "Not started",
+   "start": "2026-11-23",
+   "end": null,
+   "owner": "Lunastone",
+   "name": null
+  },
+  {
+   "job": "boontan",
+   "type": "Stone install",
+   "status": "Not started",
+   "start": "2026-12-04",
+   "end": null,
+   "owner": "Lunastone",
+   "name": null
+  },
+  {
+   "job": "wilson",
+   "type": "Check measure",
+   "status": "Not started",
+   "start": "2026-11-04",
+   "end": null,
+   "owner": "Gus",
+   "name": null
+  },
+  {
+   "job": "wilson",
+   "type": "Draft",
+   "status": "Not started",
+   "start": "2026-11-05",
+   "end": null,
+   "owner": "Christine",
+   "name": null
+  },
+  {
+   "job": "wilson",
+   "type": "Order materials",
+   "status": "Not started",
+   "start": "2026-10-27",
+   "end": null,
+   "owner": "Angela",
+   "name": null
+  },
+  {
+   "job": "wilson",
+   "type": "Cut & edge",
+   "status": "Not started",
+   "start": "2026-11-06",
+   "end": "2026-11-09",
+   "owner": "Phil",
+   "name": null
+  },
+  {
+   "job": "wilson",
+   "type": "Assemble",
+   "status": "Not started",
+   "start": "2026-11-06",
+   "end": "2026-11-09",
+   "owner": "Phil",
+   "name": null
+  },
+  {
+   "job": "wilson",
+   "type": "Deliver",
+   "status": "Not started",
+   "start": "2026-11-24",
+   "end": null,
+   "owner": "Michael",
+   "name": null
+  },
+  {
+   "job": "wilson",
+   "type": "Install cabinets",
+   "status": "Not started",
+   "start": "2026-11-25",
+   "end": "2026-11-27",
+   "owner": "Installer",
+   "name": null
+  },
+  {
+   "job": "wilson",
+   "type": "Stone measure",
+   "status": "Not started",
+   "start": "2026-11-30",
+   "end": null,
+   "owner": "Lunastone",
+   "name": null
+  },
+  {
+   "job": "wilson",
+   "type": "Stone install",
+   "status": "Not started",
+   "start": "2026-12-08",
+   "end": null,
+   "owner": "Lunastone",
+   "name": null
+  },
+  {
+   "job": "vassiniotis",
+   "type": "Check measure",
+   "status": "Not started",
+   "start": "2026-11-06",
+   "end": null,
+   "owner": "Gus",
+   "name": null
+  },
+  {
+   "job": "vassiniotis",
+   "type": "Draft",
+   "status": "Not started",
+   "start": "2026-11-09",
+   "end": null,
+   "owner": "Christine",
+   "name": null
+  },
+  {
+   "job": "vassiniotis",
+   "type": "Cut & edge",
+   "status": "Not started",
+   "start": "2026-11-11",
+   "end": "2026-11-12",
+   "owner": "Phil",
+   "name": null
+  },
+  {
+   "job": "vassiniotis",
+   "type": "Assemble",
+   "status": "Not started",
+   "start": "2026-11-11",
+   "end": "2026-11-12",
+   "owner": "Phil",
+   "name": null
+  },
+  {
+   "job": "vassiniotis",
+   "type": "Deliver",
+   "status": "Not started",
+   "start": "2026-12-04",
+   "end": null,
+   "owner": "Michael",
+   "name": null
+  },
+  {
+   "job": "vassiniotis",
+   "type": "Install cabinets",
+   "status": "Not started",
+   "start": "2026-12-05",
+   "end": "2026-12-08",
+   "owner": "Installer",
+   "name": null
+  },
+  {
+   "job": "vassiniotis",
+   "type": "Stone measure",
+   "status": "Not started",
+   "start": "2026-12-09",
+   "end": null,
+   "owner": "Lunastone",
+   "name": null
+  },
+  {
+   "job": "vassiniotis",
+   "type": "Stone install",
+   "status": "Not started",
+   "start": "2027-01-04",
+   "end": null,
+   "owner": "Lunastone",
+   "name": null
+  },
+  {
+   "job": "bathroom",
+   "type": "Check measure",
+   "status": "Not started",
+   "start": "2026-11-23",
+   "end": null,
+   "owner": "Gus",
+   "name": null
+  },
+  {
+   "job": "bathroom",
+   "type": "Contract drawings",
+   "status": "Not started",
+   "start": "2026-10-27",
+   "end": "2026-10-28",
+   "owner": "Christine",
+   "name": null
+  },
+  {
+   "job": "bathroom",
+   "type": "Install cabinets",
+   "status": "Not started",
+   "start": "2026-12-10",
+   "end": "2026-12-11",
+   "owner": "Installer",
+   "name": null
+  }
+ ],
+ "rework": [
+  {
+   "job": "tesoriero",
+   "raised_on": "2026-10-28",
+   "note": "Rebuild a cabinet: drafting, factory, painting, then reinstall (reported by Gus)",
+   "source": "George's comment on the mock-up, 28 Oct 2026"
+  }
+ ]
+}

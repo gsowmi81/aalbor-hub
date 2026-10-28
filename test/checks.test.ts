@@ -86,6 +86,29 @@ describe('needs a decision', () => {
     expect(d.map((x) => x.key)).toContain('rework:9:undated');
   });
 
+  it('accepts materials ordered early, as on Boon Tan, Jones and Wilson', () => {
+    const d = needsDecision([job(1)], [
+      step(1, 'materials_ordered', '2026-10-27'),
+      step(1, 'production_drawings', '2026-10-28', '2026-10-29'),
+      step(1, 'install', '2026-11-19', '2026-11-20'),
+    ], [], DEFAULT_RULES, cal, TODAY);
+    expect(d).toEqual([]);
+  });
+
+  it("doesn't chase an install date for a job starting months away, as on Yamamoto", () => {
+    expect(needsDecision([job(1, { site_start: '2027-03-08' })], [step(1, 'install', null)], [], DEFAULT_RULES, cal, TODAY)).toEqual([]);
+    expect(keys(needsDecision([job(1, { site_start: '2026-11-20' })], [step(1, 'install', null)], [], DEFAULT_RULES, cal, TODAY))).toEqual(['missing']);
+  });
+
+  it('raises a late factory chain once, not twice, as on Patch', () => {
+    const d = needsDecision([job(1, { door_finish: 'polyurethane' })], [
+      step(1, 'doors_back', '2026-11-06'),
+      step(1, 'delivery', '2026-10-30'),
+      step(1, 'install', '2026-11-02', '2026-11-06'),
+    ], [], DEFAULT_RULES, cal, TODAY);
+    expect(keys(d)).toEqual(['chain']);
+  });
+
   it('says nothing about a tidy job', () => {
     const d = needsDecision([job(1)], [
       step(1, 'check_measure', '2026-10-23', null, { done_at: 'x' }),
