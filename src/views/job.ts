@@ -27,7 +27,7 @@ const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 function dateInputs(s: Step, editor: boolean, today: Iso): Html {
   const k = KINDS[s.kind];
   const over = !s.done_at && s.start_date && lastDate(s)! < today;
-  const nice = s.start_date ? fmtRange(s.start_date, s.end_date) : html`<span class="nodate">No date yet</span>`;
+  const nice = s.start_date ? fmtRange(s.start_date, s.end_date) : s.done_at ? 'Done, date not recorded' : html`<span class="nodate">No date yet</span>`;
   const status = s.done_at ? 'Done' : s.start_date ? (s.confirmed ? 'Confirmed' : 'Provisional') : '';
   if (!editor) {
     return html`<div class="field${s.confirmed ? '' : ' isprov'}"><div class="ftop"><strong>${stepLabel(s)}</strong><span class="muted small">${s.owner || k.owner}</span></div>
@@ -39,7 +39,7 @@ function dateInputs(s: Step, editor: boolean, today: Iso): Html {
     ${k.range
       ? html`<div class="pair"><input id="${id}" type="date" name="start_${s.id}" value="${s.start_date ?? ''}" aria-label="${stepLabel(s)} from"><input type="date" name="end_${s.id}" value="${s.end_date ?? ''}" aria-label="${stepLabel(s)} to"></div>`
       : html`<input id="${id}" type="date" name="start_${s.id}" value="${s.start_date ?? ''}">`}
-    <div class="nice"><span>${nice}${over ? html` · <span class="nodate">overdue</span>` : ''}${s.done_at ? ' · done' : ''}</span>
+    <div class="nice"><span>${nice}${over ? html` · <span class="nodate">overdue</span>` : ''}${s.done_at && s.start_date ? ' · done' : ''}</span>
       <label><input type="checkbox" name="confirmed_${s.id}" value="1"${s.confirmed ? html` checked` : ''}> Confirmed</label></div>
   </div>`;
 }
