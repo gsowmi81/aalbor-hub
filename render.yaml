@@ -1,0 +1,69 @@
+# Render Blueprint for the Aalbor Hub. In Render: New > Blueprint > pick this repository.
+# Creates the web app, its Postgres database and the nightly backup job, all in Singapore.
+# Secrets marked "sync: false" are typed into Render's Environment page, never into this file.
+services:
+  - type: web
+    name: aalbor-hub
+    runtime: node
+    plan: starter
+    region: singapore
+    branch: main
+    buildCommand: npm ci --include=dev && npm run build
+    preDeployCommand: npm run migrate
+    startCommand: npm start
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      - key: TZ
+        value: Australia/Sydney
+      - key: DATABASE_URL
+        fromDatabase:
+          name: aalbor-hub-db
+          property: connectionString
+      - key: INITIAL_EDITOR_EMAIL
+        value: george@aalborkitchens.com.au
+      - key: INITIAL_EDITOR_NAME
+        value: George Sowmi
+      - key: MAIL_FROM
+        value: Aalbor Hub <hub@aalborkitchens.com.au>
+      # Set once hub.aalborkitchens.com.au points at Render. Until then the onrender.com address is used.
+      - key: APP_URL
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+
+  - type: cron
+    name: aalbor-hub-backup
+    runtime: docker
+    plan: starter
+    region: singapore
+    dockerfilePath: ./backup/Dockerfile
+    dockerContext: ./backup
+    # 15:00 UTC = 2am Sydney in summer (AEDT), 1am in winter (AEST).
+    schedule: "0 15 * * *"
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: aalbor-hub-db
+          property: connectionString
+      - key: BACKUP_BUCKET
+        sync: false
+      - key: BACKUP_ENDPOINT
+        sync: false
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+
+databases:
+  - name: aalbor-hub-db
+    plan: basic-256mb
+    region: singapore
+    postgresMajorVersion: "16"
+    databaseName: aalbor_hub
+    user: aalbor_hub
+    # No outside connections: only the web app and the backup job (same Render region) can reach it.
+    ipAllowList: []

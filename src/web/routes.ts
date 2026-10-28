@@ -59,11 +59,15 @@ async function board() {
   return { ...all, rules, cal, stored, t, decisions: needsDecision(all.jobs, all.steps, all.rework, rules, cal, t) };
 }
 
-/** Set a step's dates, checking they make sense. */
-async function setStepDates(db: Db, stepId: number, start: Iso | null, end: Iso | null, label: string): Promise<void> {
+function checkDates(start: Iso | null, end: Iso | null, label: string): Iso | null {
   if (!start && end) throw new UserError(`${label}: give a "from" date as well as a "to" date.`);
   if (start && end && end < start) throw new UserError(`${label}: the "to" date is before the "from" date.`);
-  await db.query('update steps set start_date = $2, end_date = $3 where id = $1', [stepId, start, end && end !== start ? end : null]);
+  return end && end !== start ? end : null;
+}
+
+/** Set a step's dates, checking they make sense. */
+async function setStepDates(db: Db, stepId: number, start: Iso | null, end: Iso | null, label: string): Promise<void> {
+  await db.query('update steps set start_date = $2, end_date = $3 where id = $1', [stepId, start, checkDates(start, end, label)]);
 }
 
 function parseJobForm(body: Record<string, unknown>) {
@@ -227,10 +231,11 @@ export function routes(): express.Router {
       for (const s of steps) {
         if (!(`start_${s.id}` in req.body)) continue;
         const label = s.label || KINDS[s.kind].label;
-        await setStepDates(db, s.id, date(req.body[`start_${s.id}`], label), date(req.body[`end_${s.id}`], label), label);
-        const confirmed = confirmAll || req.body[`confirmed_${s.id}`] === '1';
-        await db.query('update steps set confirmed = $2 where id = $1 and start_date is not null', [s.id, confirmed]);
-        await db.query('update steps set confirmed = false where id = $1 and start_date is null', [s.id]);
+        const start = date(req.body[`start_${s.id}`], label);
+        const end = checkDates(start, date(req.body[`end_${s.id}`], label), label);
+        const confirmed = !!start && (confirmAll || req.body[`confirmed_${s.id}`] === '1');
+        // One update per step, so the history shows one line per change.
+        await db.query('update steps set start_date = $2, end_date = $3, confirmed = $4 where id = $1', [s.id, start, end, confirmed]);
       }
     });
     flash(res, confirmAll ? 'Dates saved and confirmed.' : 'Dates saved.');

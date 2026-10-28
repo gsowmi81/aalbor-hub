@@ -229,7 +229,9 @@ export function describe(e: LogEntry, stepName: (id: string) => string): string 
   if (e.table_name === 'steps' && b.done_at !== a.done_at && Object.keys(a).filter((k) => !SKIP.has(k) && a[k] !== b[k]).length === 1) {
     return a.done_at ? `${what} ticked done` : `${what} unticked`;
   }
+  const order = Object.keys(FIELD_NAMES);
   const parts = Object.keys(a).filter((k) => !SKIP.has(k) && JSON.stringify(a[k]) !== JSON.stringify(b[k]))
+    .sort((x, y) => order.indexOf(x) - order.indexOf(y))
     .map((k) => `${FIELD_NAMES[k] ?? k} ${show(b[k])} → ${show(a[k])}`);
   return parts.length ? `${what}: ${parts.join(', ')}` : `${what} updated`;
 }

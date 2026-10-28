@@ -15,7 +15,8 @@ export const config = {
   databaseUrl: env.DATABASE_URL ?? 'postgres://postgres@localhost:5433/hub_dev?host=/var/tmp/hubpg',
   databaseSsl: env.DATABASE_SSL === 'true',
   port: Number(env.PORT ?? 3000),
-  appUrl: (env.APP_URL ?? 'http://localhost:3000').replace(/\/$/, ''),
+  // Render sets RENDER_EXTERNAL_URL to the onrender.com address; APP_URL overrides it once the hub has its own domain.
+  appUrl: (env.APP_URL || env.RENDER_EXTERNAL_URL || 'http://localhost:3000').replace(/\/$/, ''),
   resendApiKey: env.RESEND_API_KEY ?? '',
   mailFrom: env.MAIL_FROM ?? 'Aalbor Hub <hub@aalborkitchens.com.au>',
   initialEditorEmail: env.INITIAL_EDITOR_EMAIL ?? '',
