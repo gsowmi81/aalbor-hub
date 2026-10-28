@@ -58,7 +58,7 @@ a { color: var(--accent); }
 <li><b>Coming up.</b> Tiles for Overdue, This week (Draft, Measure, Factory, Install, Stone counts), Needs a decision and Live jobs. Week board with This week and Next week, rows Drafting for contract, Check measure, Production drawings, Materials orders, Factory, Install cabinets, Stone, Rework. Under it, Overdue (Done, New date) and Needs a decision (OK as is, Change dates, Undo), exactly as in the mock-up.</li>
 <li><b>All jobs.</b> 8-week timeline from last Monday, one row per job, sorted by install. Tap a name to open the job.</li>
 <li><b>One job.</b> Job picker, Next up, every date with provisional or confirmed, the shift buttons (−1 day, +1 day, +1 week), the tick list, rework on this job, and a History list from the change log.</li>
-<li><b>New job.</b> One form: job number, brand, client name, suburb, scope summary, door finish, stone, site start, factory days (2), install days (3), notes. The proposed dates and any capacity clash appear under the form before you save.</li>
+<li><b>New job.</b> One form: job number, brand, client name, suburb, scope summary, door finish, stone, site start (required, filled from the job number), factory days (2), install days (3), notes. The proposed dates and any capacity clash appear under the form before you save.</li>
 <li><b>Rework.</b> Raise in three taps and a line of text (job, cause, note). Open and closed lists, and the monthly tally of count, hours and dollars by cause.</li>
 <li><b>Settings</b> (Editors only). Capacities, default durations, blocked days, people and roles. Plus a <b>Download spreadsheet</b> button for jobs, steps and rework.</li>
 </ol>
@@ -79,21 +79,21 @@ a { color: var(--accent); }
 </tbody></table></div>
 
 <h2>How dates are worked out</h2>
-<p>Working days are Monday to Friday, less NSW public holidays and blocked days. Every proposed date starts provisional. Christine marks a step confirmed once it matches Buildertrend, or confirms the whole job in one tap.</p>
+<p>Site start is entered when the job is created. It is usually 4 to 6 weeks after contract, and can be anywhere from 3 weeks to 6 months, so the hub never guesses it. Drafting for contract counts from the day the job is added; everything else counts from site start. Working days are Monday to Friday, less NSW public holidays and blocked days. Every proposed date starts provisional. Christine marks a step confirmed once it matches Buildertrend, or confirms the whole job in one tap.</p>
 <div class="tbl"><table>
-<thead><tr><th>Step</th><th>Rule</th><th>Example: site start Mon 02 Nov 2026, added Wed 28 Oct</th></tr></thead>
+<thead><tr><th>Step</th><th>Rule</th><th>Example: job 270201, added Wed 28 Oct 2026, site start Mon 01 Feb 2027</th></tr></thead>
 <tbody>
 <tr><td>Drafting for contract</td><td>5 working days from the day the job is added</td><td class="d">28 Oct to 03 Nov</td></tr>
-<tr><td>Check measure</td><td>Site start + 3 working days</td><td class="d">Thu 05 Nov</td></tr>
-<tr><td>Production drawings</td><td>Next working day, signed off by check measure + 5</td><td class="d">06 Nov to 12 Nov</td></tr>
-<tr><td>Materials ordered</td><td>On drawings sign-off</td><td class="d">Thu 12 Nov</td></tr>
-<tr><td>Materials in</td><td>+ 3 working days, or the supplier's back-order date if Christine enters one</td><td class="d">Tue 17 Nov</td></tr>
-<tr><td>Factory</td><td>Next working day after materials in, for the job's factory days</td><td class="d">18 Nov to 19 Nov</td></tr>
-<tr><td>Painting (poly only)</td><td>Doors out the day after factory, back 10 working days later</td><td class="d">20 Nov to 04 Dec</td></tr>
-<tr><td>Delivery</td><td>Working day before install starts. Shown on the Install cabinets row; the factory sign-in ticks it</td><td class="d">Melamine Fri 27 Nov<br>Poly Fri 04 Dec</td></tr>
-<tr><td>Install cabinets</td><td>Monday of site start + 4 weeks (melamine) or + 5 (poly), for the job's install days</td><td class="d">Melamine 30 Nov to 02 Dec<br>Poly 07 Dec to 09 Dec</td></tr>
-<tr><td>Stone measure</td><td>Working day after install finishes</td><td class="d">Thu 03 Dec (melamine)</td></tr>
-<tr><td>Stone install</td><td>Stone measure + 5 working days; warn past 10</td><td class="d">Thu 10 Dec (melamine)</td></tr>
+<tr><td>Check measure</td><td>Site start + 3 working days</td><td class="d">Thu 04 Feb</td></tr>
+<tr><td>Production drawings</td><td>Next working day, signed off by check measure + 5</td><td class="d">05 Feb to 11 Feb</td></tr>
+<tr><td>Materials ordered</td><td>On drawings sign-off</td><td class="d">Thu 11 Feb</td></tr>
+<tr><td>Materials in</td><td>+ 3 working days, or the supplier's back-order date if Christine enters one</td><td class="d">Tue 16 Feb</td></tr>
+<tr><td>Factory</td><td>Next working day after materials in, for the job's factory days</td><td class="d">17 Feb to 18 Feb</td></tr>
+<tr><td>Painting (poly only)</td><td>Doors out the day after factory, back 10 working days later</td><td class="d">19 Feb to 05 Mar</td></tr>
+<tr><td>Delivery</td><td>Working day before install starts. Shown on the Install cabinets row; the factory sign-in ticks it</td><td class="d">Melamine Fri 26 Feb<br>Poly Fri 05 Mar</td></tr>
+<tr><td>Install cabinets</td><td>Monday of site start + 4 weeks (melamine) or + 5 (poly), for the job's install days</td><td class="d">Melamine 01 Mar to 03 Mar<br>Poly 08 Mar to 10 Mar</td></tr>
+<tr><td>Stone measure</td><td>Working day after install finishes</td><td class="d">Thu 04 Mar (melamine)</td></tr>
+<tr><td>Stone install</td><td>Stone measure + 5 working days; warn past 10</td><td class="d">Thu 11 Mar (melamine)</td></tr>
 </tbody></table></div>
 <p>Changing one date does not move the others. The shift buttons move every step that is not yet done, from that point on, by working days, skipping weekends, holidays and blocked days.</p>
 
