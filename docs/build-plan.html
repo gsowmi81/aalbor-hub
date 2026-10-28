@@ -41,7 +41,7 @@ a { color: var(--accent); }
 <div class="asks"><ol>
 <li><s>Repository.</s> <b>Done 28 Oct 2026:</b> George created <code>gsowmi81/aalbor-hub</code>. This plan is its first commit, and all code goes there.</li>
 <li><s>Origin and Aalbor jobs follow the same model?</s> <b>Yes (George, 28 Oct 2026).</b> Each job gets a Brand field (Aalbor or Origin) so the board can filter by it.</li>
-<li>Poly install default: site start + 5 or + 6 weeks? <span class="def">Default: + 5. The worked example below gets painted doors back with one working day spare.</span></li>
+<li>Poly install default: site start + 5 or + 6 weeks? <span class="def">Default: + 5. In the worked example below, painted doors come back on the delivery day with no day spare. + 6 gives a week's margin.</span></li>
 <li><s>Wade's access.</s> <b>Wade has left the business (George, 28 Oct 2026), so he gets no access.</b> Michael's email address is still needed. <span class="def">Default: you add Michael in Settings once you're in.</span></li>
 <li><s>Christine's email, and your sign-in address.</s> <b>Default accepted (George, 28 Oct 2026):</b> Christine is design@aalborkitchens.com.au and you sign in as george@aalborkitchens.com.au. <span class="def">Either can be corrected in Settings later.</span></li>
 <li>Factory-blocked days: who sets them, and is there a standing one (the clean-out day)? What are the Christmas shutdown dates? <span class="def">Default: Editors set them in Settings. NSW public holidays are skipped automatically.</span></li>
@@ -50,7 +50,7 @@ a { color: var(--accent); }
 <li><s>Rework dollars.</s> <b>Keep them (George, 28 Oct 2026).</b> Rework closes with extra hours and a rough extra material cost, and the monthly tally shows dollars by cause. It is the only dollar figure in the hub.</li>
 <li><s>Who controls DNS.</s> <b>George does (28 Oct 2026).</b> The web address will be hub.aalborkitchens.com.au, and sign-in emails come from hub@aalborkitchens.com.au. You add the records yourself when Resend and Render show them.</li>
 </ol></div>
-<p class="muted">Two calls I made from the mock-up that you can overrule. There is no separate Delivery step: the brief's step list has none, so delivery is the morning of install day 1. The "System" box you asked for on the This week tile is Stone.</p>
+<p class="muted">Two calls I made from the mock-up that you can overrule. Delivery is now its own step, added at George's request on 28 Oct 2026. The "System" box you asked for on the This week tile is Stone.</p>
 
 <h2>Screens</h2>
 <p>Same look as the mock-up: IBM Plex, the same colours per row, tiles, a week board on a big screen and a day list on a phone. Provisional dates show faded with a dashed edge; confirmed dates are solid.</p>
@@ -70,7 +70,7 @@ a { color: var(--accent); }
 <tbody>
 <tr><td>people</td><td>Name, email, role (Editor, Doer, Viewer), active. The sign-in allowlist.</td></tr>
 <tr><td>jobs</td><td>Job number, brand, client name, suburb, scope summary, door finish (melamine or polyurethane), stone yes/no, site start, factory days, install days, status (Live, On hold, Complete, Cancelled), at risk, notes, date added.</td></tr>
-<tr><td>steps</td><td>One row per dated step on a job: kind, from date, to date, provisional or confirmed, who owns it, done (who and when), note. Kinds: contract drafting, check measure, production drawings, materials ordered, materials in, factory, doors to painting, doors back, install, stone measure, stone install, rework step.</td></tr>
+<tr><td>steps</td><td>One row per dated step on a job: kind, from date, to date, provisional or confirmed, who owns it, done (who and when), note. Kinds: contract drafting, check measure, production drawings, materials ordered, materials in, factory, doors to painting, doors back, delivery, install, stone measure, stone install, rework step.</td></tr>
 <tr><td>rework</td><td>Job, cause (drafting, measure, factory, install, supplier, client change), one-line note, raised by and when, closed date, extra hours, extra material $. Its dates are steps linked to it.</td></tr>
 <tr><td>decisions</td><td>Each "OK as is" on a Needs a decision item, saved with the dates it was judged on, so the item comes back if those dates change.</td></tr>
 <tr><td>blocked_days</td><td>Date, factory only or everyone, reason. NSW public holidays 2026 to 2028 preloaded.</td></tr>
@@ -90,6 +90,7 @@ a { color: var(--accent); }
 <tr><td>Materials in</td><td>+ 3 working days, or the supplier's back-order date if Christine enters one</td><td class="d">Tue 17 Nov</td></tr>
 <tr><td>Factory</td><td>Next working day after materials in, for the job's factory days</td><td class="d">18 Nov to 19 Nov</td></tr>
 <tr><td>Painting (poly only)</td><td>Doors out the day after factory, back 10 working days later</td><td class="d">20 Nov to 04 Dec</td></tr>
+<tr><td>Delivery</td><td>Working day before install starts. Shown on the Install cabinets row; the factory sign-in ticks it</td><td class="d">Melamine Fri 27 Nov<br>Poly Fri 04 Dec</td></tr>
 <tr><td>Install cabinets</td><td>Monday of site start + 4 weeks (melamine) or + 5 (poly), for the job's install days</td><td class="d">Melamine 30 Nov to 02 Dec<br>Poly 07 Dec to 09 Dec</td></tr>
 <tr><td>Stone measure</td><td>Working day after install finishes</td><td class="d">Thu 03 Dec (melamine)</td></tr>
 <tr><td>Stone install</td><td>Stone measure + 5 working days; warn past 10</td><td class="d">Thu 10 Dec (melamine)</td></tr>
@@ -100,7 +101,7 @@ a { color: var(--accent); }
 <p>Any step whose last date has passed and is not ticked. Christine clears the list on Fridays.</p>
 <h3>Needs a decision</h3>
 <ul>
-<li>The materials, factory and painting chain finishes after the provisional install start. The install is never moved silently.</li>
+<li>The materials, factory and painting chain finishes after the delivery day. The delivery and install are never moved silently.</li>
 <li>A live job with no site start or no install date (Gutmann, Wissam 2 and 3 today).</li>
 <li>Steps out of order, such as check measure after drawings (Bathroom Products today).</li>
 <li>Rework raised with no dates yet (Tesoriero today).</li>
@@ -117,7 +118,7 @@ a { color: var(--accent); }
 <p>Backups: Render's own daily database backups, plus a copy at 2am Sydney time every night to a storage bucket outside Render, kept 90 days. I'll restore one into a test database before go-live to prove it works.</p>
 
 <h2>Loading the Notion data</h2>
-<p>A one-off import of the 18 live jobs (Active and Booked, excluding the ZZ rows) and their operations, frozen as a snapshot file in the repository. Notion's 12 operations fold into the hub's steps: Cut &amp; edge, Assemble and QC &amp; wrap become one Factory step; Material take-off and Deliver are dropped. Done stays done. Dates the team is already working to come in as confirmed; missing dates stay blank and land in Needs a decision, never invented. "Booked (pre-contract)" becomes Live. Door finish comes from the finish text (2-pac means polyurethane). The ZZ Factory internal dates become blocked days. Street addresses in notes are removed. Notion stays as it is until you switch over.</p>
+<p>A one-off import of the 18 live jobs (Active and Booked, excluding the ZZ rows) and their operations, frozen as a snapshot file in the repository. Notion's 12 operations fold into the hub's steps: Cut &amp; edge, Assemble and QC &amp; wrap become one Factory step; Deliver becomes Delivery. Material take-off is dropped. Done stays done. Dates the team is already working to come in as confirmed; missing dates stay blank and land in Needs a decision, never invented. "Booked (pre-contract)" becomes Live. Door finish comes from the finish text (2-pac means polyurethane). The ZZ Factory internal dates become blocked days. Street addresses in notes are removed. Notion stays as it is until you switch over.</p>
 
 <h2>What I need from you for Render and email</h2>
 <p>None of this goes in the chat. Every key is pasted straight into Render's Environment page for the service, which only you can see.</p>
