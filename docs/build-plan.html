@@ -1,0 +1,142 @@
+<title>Aalbor Hub Build Plan</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans:wght@400;600;700&display=swap">
+<style>
+/* Layout: one reading column, same tokens as the build brief so the two read as a set. Tables sit in their own scroll boxes. */
+:root { --bg:#F4F5F7; --surface:#FFFFFF; --fg:#15181D; --muted:#545B66; --line:#E1E4E8; --accent:#1D4ED8;
+  --flag-bg:#FFF6E0; --flag-fg:#7A4A06; --ask-bg:#EAF0FD; --ask-line:#BFD0F7;
+  --sans:'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif; --mono:'IBM Plex Mono', ui-monospace, Menlo, monospace; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#111318; --surface:#1A1D24; --fg:#E8EAED; --muted:#A4AAB5; --line:#2C313B; --accent:#8AB4FF; --flag-bg:#33290F; --flag-fg:#F4C46A; --ask-bg:#17213A; --ask-line:#2D4170; color-scheme: dark } }
+:root[data-theme="dark"] { --bg:#111318; --surface:#1A1D24; --fg:#E8EAED; --muted:#A4AAB5; --line:#2C313B; --accent:#8AB4FF; --flag-bg:#33290F; --flag-fg:#F4C46A; --ask-bg:#17213A; --ask-line:#2D4170; color-scheme: dark }
+body { background: var(--bg); color: var(--fg); font: 16px/1.55 var(--sans); }
+main { max-width: 760px; margin: 0 auto; padding-block: 24px 64px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 6px; }
+h1 { font-size: 30px; line-height: 1.15; margin: 0; text-wrap: balance; }
+h2 { font-size: 20px; margin: 28px 0 4px; padding-top: 14px; border-top: 1px solid var(--line); text-wrap: balance; }
+h3 { font-size: 16px; margin: 14px 0 2px; }
+p, li { max-width: 68ch; margin: 4px 0; }
+ul, ol { padding-left: 22px; margin: 4px 0; }
+.eyebrow { font-size: 12px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+.muted { color: var(--muted); }
+.flag { background: var(--flag-bg); color: var(--flag-fg); border-radius: 8px; padding: 10px 14px; margin: 8px 0; }
+.asks { background: var(--ask-bg); border: 1px solid var(--ask-line); border-radius: 10px; padding: 12px 16px 12px 14px; margin: 8px 0; }
+.asks ol { padding-left: 24px; display: flex; flex-direction: column; gap: 6px; }
+.asks li { margin: 0; }
+.def { color: var(--muted); font-size: 14px; }
+.tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); margin: 8px 0; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+tr:last-child td { border-bottom: 0; }
+th { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+td.d { white-space: nowrap; font-variant-numeric: tabular-nums; }
+code { font-family: var(--mono); font-size: 13px; }
+a { color: var(--accent); }
+</style>
+<main>
+<div class="eyebrow">Aalbor Hub · Phase 1 build plan · 28 Oct 2026</div>
+<h1>Aalbor Hub: Production build plan</h1>
+<p class="muted">For George's OK before any code. Built from the <a href="https://claude.ai/artifact/Y6n8ZD3JvPcS8CiHcQuD88">brief</a>, the <a href="https://claude.ai/artifact/HBbUtp5Vc858fJDH2RnK1K">mock-up</a> and its 15 comment threads, and the Notion Production Hub as read on 28 Oct 2026 (18 live jobs). Phase 1 is Production only. Stock comes after 2 to 3 weeks of use.</p>
+
+<h2>Answer these first</h2>
+<p>My default is in grey after each one. Reply with the numbers you want changed; silence means the default.</p>
+<div class="asks"><ol>
+<li><s>Repository.</s> <b>Done 28 Oct 2026:</b> George created <code>gsowmi81/aalbor-hub</code>. This plan is its first commit, and all code goes there.</li>
+<li>Origin and Aalbor jobs follow the same model? <span class="def">Default: yes, with a Brand field (Aalbor or Origin) on each job so the board can filter by it.</span></li>
+<li>Poly install default: site start + 5 or + 6 weeks? <span class="def">Default: + 5. The worked example below gets painted doors back with one working day spare.</span></li>
+<li>Wade's access, and Michael's email address. <span class="def">Default: Wade Viewer. You can add Michael in Settings once you're in.</span></li>
+<li>Christine's email: design@alborkitchens.com.au or design@aalborkitchens.com.au? And which address do you sign in with? <span class="def">Default: aalborkitchens spelling; you sign in as george@aalborkitchens.com.au.</span></li>
+<li>Factory-blocked days: who sets them, and is there a standing one (the clean-out day)? What are the Christmas shutdown dates? <span class="def">Default: Editors set them in Settings. NSW public holidays are skipped automatically.</span></li>
+<li>Notion takes the site start from the job number (261110 = 10 Nov 2026). Is that always true? <span class="def">Default: the New job form fills site start from the job number and Christine can change it.</span></li>
+<li>Angela orders materials and Michael receives painted doors, but both are Viewers, so neither could tick their own step. <span class="def">Default: make them Doers. Otherwise Christine ticks for them.</span></li>
+<li>Rework closes with extra hours and extra material cost, and the tally shows dollars. That is the only dollar figure in the hub, against your no-costing rule. <span class="def">Default: keep it. It counts mistakes, not job cost.</span></li>
+<li>Who controls DNS for aalborkitchens.com.au? Sign-in emails need three records added there. <span class="def">Default web address: hub.aalborkitchens.com.au. Emails come from hub@aalborkitchens.com.au.</span></li>
+</ol></div>
+<p class="muted">Two calls I made from the mock-up that you can overrule. There is no separate Delivery step: the brief's step list has none, so delivery is the morning of install day 1. The "System" box you asked for on the This week tile is Stone.</p>
+
+<h2>Screens</h2>
+<p>Same look as the mock-up: IBM Plex, the same colours per row, tiles, a week board on a big screen and a day list on a phone. Provisional dates show faded with a dashed edge; confirmed dates are solid.</p>
+<ol>
+<li><b>Coming up.</b> Tiles for Overdue, This week (Draft, Measure, Factory, Install, Stone counts), Needs a decision and Live jobs. Week board with This week and Next week, rows Drafting for contract, Check measure, Production drawings, Materials orders, Factory, Install cabinets, Stone, Rework. Under it, Overdue (Done, New date) and Needs a decision (OK as is, Change dates, Undo), exactly as in the mock-up.</li>
+<li><b>All jobs.</b> 8-week timeline from last Monday, one row per job, sorted by install. Tap a name to open the job.</li>
+<li><b>One job.</b> Job picker, Next up, every date with provisional or confirmed, the shift buttons (−1 day, +1 day, +1 week), the tick list, rework on this job, and a History list from the change log.</li>
+<li><b>New job.</b> One form: job number, brand, client name, suburb, scope summary, door finish, stone, site start, factory days (2), install days (3), notes. The proposed dates and any capacity clash appear under the form before you save.</li>
+<li><b>Rework.</b> Raise in three taps and a line of text (job, cause, note). Open and closed lists, and the monthly tally of count, hours and dollars by cause.</li>
+<li><b>Settings</b> (Editors only). Capacities, default durations, blocked days, people and roles. Plus a <b>Download spreadsheet</b> button for jobs, steps and rework.</li>
+</ol>
+<p>Doers see the same screens with only their buttons live: tick a step, raise rework. Viewers see everything read-only. Phone, email and street address are never stored.</p>
+
+<h2>Data model</h2>
+<div class="tbl"><table>
+<thead><tr><th>Table</th><th>Holds</th></tr></thead>
+<tbody>
+<tr><td>people</td><td>Name, email, role (Editor, Doer, Viewer), active. The sign-in allowlist.</td></tr>
+<tr><td>jobs</td><td>Job number, brand, client name, suburb, scope summary, door finish (melamine or polyurethane), stone yes/no, site start, factory days, install days, status (Live, On hold, Complete, Cancelled), at risk, notes, date added.</td></tr>
+<tr><td>steps</td><td>One row per dated step on a job: kind, from date, to date, provisional or confirmed, who owns it, done (who and when), note. Kinds: contract drafting, check measure, production drawings, materials ordered, materials in, factory, doors to painting, doors back, install, stone measure, stone install, rework step.</td></tr>
+<tr><td>rework</td><td>Job, cause (drafting, measure, factory, install, supplier, client change), one-line note, raised by and when, closed date, extra hours, extra material $. Its dates are steps linked to it.</td></tr>
+<tr><td>decisions</td><td>Each "OK as is" on a Needs a decision item, saved with the dates it was judged on, so the item comes back if those dates change.</td></tr>
+<tr><td>blocked_days</td><td>Date, factory only or everyone, reason. NSW public holidays 2026 to 2028 preloaded.</td></tr>
+<tr><td>settings</td><td>Capacities and default durations, all editable.</td></tr>
+<tr><td>change_log</td><td>Every add, change and delete on every table: who, when, the record before and after. Written by the database itself.</td></tr>
+</tbody></table></div>
+
+<h2>How dates are worked out</h2>
+<p>Working days are Monday to Friday, less NSW public holidays and blocked days. Every proposed date starts provisional. Christine marks a step confirmed once it matches Buildertrend, or confirms the whole job in one tap.</p>
+<div class="tbl"><table>
+<thead><tr><th>Step</th><th>Rule</th><th>Example: site start Mon 02 Nov 2026, added Wed 28 Oct</th></tr></thead>
+<tbody>
+<tr><td>Drafting for contract</td><td>5 working days from the day the job is added</td><td class="d">28 Oct to 03 Nov</td></tr>
+<tr><td>Check measure</td><td>Site start + 3 working days</td><td class="d">Thu 05 Nov</td></tr>
+<tr><td>Production drawings</td><td>Next working day, signed off by check measure + 5</td><td class="d">06 Nov to 12 Nov</td></tr>
+<tr><td>Materials ordered</td><td>On drawings sign-off</td><td class="d">Thu 12 Nov</td></tr>
+<tr><td>Materials in</td><td>+ 3 working days, or the supplier's back-order date if Christine enters one</td><td class="d">Tue 17 Nov</td></tr>
+<tr><td>Factory</td><td>Next working day after materials in, for the job's factory days</td><td class="d">18 Nov to 19 Nov</td></tr>
+<tr><td>Painting (poly only)</td><td>Doors out the day after factory, back 10 working days later</td><td class="d">20 Nov to 04 Dec</td></tr>
+<tr><td>Install cabinets</td><td>Monday of site start + 4 weeks (melamine) or + 5 (poly), for the job's install days</td><td class="d">Melamine 30 Nov to 02 Dec<br>Poly 07 Dec to 09 Dec</td></tr>
+<tr><td>Stone measure</td><td>Working day after install finishes</td><td class="d">Thu 03 Dec (melamine)</td></tr>
+<tr><td>Stone install</td><td>Stone measure + 5 working days; warn past 10</td><td class="d">Thu 10 Dec (melamine)</td></tr>
+</tbody></table></div>
+<p>Changing one date does not move the others. The shift buttons move every step that is not yet done, from that point on, by working days, skipping weekends, holidays and blocked days.</p>
+
+<h3>Overdue</h3>
+<p>Any step whose last date has passed and is not ticked. Christine clears the list on Fridays.</p>
+<h3>Needs a decision</h3>
+<ul>
+<li>The materials, factory and painting chain finishes after the provisional install start. The install is never moved silently.</li>
+<li>A live job with no site start or no install date (Gutmann, Wissam 2 and 3 today).</li>
+<li>Steps out of order, such as check measure after drawings (Bathroom Products today).</li>
+<li>Rework raised with no dates yet (Tesoriero today).</li>
+<li>Stone install more than 10 working days after stone measure.</li>
+<li>A date on a weekend, public holiday or blocked day (Tesoriero stone install, Sat 07 Nov).</li>
+</ul>
+<h3>Capacity warnings</h3>
+<p>Shown on the board row and in Needs a decision. Factory: the factory days booked in a week against kitchens a week × 2 days (4 today, 6 when it goes to 3). Install: install days booked against 2 × 3 = 6 a week. Check measures: more than 3 on one day. That is my reading of "measured in the days Christine enters per job"; say if you meant a plain count of kitchens.</p>
+
+<h2>How it's built and kept safe</h2>
+<p>Node.js 22 with TypeScript, Express and Render Postgres. Pages are drawn on the server with a little plain JavaScript and no front-end framework, so there is little to keep upgraded. The date rules and the permission rules have tests that GitHub runs on every push.</p>
+<p>Roles live in the database. Each request tells Postgres who is signed in, and a check on every table refuses any write that person's role can't make: a Doer can tick steps and raise rework and nothing else, a Viewer can write nothing. The same check writes the change log, so a bug in the app can't skip either.</p>
+<p>Sign-in: type your email, get a link valid for 20 minutes, tap it, then tap Sign in. The second tap stops Outlook's link scanner from using the link up before you do. You stay signed in for 90 days on that phone. An address not on the list gets the same "check your email" screen and no email.</p>
+<p>Backups: Render's own daily database backups, plus a copy at 2am Sydney time every night to a storage bucket outside Render, kept 90 days. I'll restore one into a test database before go-live to prove it works.</p>
+
+<h2>Loading the Notion data</h2>
+<p>A one-off import of the 18 live jobs (Active and Booked, excluding the ZZ rows) and their operations, frozen as a snapshot file in the repository. Notion's 12 operations fold into the hub's steps: Cut &amp; edge, Assemble and QC &amp; wrap become one Factory step; Material take-off and Deliver are dropped. Done stays done. Dates the team is already working to come in as confirmed; missing dates stay blank and land in Needs a decision, never invented. "Booked (pre-contract)" becomes Live. Door finish comes from the finish text (2-pac means polyurethane). The ZZ Factory internal dates become blocked days. Street addresses in notes are removed. Notion stays as it is until you switch over.</p>
+
+<h2>What I need from you for Render and email</h2>
+<p>None of this goes in the chat. Every key is pasted straight into Render's Environment page for the service, which only you can see.</p>
+<ol>
+<li><b>Render.</b> Once the code is pushed: Render dashboard, New, Blueprint, pick the repo. Render reads the <code>render.yaml</code> file and creates the web service, the database and the nightly backup job, in Singapore (closest to Sydney). About 5 minutes. Cost is about US$15 a month on Render's Starter and Basic plans (likely; your plan page has the exact figure).</li>
+<li><b>Resend</b> for sign-in emails: free account at resend.com, add the domain aalborkitchens.com.au, give the three DNS records it shows to whoever runs your DNS, then create an API key and paste it into Render as <code>RESEND_API_KEY</code>. The free tier covers 100 emails a day (likely), about 30 times what ten people signing in needs.</li>
+<li><b>Cloudflare R2</b> for the off-Render backup copy: free bucket named aalbor-hub-backups and an access key, pasted into Render as the four <code>BACKUP_</code> values. This can wait until the week before go-live.</li>
+<li><b>Web address.</b> One CNAME record pointing hub.aalborkitchens.com.au at Render. Until then the hub runs on its free onrender.com address.</li>
+</ol>
+<p class="muted">The session secret is generated by Render itself and nobody ever sees it.</p>
+
+<h2>Order of work</h2>
+<ol>
+<li>You OK this plan and answer the questions above.</li>
+<li>Database, permissions, change log and date rules, with tests. Pushed.</li>
+<li>The six screens, matching the mock-up. Pushed after each one.</li>
+<li>Notion import. You check the 18 jobs against Notion.</li>
+<li>You do the Render and Resend steps. I check it's running and send you the link.</li>
+<li>George and Christine use it alongside Notion for 2 to 3 days, then the team switches. Stock starts 2 to 3 weeks after that.</li>
+</ol>
+<p>A <code>CLAUDE.md</code> in the repository records all of the above, how to run it, and where each rule lives in the code, for any later developer or Claude session.</p>
+</main>
