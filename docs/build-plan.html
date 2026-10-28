@@ -48,7 +48,7 @@ a { color: var(--accent); }
 <li><s>Site start from the job number.</s> <b>Yes (George, 28 Oct 2026).</b> The New job form fills site start from the job number (261110 = 10 Nov 2026), and Christine can change it.</li>
 <li><s>Who ticks materials.</s> <b>Answered (George, 28 Oct 2026):</b> Angela and Michael stay Viewers. Christine ticks Materials ordered. A shared factory sign-in (a Doer) ticks Materials in and, unless you say otherwise, Doors back from painting. <span class="def">Still needed: the email address for the factory sign-in, e.g. factory@aalborkitchens.com.au.</span></li>
 <li><s>Rework dollars.</s> <b>Keep them (George, 28 Oct 2026).</b> Rework closes with extra hours and a rough extra material cost, and the monthly tally shows dollars by cause. It is the only dollar figure in the hub.</li>
-<li>Who controls DNS for aalborkitchens.com.au? Sign-in emails need three records added there. <span class="def">Default web address: hub.aalborkitchens.com.au. Emails come from hub@aalborkitchens.com.au.</span></li>
+<li><s>Who controls DNS.</s> <b>George does (28 Oct 2026).</b> The web address will be hub.aalborkitchens.com.au, and sign-in emails come from hub@aalborkitchens.com.au. You add the records yourself when Resend and Render show them.</li>
 </ol></div>
 <p class="muted">Two calls I made from the mock-up that you can overrule. There is no separate Delivery step: the brief's step list has none, so delivery is the morning of install day 1. The "System" box you asked for on the This week tile is Stone.</p>
 
@@ -123,7 +123,7 @@ a { color: var(--accent); }
 <p>None of this goes in the chat. Every key is pasted straight into Render's Environment page for the service, which only you can see.</p>
 <ol>
 <li><b>Render.</b> Once the code is pushed: Render dashboard, New, Blueprint, pick the repo. Render reads the <code>render.yaml</code> file and creates the web service, the database and the nightly backup job, in Singapore (closest to Sydney). About 5 minutes. Cost is about US$15 a month on Render's Starter and Basic plans (likely; your plan page has the exact figure).</li>
-<li><b>Resend</b> for sign-in emails: free account at resend.com, add the domain aalborkitchens.com.au, give the three DNS records it shows to whoever runs your DNS, then create an API key and paste it into Render as <code>RESEND_API_KEY</code>. The free tier covers 100 emails a day (likely), about 30 times what ten people signing in needs.</li>
+<li><b>Resend</b> for sign-in emails: free account at resend.com, add the domain aalborkitchens.com.au, add the three DNS records it shows, then create an API key and paste it into Render as <code>RESEND_API_KEY</code>. The free tier covers 100 emails a day (likely), about 30 times what ten people signing in needs.</li>
 <li><b>Cloudflare R2</b> for the off-Render backup copy: free bucket named aalbor-hub-backups and an access key, pasted into Render as the four <code>BACKUP_</code> values. This can wait until the week before go-live.</li>
 <li><b>Web address.</b> One CNAME record pointing hub.aalborkitchens.com.au at Render. Until then the hub runs on its free onrender.com address.</li>
 </ol>
