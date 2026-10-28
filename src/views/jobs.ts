@@ -58,7 +58,7 @@ export function allJobs(d: { jobs: JobRow[]; steps: StepRow[]; decisions: Decisi
   });
 
   const legend = html`<div class="legend">
-    ${(['contract_drafting', 'check_measure', 'production_drawings', 'materials_in', 'factory', 'doors_to_painting', 'doors_back', 'delivery', 'install', 'stone_measure', 'stone_install', 'rework'] as StepKind[]).map((k) =>
+    ${SHOWN.map((k) =>
       html`<span><i class="mk" style="background:var(--m-${KINDS[k].code.toLowerCase()})">${KINDS[k].code}</i>${KINDS[k].label}</span>`)}
     <span><i class="mk prov" style="background:var(--m-in)">IN</i>Provisional</span>
     <span><i class="mk over">!</i>Overdue</span><span><i class="mk done">IN</i>Done</span>

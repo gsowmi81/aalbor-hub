@@ -28,9 +28,12 @@ function takeFlash(req: Request, res: Response): string | null {
   if (f) setCookie(res, 'hub_flash', '', 0);
   return f ?? null;
 }
+const localPath = (p: unknown): p is string => typeof p === 'string' && p.startsWith('/') && !p.startsWith('//') && !p.startsWith('/\\');
+
+/** Where to send someone after a form: the form's own "back" path, else the fallback. Never another site. */
 export function backTo(req: Request, fallback = '/'): string {
   const b = req.body?.back;
-  return typeof b === 'string' && b.startsWith('/') && !b.startsWith('//') ? b : fallback;
+  return localPath(b) ? b : localPath(fallback) ? fallback : '/';
 }
 function idParam(req: Request): number {
   const n = Number(req.params.id);
