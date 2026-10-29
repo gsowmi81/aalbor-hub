@@ -2,9 +2,9 @@
 
 For George. About 30 minutes in all, in this order. No key or password ever goes into chat or into the repository: each one is pasted straight into the Render page named in the step.
 
-## Where it stands (29 Oct 2026, 6:05pm)
+## Where it stands (29 Oct 2026, 9:05pm)
 
-Done: Resend (domain verified 5:49pm), Render Blueprint (all three resources Live in Singapore, in the Quote-Desk workspace), the Notion import (18 jobs), and the off-Render backup (first dump in R2 at 5:59pm). Half done: step 3, the web address (the `hub` CNAME is in; Render still has to verify it). Not started: signing in and adding people (2.7 and 2.8). Live address until step 3 finishes: https://aalbor-hub.onrender.com
+Done: Resend (domain verified 5:49pm), Render Blueprint (all three resources Live in Singapore, in the Quote-Desk workspace), the Notion import (18 jobs), the web address (https://hub.aalborkitchens.com.au, certificate issued 8:42pm, `APP_URL` set 8:43pm) and the off-Render backup (first dump in R2 at 5:59pm). Not started: George's first sign-in and adding people (2.7 and 2.8).
 
 ## 1. Resend, for the sign-in emails (10 minutes)
 
@@ -40,7 +40,7 @@ Done: Resend (domain verified 5:49pm), Render Blueprint (all three resources Liv
 
 ## 3. The hub's own address (5 minutes)
 
-1. Render → **aalbor-hub → Settings → Custom Domains → Add**: `hub.aalborkitchens.com.au`. (Done 29 Oct.)
+1. Render → **aalbor-hub → Settings → Custom Domains → Add**: `hub.aalborkitchens.com.au`. (Done 29 Oct; verified with certificate 8:42pm. A first Verify can fail if Render cached the record as missing; its own retry a minute later cleared it.)
 2. At Crazy Domains add a **CNAME** record: Host `hub`, value `aalbor-hub.onrender.com`. (Done 29 Oct, about 5:20pm.)
 3. Back in Render press **Verify** and wait until it shows Verified and a certificate. Render issues the certificate itself; it can take up to an hour.
 4. Only then: Render → **aalbor-hub → Environment**: set `APP_URL` to `https://hub.aalborkitchens.com.au` and save. Render redeploys, and sign-in links use the new address. Setting it before the certificate is ready sends people to a page that won't open.

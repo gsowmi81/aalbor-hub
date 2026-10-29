@@ -81,7 +81,7 @@ Add `migrations/002_what.sql`; never edit a migration that has run on Render. Mi
 
 ## What's live (29 Oct 2026)
 
-Render workspace "Quote-Desk" (Quote Desk lives there too: never touch it). Blueprint `aalbor-hub` on branch `main`, all in Singapore: web service `aalbor-hub` (https://aalbor-hub.onrender.com, moving to https://hub.aalborkitchens.com.au), Postgres `aalbor-hub-db`, cron `aalbor-hub-backup` (nightly dump to the Cloudflare R2 bucket `aalbor-hub-backups`, kept 90 days). The Notion import has run. DNS is at Crazy Domains; Resend uses Forge CNAMEs on `send` and `rsend`. Leave the existing Microsoft 365, Mailgun/LeadConnector and site records alone. Secrets: `RESEND_API_KEY` on the web service; the R2 keys only on the cron job.
+Render workspace "Quote-Desk" (Quote Desk lives there too: never touch it). Blueprint `aalbor-hub` on branch `main`, all in Singapore: web service `aalbor-hub` (https://hub.aalborkitchens.com.au; also answers on https://aalbor-hub.onrender.com), Postgres `aalbor-hub-db`, cron `aalbor-hub-backup` (nightly dump to the Cloudflare R2 bucket `aalbor-hub-backups`, kept 90 days). The Notion import has run. DNS is at Crazy Domains; Resend uses Forge CNAMEs on `send` and `rsend`. Leave the existing Microsoft 365, Mailgun/LeadConnector and site records alone. Secrets: `RESEND_API_KEY` on the web service; the R2 keys only on the cron job.
 
 ## Dependencies
 
