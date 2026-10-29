@@ -2,11 +2,15 @@
 
 For George. About 30 minutes in all, in this order. No key or password ever goes into chat or into the repository: each one is pasted straight into the Render page named in the step.
 
+## Where it stands (29 Oct 2026, 6:05pm)
+
+Done: Resend (domain verified 5:49pm), Render Blueprint (all three resources Live in Singapore, in the Quote-Desk workspace), the Notion import (18 jobs), and the off-Render backup (first dump in R2 at 5:59pm). Half done: step 3, the web address (the `hub` CNAME is in; Render still has to verify it). Not started: signing in and adding people (2.7 and 2.8). Live address until step 3 finishes: https://aalbor-hub.onrender.com
+
 ## 1. Resend, for the sign-in emails (10 minutes)
 
 1. Go to resend.com and sign up with your work email.
 2. **Domains → Add domain**: `aalborkitchens.com.au`. Region: Tokyo (ap-northeast-1), the closest to Sydney.
-3. Resend shows three DNS records (an MX and a TXT on `send.aalborkitchens.com.au`, and a TXT on `resend._domainkey`). Add them where you manage the domain's DNS. They sit on the `send` subdomain, so your existing Microsoft 365 mail is untouched.
+3. Add exactly the DNS records Resend lists, at Crazy Domains (the domain uses ns1/ns2.crazydomains.com). On 29 Oct 2026 Resend asked for: TXT `resend._domainkey` (the DKIM key), CNAME `send` → `send.forge.rmta.net`, CNAME `rsend` → `rsend-apne1.forge.rmta.net`, and the optional TXT `_dmarc` = `v=DMARC1; p=none;`. In the Host box type only `send`, `rsend`, `resend._domainkey` or `_dmarc`, never the full domain. None of these touch the Microsoft 365 or Mailgun/LeadConnector records; leave those alone.
 4. Back in Resend, press **Verify**. It can take a few minutes to an hour.
 5. **API Keys → Create API key**: name `aalbor-hub`, permission *Sending access*, domain `aalborkitchens.com.au`. Copy the key. Keep the tab open for step 2.
 
@@ -22,14 +26,24 @@ For George. About 30 minutes in all, in this order. No key or password ever goes
 5. **Apply**. The first build and deploy take about 5 minutes. Cost is about US$15 a month on the Starter and Basic plans (likely; Render's billing page has the exact figure).
 6. When the web service shows **Live**, open it: **aalbor-hub → Shell**, type `npm run import:notion` and press Enter. It loads the 18 live jobs from the Notion snapshot of 28 Oct 2026 and lists them. It refuses to run a second time.
 7. Open the service's address (shown at the top, like `https://aalbor-hub.onrender.com`) on your phone. Sign in with george@aalborkitchens.com.au.
-8. In the hub, **Settings → People**: add Gus and Phil (Doer), the factory sign-in (Doer), Angela, Glenn, Libby and Michael (Viewer). Christine is already there as an Editor.
+8. In the hub, **Settings → People**. Christine (design@aalborkitchens.com.au, Editor) was added by the Notion import, so check she's there rather than adding her again. Then add:
+
+   | Name | Email | Role |
+   |---|---|---|
+   | Gus | gus@originbathrooms.com.au | Doer |
+   | Factory (Phil and the factory tablet, one shared sign-in) | factory@aalborkitchens.com.au | Doer |
+   | Angela | admin@originbathrooms.com.au | Viewer |
+   | Glenn | sales@aalborkitchens.com.au | Viewer |
+   | Libby | libby@originbathrooms.com.au | Viewer |
+
+   Michael: add him when you have his address. Because Phil uses the shared factory sign-in, the history shows his ticks as "Factory". Give him his own address as a Doer if you want his name on them.
 
 ## 3. The hub's own address (5 minutes)
 
-1. Render → **aalbor-hub → Settings → Custom Domains → Add**: `hub.aalborkitchens.com.au`.
-2. At your DNS host add a **CNAME** record: name `hub`, value the onrender.com address Render shows (without `https://`).
-3. Back in Render press **Verify**. Render issues the security certificate itself.
-4. Render → **aalbor-hub → Environment**: set `APP_URL` to `https://hub.aalborkitchens.com.au` and save. Render redeploys, and sign-in links then use the new address.
+1. Render → **aalbor-hub → Settings → Custom Domains → Add**: `hub.aalborkitchens.com.au`. (Done 29 Oct.)
+2. At Crazy Domains add a **CNAME** record: Host `hub`, value `aalbor-hub.onrender.com`. (Done 29 Oct, about 5:20pm.)
+3. Back in Render press **Verify** and wait until it shows Verified and a certificate. Render issues the certificate itself; it can take up to an hour.
+4. Only then: Render → **aalbor-hub → Environment**: set `APP_URL` to `https://hub.aalborkitchens.com.au` and save. Render redeploys, and sign-in links use the new address. Setting it before the certificate is ready sends people to a page that won't open.
 
 ## 4. Off-Render backup copy (10 minutes, any time before go-live)
 

@@ -79,6 +79,14 @@ Tests use `TEST_DATABASE_URL` (default: the local cluster above) and wipe that d
 
 Add `migrations/002_what.sql`; never edit a migration that has run on Render. Migrations run as the system before each deploy (`preDeployCommand`). Seeding or fixing data in a migration is fine; it is logged as "System".
 
+## What's live (29 Oct 2026)
+
+Render workspace "Quote-Desk" (Quote Desk lives there too: never touch it). Blueprint `aalbor-hub` on branch `main`, all in Singapore: web service `aalbor-hub` (https://aalbor-hub.onrender.com, moving to https://hub.aalborkitchens.com.au), Postgres `aalbor-hub-db`, cron `aalbor-hub-backup` (nightly dump to the Cloudflare R2 bucket `aalbor-hub-backups`, kept 90 days). The Notion import has run. DNS is at Crazy Domains; Resend uses Forge CNAMEs on `send` and `rsend`. Leave the existing Microsoft 365, Mailgun/LeadConnector and site records alone. Secrets: `RESEND_API_KEY` on the web service; the R2 keys only on the cron job.
+
+## Dependencies
+
+`npm audit --omit=dev` must stay at 0. `uuid` is pinned to 11.1.1 through `overrides` (exceljs pulls in an older one). The remaining `npm audit` findings are inside vitest, a test-only tool that never runs in the live hub; vitest 4 can't be installed with npm 10.9 (an npm peer-dependency bug), so move to it when npm is updated.
+
 ## Deploying
 
 Push to `main`. Render builds, runs `npm run migrate`, then starts the new version. Secrets live only on Render's Environment pages; never in the repository or in chat.
