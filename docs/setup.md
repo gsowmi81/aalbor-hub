@@ -59,7 +59,7 @@ Render already keeps daily backups of the database (on the paid plan, under **aa
 
 1. Download the `.dump` file from the R2 bucket.
 2. Render → **aalbor-hub-db → Networking**: add your own IP address to the allow list for the duration.
-3. `pg_restore --clean --if-exists --no-owner --dbname "<External Database URL>" aalbor-hub-YYYY-MM-DD.dump`
+3. `PGOPTIONS="-c hub.system=on" pg_restore --clean --if-exists --no-owner --dbname "<External Database URL>" aalbor-hub-YYYY-MM-DD.dump` (the `PGOPTIONS` part lets the owners-only tables load; leave it out and those tables come back empty)
 4. Remove your IP from the allow list. Restart the web service.
 
 Restore into a scratch database first (`createdb`, then the same command) and check it before overwriting the live one.

@@ -7,7 +7,9 @@ if [ -z "${BACKUP_BUCKET:-}" ]; then
   exit 0
 fi
 name="aalbor-hub-$(date -u +%Y-%m-%d).dump"
-pg_dump "$DATABASE_URL" --format=custom --no-owner --file "/tmp/$name"
+# The owners-only tables have row-level security. Dump as the system (as migrations run) with
+# row security on, so pg_dump copies every row instead of refusing (failed backup, 31 Oct 2026).
+PGOPTIONS="-c hub.system=on" pg_dump "$DATABASE_URL" --format=custom --no-owner --enable-row-security --file "/tmp/$name"
 size=$(wc -c < "/tmp/$name")
 [ "$size" -gt 1000 ] || { echo "Dump is only $size bytes; something is wrong."; exit 1; }
 AWS_DEFAULT_REGION=auto aws s3 cp "/tmp/$name" "s3://$BACKUP_BUCKET/$name" --endpoint-url "$BACKUP_ENDPOINT"

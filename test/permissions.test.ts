@@ -106,3 +106,21 @@ describe('sign-in tables', () => {
       db.query(`insert into sessions (token_hash, person_id, expires_at) values ('x', $1, now())`, [editor])))).toMatch(/sign-in/);
   });
 });
+
+describe('nightly backup (failed 31 Oct 2026 until migration 004)', () => {
+  it('pins the search path on every function row-level security and the triggers call', async () => {
+    const r = await pool.query(`select proname, proconfig from pg_proc where proname in ('hub_actor', 'hub_is_owner', 'hub_owner_guard', 'hub_owners_log', 'hub_guard', 'hub_log')`);
+    expect(r.rows).toHaveLength(6);
+    for (const f of r.rows) expect(f.proconfig, f.proname).toContain('search_path=public, pg_temp');
+  });
+
+  it('dumps every table, owners-only ones included, the way backup.sh does', async () => {
+    const { execFileSync } = await import('node:child_process');
+    let version = '';
+    try { version = execFileSync('pg_dump', ['--version']).toString(); } catch { return; } // no client here: covered by the check above
+    if (!/\b16\./.test(version)) return;
+    const out = execFileSync('pg_dump', [process.env.DATABASE_URL!, '--format=plain', '--no-owner', '--enable-row-security', '--data-only', '--table=owners_log'],
+      { env: { ...process.env, PGOPTIONS: '-c hub.system=on' } }).toString();
+    expect(out).toContain('COPY public.owners_log');
+  });
+});
