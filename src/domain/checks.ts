@@ -11,6 +11,7 @@ export interface JobRow {
   client_name: string;
   suburb: string;
   door_finish: 'melamine' | 'polyurethane';
+  has_painting: boolean;
   has_stone: boolean;
   site_start: Iso | null;
   factory_days: number;

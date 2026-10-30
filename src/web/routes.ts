@@ -88,6 +88,7 @@ function parseJobForm(body: Record<string, unknown>) {
     scope: s('scope'),
     door_finish: (s('door_finish') === 'polyurethane' ? 'polyurethane' : 'melamine') as DoorFinish,
     has_stone: body.has_stone === '1',
+    has_painting: body.has_painting === '1',
     site_start: date(body.site_start, 'Site start') ?? (s('job_number') ? siteStartFromJobNumber(s('job_number')) : null),
     factory_days: n('factory_days', 2),
     install_days: n('install_days', 3),
@@ -145,7 +146,7 @@ export function routes(): express.Router {
     const input: ProposalInput = { ...values, site_start: values.site_start, added_on: today() };
     const proposal = proposeDates(input, rules, cal);
     // Capacity with this job added, keeping only warnings that involve it.
-    const ghost = { id: -1, job_number: values.job_number, brand: values.brand, client_name: values.client_name || 'This job', suburb: values.suburb, door_finish: values.door_finish, has_stone: values.has_stone, site_start: values.site_start, factory_days: values.factory_days, install_days: values.install_days, status: 'live', at_risk: false };
+    const ghost = { id: -1, job_number: values.job_number, brand: values.brand, client_name: values.client_name || 'This job', suburb: values.suburb, door_finish: values.door_finish, has_painting: values.has_painting, has_stone: values.has_stone, site_start: values.site_start, factory_days: values.factory_days, install_days: values.install_days, status: 'live', at_risk: false };
     const ghostSteps: StepRow[] = proposal.map((p, i) => ({ id: -1 - i, job_id: -1, kind: p.kind, rework_id: null, label: '', start_date: p.start_date, end_date: p.end_date, confirmed: false, owner: '', done_at: null }));
     const clashes = capacity([...all.jobs, ghost], [...all.steps, ...ghostSteps], rules, cal, today()).filter((c) => c.jobIds.includes(-1));
     return { proposal, clashes };
@@ -184,9 +185,9 @@ export function routes(): express.Router {
     const { proposal } = await proposalFor(v);
     const id = await withPerson(me(req).id, async (db) => {
       const job = await db.query(
-        `insert into jobs (job_number, brand, client_name, suburb, scope, door_finish, has_stone, site_start, factory_days, install_days, notes, added_on)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) returning id`,
-        [v.job_number, v.brand, v.client_name, v.suburb, v.scope, v.door_finish, v.has_stone, v.site_start, v.factory_days, v.install_days, v.notes, today()]);
+        `insert into jobs (job_number, brand, client_name, suburb, scope, door_finish, has_painting, has_stone, site_start, factory_days, install_days, notes, added_on)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) returning id`,
+        [v.job_number, v.brand, v.client_name, v.suburb, v.scope, v.door_finish, v.has_painting, v.has_stone, v.site_start, v.factory_days, v.install_days, v.notes, today()]);
       const jobId = job.rows[0].id as number;
       for (const p of proposal ?? []) {
         await db.query(`insert into steps (job_id, kind, start_date, end_date, owner, sort, confirmed) values ($1,$2,$3,$4,$5,$6,false)`,
@@ -218,8 +219,8 @@ export function routes(): express.Router {
     await withPerson(me(req).id, async (db) => {
       await db.query(
         `update jobs set job_number=$2, brand=$3, client_name=$4, suburb=$5, scope=$6, door_finish=$7, has_stone=$8, site_start=$9,
-           factory_days=$10, install_days=$11, status=$12, at_risk=$13, notes=$14 where id=$1`,
-        [id, v.job_number, v.brand, v.client_name, v.suburb, v.scope, v.door_finish, v.has_stone, v.site_start, v.factory_days, v.install_days, v.status, v.at_risk, v.notes]);
+           factory_days=$10, install_days=$11, status=$12, at_risk=$13, notes=$14, has_painting=$15 where id=$1`,
+        [id, v.job_number, v.brand, v.client_name, v.suburb, v.scope, v.door_finish, v.has_stone, v.site_start, v.factory_days, v.install_days, v.status, v.at_risk, v.notes, v.has_painting]);
       await syncStepSet(db, id);
     });
     flash(res, 'Job details saved.');
@@ -392,6 +393,38 @@ export function routes(): express.Router {
     });
     flash(res, 'Rework step added.');
     res.redirect(backTo(req));
+  });
+
+  // ---------- Deleting things added by mistake (Editors) ----------
+
+  r.post('/rework/:id/delete', editor, async (req, res) => {
+    const id = idParam(req);
+    const rw = (await pool.query('select job_id from rework where id = $1', [id])).rows[0];
+    if (!rw) throw new UserError('That rework has already gone.');
+    await withPerson(me(req).id, (db) => db.query('delete from rework where id = $1', [id]));
+    flash(res, 'Rework deleted.');
+    res.redirect(backTo(req, `/jobs/${rw.job_id}#rework`));
+  });
+
+  r.post('/steps/:id/delete', editor, async (req, res) => {
+    const id = idParam(req);
+    const s = (await pool.query('select job_id, kind, label from steps where id = $1', [id])).rows[0];
+    if (!s) throw new UserError('That step has already gone.');
+    if (s.kind !== 'rework' && !s.label) {
+      throw new UserError("Standard steps can't be deleted. Clear their dates instead, or untick Painting or Stone on the job.");
+    }
+    await withPerson(me(req).id, (db) => db.query('delete from steps where id = $1', [id]));
+    flash(res, 'Step removed.');
+    res.redirect(backTo(req, `/jobs/${s.job_id}`));
+  });
+
+  r.post('/jobs/:id/delete', editor, async (req, res) => {
+    const id = idParam(req);
+    const job = (await pool.query('select client_name from jobs where id = $1', [id])).rows[0];
+    if (!job) throw new UserError('That job has already gone.');
+    await withPerson(me(req).id, (db) => db.query('delete from jobs where id = $1', [id]));
+    flash(res, `${job.client_name} deleted. The change log keeps a record of it.`);
+    res.redirect('/jobs');
   });
 
   r.post('/rework/:id/close', editor, async (req, res) => {

@@ -16,12 +16,12 @@ export async function exportWorkbook(): Promise<Buffer> {
     { header: 'Job number', key: 'job_number', width: 12 }, { header: 'Brand', key: 'brand', width: 9 },
     { header: 'Client', key: 'client_name', width: 28 }, { header: 'Suburb', key: 'suburb', width: 18 },
     { header: 'Status', key: 'status', width: 10 }, { header: 'At risk', key: 'at_risk', width: 8 },
-    { header: 'Door finish', key: 'door_finish', width: 13 }, { header: 'Stone', key: 'has_stone', width: 7 },
+    { header: 'Door finish', key: 'door_finish', width: 13 }, { header: 'Painting', key: 'has_painting', width: 9 }, { header: 'Stone', key: 'has_stone', width: 7 },
     { header: 'Site start', key: 'site_start', width: 13, style: { numFmt: DATE_FMT } },
     { header: 'Factory days', key: 'factory_days', width: 12 }, { header: 'Install days', key: 'install_days', width: 12 },
     { header: 'Scope', key: 'scope', width: 50 }, { header: 'Notes', key: 'notes', width: 50 },
   ];
-  for (const j of jobs) js.addRow({ ...j, site_start: asDate(j.site_start), at_risk: j.at_risk ? 'Yes' : '', has_stone: j.has_stone ? 'Yes' : 'No' });
+  for (const j of jobs) js.addRow({ ...j, site_start: asDate(j.site_start), at_risk: j.at_risk ? 'Yes' : '', has_painting: j.has_painting ? 'Yes' : 'No', has_stone: j.has_stone ? 'Yes' : 'No' });
 
   const steps = (await pool.query(
     `select s.*, j.job_number, j.client_name, p.name as done_by_name from steps s join jobs j on j.id = s.job_id

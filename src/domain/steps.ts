@@ -57,10 +57,10 @@ export const BOARD_ROWS: { row: BoardRow; label: string }[] = [
 
 export type DoorFinish = 'melamine' | 'polyurethane';
 
-/** Which standard steps a job has. Painting only for poly, stone only with stone. */
-export function kindsFor(job: { door_finish: DoorFinish; has_stone: boolean }): StepKind[] {
+/** Which standard steps a job has. Painting steps only when the job needs painting, stone steps only with stone. */
+export function kindsFor(job: { has_painting: boolean; has_stone: boolean }): StepKind[] {
   return FLOW.filter((k) => {
-    if ((k === 'doors_to_painting' || k === 'doors_back') && job.door_finish !== 'polyurethane') return false;
+    if ((k === 'doors_to_painting' || k === 'doors_back') && !job.has_painting) return false;
     if ((k === 'stone_measure' || k === 'stone_install') && !job.has_stone) return false;
     return true;
   });
@@ -90,6 +90,7 @@ export interface ProposalInput {
   added_on: Iso;
   site_start: Iso;
   door_finish: DoorFinish;
+  has_painting: boolean;
   has_stone: boolean;
   factory_days: number;
   install_days: number;
@@ -125,13 +126,14 @@ export function proposeDates(job: ProposalInput, rules: Rules, cal: Calendar): P
   const factoryEnd = cal.addWorkingDays(factoryStart, job.factory_days - 1, 'factory');
   put('factory', factoryStart, factoryEnd);
 
-  if (job.door_finish === 'polyurethane') {
+  if (job.has_painting) {
     const out1 = cal.onOrAfter(cal.addWorkingDays(factoryEnd, 1, 'factory'), 'factory');
     put('doors_to_painting', out1);
     put('doors_back', cal.addWorkingDays(out1, r.painting_days));
   }
 
-  const weeks = job.door_finish === 'polyurethane' ? r.install_weeks_poly : r.install_weeks_melamine;
+  // The extra install week on poly jobs is there for painting, so it follows the painting choice.
+  const weeks = job.has_painting ? r.install_weeks_poly : r.install_weeks_melamine;
   const install = cal.span(mondayOf(addDays(job.site_start, weeks * 7)), job.install_days);
   put('delivery', cal.addWorkingDays(install.start, -1));
   put('install', install.start, install.end);

@@ -42,7 +42,7 @@ describe('working days', () => {
 
 describe('proposed dates: the worked example in the approved build plan', () => {
   const cal = new Calendar(NSW_2027);
-  const base = { added_on: '2026-10-28', site_start: '2027-02-01', has_stone: true, factory_days: 2, install_days: 3 };
+  const base = { added_on: '2026-10-28', site_start: '2027-02-01', has_painting: false, has_stone: true, factory_days: 2, install_days: 3 };
 
   it('melamine job 270201', () => {
     expect(byKind(proposeDates({ ...base, door_finish: 'melamine' }, DEFAULT_RULES, cal))).toEqual({
@@ -60,11 +60,18 @@ describe('proposed dates: the worked example in the approved build plan', () => 
   });
 
   it('polyurethane job 270201', () => {
-    const p = byKind(proposeDates({ ...base, door_finish: 'polyurethane' }, DEFAULT_RULES, cal));
+    const p = byKind(proposeDates({ ...base, door_finish: 'polyurethane', has_painting: true }, DEFAULT_RULES, cal));
     expect(p.doors_to_painting).toBe('2027-02-19');
     expect(p.doors_back).toBe('2027-03-05');
     expect(p.delivery).toBe('2027-03-05');
     expect(p.install).toBe('2027-03-08..2027-03-10');
+  });
+
+  it('leaves painting off a job that does not need it, whatever the door finish', () => {
+    const p = byKind(proposeDates({ ...base, door_finish: 'polyurethane', has_painting: false }, DEFAULT_RULES, cal));
+    expect(p.doors_to_painting).toBeUndefined();
+    expect(p.doors_back).toBeUndefined();
+    expect(p.install).toBe('2027-03-01..2027-03-03');
   });
 
   it('leaves stone off a job without stone', () => {

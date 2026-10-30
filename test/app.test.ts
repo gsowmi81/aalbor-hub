@@ -98,6 +98,11 @@ describe('every screen renders', () => {
     const r = await req('GET', '/jobs', 'George');
     for (const name of ['Sean McGing', 'Nick Tesoriero', 'Bathroom Products Australia P/L', 'Wissam, Stage 3 Master wardrobe']) expect(r.text).toContain(name);
   });
+
+  it('imports painting only on the 2-pac jobs, not on Polytec melamine', async () => {
+    const painted = (await pool.query(`select client_name from jobs where has_painting order by client_name`)).rows.map((x) => x.client_name);
+    expect(painted).toEqual(['Jonathan Sheridan', 'Malcolm Patch', 'Melissa Sharpe', 'Nick Tesoriero']);
+  });
 });
 
 describe('Doers and Viewers', () => {
@@ -186,6 +191,60 @@ describe('rework', () => {
     expect(await one('select extra_hours, extra_material_cost from rework where id = $1', [rw.id])).toEqual({ extra_hours: 2.5, extra_material_cost: 80 });
     const page = await req('GET', '/rework', 'Angela');
     expect(page.text).toContain('Door chipped in the factory');
+  });
+});
+
+describe('round 1 changes (George, 30 Oct 2026)', () => {
+  it('sends a checklist tick back to the same item, not the top of the page', async () => {
+    const s = await one(`select s.id, s.job_id from steps s join jobs j on j.id = s.job_id where j.client_name = 'Greg Steven' and s.kind = 'check_measure'`);
+    const page = await req('GET', `/jobs/${s.job_id}`, 'Phil');
+    expect(page.text).toContain(`value="/jobs/${s.job_id}#c-${s.id}"`);
+    const r = await req('POST', `/steps/${s.id}/done`, 'Phil', { done: '1', back: `/jobs/${s.job_id}#c-${s.id}` });
+    expect(r.location).toBe(`/jobs/${s.job_id}#c-${s.id}`);
+  });
+
+  it('makes painting a choice when adding a job', async () => {
+    const base = { action: 'save', suburb: 'Botany', door_finish: 'polyurethane', has_stone: '1', factory_days: '2', install_days: '3', site_start: '2027-02-01' };
+    await req('POST', '/jobs/new', 'George', { ...base, client_name: 'Poly No Paint' });
+    await req('POST', '/jobs/new', 'George', { ...base, client_name: 'Poly With Paint', has_painting: '1' });
+    const kinds = async (name: string) => (await pool.query(
+      `select s.kind from steps s join jobs j on j.id = s.job_id where j.client_name = $1 and s.kind like 'doors%' order by s.kind`, [name])).rows.map((x) => x.kind);
+    expect(await kinds('Poly No Paint')).toEqual([]);
+    expect(await kinds('Poly With Paint')).toEqual(['doors_back', 'doors_to_painting']);
+  });
+
+  it('adds or removes the painting steps when painting is ticked or unticked on a job', async () => {
+    const job = await one(`select * from jobs where client_name = 'Poly No Paint'`);
+    const form = { client_name: job.client_name, suburb: job.suburb, brand: job.brand, door_finish: job.door_finish, has_stone: '1', site_start: job.site_start, factory_days: '2', install_days: '3', status: 'live' };
+    await req('POST', `/jobs/${job.id}/details`, 'George', { ...form, has_painting: '1' });
+    expect((await one(`select count(*)::int as n from steps where job_id = $1 and kind like 'doors%'`, [job.id])).n).toBe(2);
+    await req('POST', `/jobs/${job.id}/details`, 'George', form);
+    expect((await one(`select count(*)::int as n from steps where job_id = $1 and kind like 'doors%'`, [job.id])).n).toBe(0);
+  });
+
+  it('lets an Editor delete a rework raised by mistake, with its steps, and keeps a record', async () => {
+    const job = await one(`select id from jobs where client_name = 'Peter Jones'`);
+    await req('POST', '/rework', 'Phil', { job_id: String(job.id), cause: 'install', note: 'Raised on the wrong job' });
+    const rw = await one(`select id from rework where note = 'Raised on the wrong job'`);
+    await req('POST', `/rework/${rw.id}/steps`, 'George', { label: 'Refit door', start: '2026-11-20' });
+    expect((await req('POST', `/rework/${rw.id}/delete`, 'Phil', {})).status).toBe(403);
+    await req('POST', `/rework/${rw.id}/delete`, 'George', { back: `/jobs/${job.id}#rework` });
+    expect(await one('select 1 from rework where id = $1', [rw.id])).toBeUndefined();
+    expect(await one(`select 1 from steps where rework_id = $1`, [rw.id])).toBeUndefined();
+    const log = await one(`select person_name from change_log where table_name = 'rework' and record_id = $1 and action = 'delete'`, [String(rw.id)]);
+    expect(log.person_name).toBe('George');
+  });
+
+  it("won't delete a standard step, but will delete a job added by mistake", async () => {
+    const s = await one(`select s.id from steps s join jobs j on j.id = s.job_id where j.client_name = 'Poly With Paint' and s.kind = 'install'`);
+    await req('POST', `/steps/${s.id}/delete`, 'George', {});
+    expect(await one('select 1 from steps where id = $1', [s.id])).toBeTruthy();
+    const job = await one(`select id from jobs where client_name = 'Poly With Paint'`);
+    expect((await req('POST', `/jobs/${job.id}/delete`, 'Phil', {})).status).toBe(403);
+    const r = await req('POST', `/jobs/${job.id}/delete`, 'George', {});
+    expect(r.location).toBe('/jobs');
+    expect(await one('select 1 from jobs where id = $1', [job.id])).toBeUndefined();
+    expect((await one(`select count(*)::int as n from change_log where table_name = 'jobs' and record_id = $1 and action = 'delete'`, [String(job.id)])).n).toBe(1);
   });
 });
 

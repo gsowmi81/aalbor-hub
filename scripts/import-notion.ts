@@ -70,13 +70,14 @@ export async function importNotion(log = console.log): Promise<void> {
     for (const sj of snap.jobs) {
       const ops = snap.operations.filter((o) => o.job === sj.key);
       const t = parseTitle(sj.title);
-      const poly = /2-pac|poly/i.test(sj.finish ?? '') || ops.some((o) => o.type.startsWith('Doors '));
+      // "Polytec" is a board brand, not polyurethane: match 2-pac, polyurethane or "poly" as a word.
+      const poly = /2-pac|polyurethane|\bpoly\b/i.test(sj.finish ?? '') || ops.some((o) => o.type.startsWith('Doors '));
       const stone = sj.benchtop === 'Stone' || (sj.benchtop === 'TBC' && ops.some((o) => o.type.startsWith('Stone ')));
       const scope = [sj.scope, sj.finish && sj.finish !== 'TBC' ? `Finishes: ${sj.finish}` : null].filter(Boolean).join('\n');
       const job = await db.query(
-        `insert into jobs (job_number, brand, client_name, suburb, scope, door_finish, has_stone, site_start, status, at_risk, notes, added_on)
-         values ($1, 'Aalbor', $2, $3, $4, $5, $6, $7, 'live', $8, $9, $10) returning id`,
-        [t.job_number, t.client_name, t.suburb, scope, poly ? 'polyurethane' : 'melamine', stone, sj.start, sj.health === 'At risk',
+        `insert into jobs (job_number, brand, client_name, suburb, scope, door_finish, has_painting, has_stone, site_start, status, at_risk, notes, added_on)
+         values ($1, 'Aalbor', $2, $3, $4, $5, $6, $7, $8, 'live', $9, $10, $11) returning id`,
+        [t.job_number, t.client_name, t.suburb, scope, poly ? 'polyurethane' : 'melamine', poly, stone, sj.start, sj.health === 'At risk',
           sj.notes ? `From Notion, ${snap.read_on}: ${sj.notes}` : '', snap.read_on]);
       const jobId = job.rows[0].id as number;
 

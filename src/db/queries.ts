@@ -76,7 +76,7 @@ export async function loadJobHistory(jobId: number, limit = 40): Promise<LogEntr
 
 /** Creates any standard steps the job should have and doesn't, and removes ones it no longer needs (if untouched). */
 export async function syncStepSet(db: Db, jobId: number): Promise<void> {
-  const job = (await db.query('select door_finish, has_stone from jobs where id = $1', [jobId])).rows[0];
+  const job = (await db.query('select has_painting, has_stone from jobs where id = $1', [jobId])).rows[0];
   const want = new Set<StepKind>(kindsFor(job));
   const have = (await db.query(`select id, kind, start_date, done_at from steps where job_id = $1 and kind <> 'rework' and label = ''`, [jobId])).rows;
   const haveKinds = new Set(have.map((s) => s.kind));

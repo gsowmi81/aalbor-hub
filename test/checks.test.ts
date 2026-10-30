@@ -8,7 +8,7 @@ const TODAY = '2026-10-28';
 
 function job(id: number, over: Partial<JobRow> = {}): JobRow {
   return {
-    id, job_number: null, brand: 'Aalbor', client_name: `Client ${id}`, suburb: 'Botany', door_finish: 'melamine',
+    id, job_number: null, brand: 'Aalbor', client_name: `Client ${id}`, suburb: 'Botany', door_finish: 'melamine', has_painting: false,
     has_stone: true, site_start: '2026-10-20', factory_days: 2, install_days: 3, status: 'live', at_risk: false, ...over,
   };
 }
@@ -50,9 +50,9 @@ describe('needs a decision', () => {
 
   it('flags painted doors back after delivery but not on the day', () => {
     const base = [step(1, 'factory', '2026-11-02', '2026-11-03'), step(1, 'install', '2026-11-24', '2026-11-26')];
-    const onDay = needsDecision([job(1, { door_finish: 'polyurethane' })], [...base, step(1, 'doors_back', '2026-11-23'), step(1, 'delivery', '2026-11-23')], [], DEFAULT_RULES, cal, TODAY);
+    const onDay = needsDecision([job(1, { door_finish: 'polyurethane', has_painting: true })], [...base, step(1, 'doors_back', '2026-11-23'), step(1, 'delivery', '2026-11-23')], [], DEFAULT_RULES, cal, TODAY);
     expect(keys(onDay)).not.toContain('chain');
-    const late = needsDecision([job(1, { door_finish: 'polyurethane' })], [...base, step(1, 'doors_back', '2026-11-24'), step(1, 'delivery', '2026-11-23')], [], DEFAULT_RULES, cal, TODAY);
+    const late = needsDecision([job(1, { door_finish: 'polyurethane', has_painting: true })], [...base, step(1, 'doors_back', '2026-11-24'), step(1, 'delivery', '2026-11-23')], [], DEFAULT_RULES, cal, TODAY);
     expect(keys(late)).toContain('chain');
   });
 
@@ -101,7 +101,7 @@ describe('needs a decision', () => {
   });
 
   it('raises a late factory chain once, not twice, as on Patch', () => {
-    const d = needsDecision([job(1, { door_finish: 'polyurethane' })], [
+    const d = needsDecision([job(1, { door_finish: 'polyurethane', has_painting: true })], [
       step(1, 'doors_back', '2026-11-06'),
       step(1, 'delivery', '2026-10-30'),
       step(1, 'install', '2026-11-02', '2026-11-06'),

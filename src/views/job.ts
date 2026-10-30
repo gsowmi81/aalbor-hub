@@ -44,12 +44,20 @@ function dateInputs(s: Step, editor: boolean, today: Iso): Html {
   </div>`;
 }
 
+/** A delete that asks once more on the page itself (the viewer can't show confirm dialogs). */
+function confirmDelete(action: string, back: string, label: string, warning: string): Html {
+  return html`<details class="pop"><summary class="btn small danger">${label}</summary>
+    <form class="popbody" method="post" action="${action}"><input type="hidden" name="back" value="${back}">
+      <span class="small">${warning}</span>
+      <div class="acts"><button class="btn small danger" type="submit">Yes, delete</button></div></form></details>`;
+}
+
 function checkRow(s: Step, person: Person, back: string): Html {
   const on = !!s.done_at;
   const canTick = can(person, 'doer');
   const row = html`<span class="box" aria-hidden="true">${on ? '✓' : ''}</span><span class="l">${stepLabel(s)}</span><span class="muted small">${s.start_date ? fmtShort(lastDate(s)!) : ''} · ${s.owner || KINDS[s.kind].owner}</span>`;
   if (!canTick) return html`<button class="check${on ? ' on' : ''}" type="button" disabled aria-pressed="${on}">${row}</button>`;
-  return html`<form method="post" action="/steps/${s.id}/done"><input type="hidden" name="done" value="${on ? '0' : '1'}"><input type="hidden" name="back" value="${back}">
+  return html`<form method="post" action="/steps/${s.id}/done" id="c-${s.id}"><input type="hidden" name="done" value="${on ? '0' : '1'}"><input type="hidden" name="back" value="${back.split('#')[0]}#c-${s.id}">
     <button class="check${on ? ' on' : ''}" type="submit" aria-pressed="${on}" aria-label="${stepLabel(s)}: ${on ? 'done, tap to untick' : 'tap when done'}">${row}</button></form>`;
 }
 
@@ -69,6 +77,7 @@ export function jobPage(d: JobPageData): Html {
   if (job.status !== 'live') pills.push(html`<span class="pill">${STATUS[job.status]}</span>`);
   if (job.at_risk) pills.push(html`<span class="pill warn">At risk</span>`);
   pills.push(html`<span class="pill">${job.door_finish === 'polyurethane' ? 'Polyurethane' : 'Melamine'}</span>`);
+  pills.push(html`<span class="pill">${job.has_painting ? 'Painting' : 'No painting'}</span>`);
   pills.push(html`<span class="pill">${job.has_stone ? 'Stone' : 'No stone'}</span>`);
   pills.push(html`<span class="pill">${job.brand}</span>`);
   for (const x of d.decisions.slice(0, 3)) pills.push(html`<span class="pill over">${x.fact}</span>`);
@@ -141,7 +150,7 @@ function reworkPanel(d: JobPageData, rwSteps: Step[]): Html {
       return html`<div class="item stack">
         <div><strong>${r.cause ? cap(r.cause) : 'Cause not recorded'}</strong> · ${r.note}</div>
         <div class="muted small">Raised by ${r.raised_by_name ?? 'unknown'} on ${fmtLong(sydneyDate(r.raised_at))}${r.closed_on ? ` · closed ${fmtLong(r.closed_on)} · ${r.extra_hours ?? 0} extra hours · $${(r.extra_material_cost ?? 0).toFixed(2)} extra material` : ''}</div>
-        ${steps.map((s) => checkRow(s, d.person, back))}
+        ${steps.map((s) => html`${checkRow(s, d.person, back)}${editor ? html`<div class="acts" style="justify-content:flex-end">${confirmDelete(`/steps/${s.id}/delete`, back, 'Remove step', `Remove "${stepLabel(s)}" from this rework?`)}</div>` : ''}`)}
         ${steps.length ? '' : html`<span class="nodate small">No dates yet</span>`}
         ${editor && !r.closed_on ? html`<details class="pop"><summary class="btn small">Add a dated step</summary>
           <form class="popbody" method="post" action="/rework/${r.id}/steps"><input type="hidden" name="back" value="${back}">
@@ -155,6 +164,7 @@ function reworkPanel(d: JobPageData, rwSteps: Step[]): Html {
             <label class="f">Extra hours<input name="extra_hours" inputmode="decimal" required pattern="[0-9]+([.][0-9])?"></label>
             <label class="f">Extra material $<input name="extra_material_cost" inputmode="decimal" required pattern="[0-9]+([.][0-9]{1,2})?"></label></div>
             <div class="acts"><button class="btn primary" type="submit">Close rework</button></div></form></details>` : ''}
+        ${editor ? confirmDelete(`/rework/${r.id}/delete`, back, 'Delete this rework', `Delete this rework and its ${steps.length} dated ${steps.length === 1 ? 'step' : 'steps'}? Use this for rework raised by mistake. The change log keeps a record.`) : ''}
       </div>`;
     })}
     ${can(d.person, 'doer') ? raiseForm(d.job.id, back) : ''}
@@ -182,9 +192,10 @@ export function jobFields(j: Partial<FullJob>, opts: { forNew?: boolean } = {}):
     <label class="f">Brand<select name="brand">${['Aalbor', 'Origin'].map((b) => html`<option${j.brand === b ? html` selected` : ''}>${b}</option>`)}</select></label>
     <label class="f">Door finish<select name="door_finish">
       <option value="melamine"${j.door_finish !== 'polyurethane' ? html` selected` : ''}>Melamine</option>
-      <option value="polyurethane"${j.door_finish === 'polyurethane' ? html` selected` : ''}>Polyurethane (painted)</option></select></label>
+      <option value="polyurethane"${j.door_finish === 'polyurethane' ? html` selected` : ''}>Polyurethane</option></select></label>
     <label class="f">Factory days<input name="factory_days" type="number" min="1" max="30" required value="${v(j.factory_days ?? 2)}"></label>
     <label class="f">Install days<input name="install_days" type="number" min="1" max="30" required value="${v(j.install_days ?? 3)}"></label>
+    <label class="checkline"><input type="checkbox" name="has_painting" value="1"${j.has_painting ? html` checked` : ''} data-painting> Painting needed (adds Doors to painting and Doors back)</label>
     <label class="checkline"><input type="checkbox" name="has_stone" value="1"${j.has_stone !== false ? html` checked` : ''}> Stone benchtops</label>
     ${opts.forNew ? '' : html`<label class="f">Status<select name="status">${Object.entries(STATUS).map(([k, l]) => html`<option value="${k}"${j.status === k ? html` selected` : ''}>${l}</option>`)}</select></label>
     <label class="checkline"><input type="checkbox" name="at_risk" value="1"${j.at_risk ? html` checked` : ''}> At risk</label>`}
@@ -199,13 +210,16 @@ function detailsPanel(job: FullJob): Html {
     <form method="post" action="/jobs/${job.id}/details" class="stack" style="padding-top:12px">
       ${jobFields(job)}
       <div class="acts"><button class="btn primary" type="submit">Save details</button></div>
-      <span class="muted small">Changing door finish or stone adds or removes the painting and stone steps.</span>
-    </form></details></section>`;
+      <span class="muted small">Ticking or unticking Painting or Stone adds or removes those steps. Steps already ticked done are kept.</span>
+    </form>
+    <div style="padding-top:16px;margin-top:12px;border-top:1px solid var(--line)">
+      ${confirmDelete(`/jobs/${job.id}/delete`, '/jobs', 'Delete this job', `Delete ${job.client_name} and every date and rework on it? Use this only for a job added by mistake; for a finished or lost job, set Status instead. The change log keeps a record.`)}
+    </div></details></section>`;
 }
 
 const FIELD_NAMES: Record<string, string> = {
   start_date: 'from', end_date: 'to', confirmed: 'confirmed', done_at: 'done', owner: 'owner', note: 'note', label: 'name',
-  job_number: 'job number', client_name: 'client', suburb: 'suburb', scope: 'scope', door_finish: 'door finish', has_stone: 'stone',
+  job_number: 'job number', client_name: 'client', suburb: 'suburb', scope: 'scope', door_finish: 'door finish', has_painting: 'painting', has_stone: 'stone',
   site_start: 'site start', factory_days: 'factory days', install_days: 'install days', status: 'status', at_risk: 'at risk',
   notes: 'notes', brand: 'brand', cause: 'cause', closed_on: 'closed', extra_hours: 'extra hours', extra_material_cost: 'extra material $',
 };
