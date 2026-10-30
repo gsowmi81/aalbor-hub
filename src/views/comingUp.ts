@@ -42,11 +42,14 @@ export function brandSeg(base: string, brand: string, extra = ''): Html {
     html`<a href="${base}?brand=${v}${extra}"${brand === v ? html` aria-current="true"` : ''}>${l}</a>`)}</div>`;
 }
 
-function chip(s: StepRow, job: JobRow, opts: { prefix?: string; suffix?: string; style?: string; today: Iso }): Html {
+function chip(s: StepRow, job: JobRow, opts: { prefix?: string; suffix?: string; style?: string; today: Iso; movable?: boolean }): Html {
   const label = `${opts.prefix ?? ''}${stepLabel(s)}${opts.suffix ?? ''}`;
   const over = !s.done_at && lastDate(s)! < opts.today;
-  const cls = ['chip', `lane-${KINDS[s.kind].row}`, s.confirmed ? '' : 'prov', s.done_at ? 'done' : ''].filter(Boolean).join(' ');
-  return html`<a class="${cls}" href="/jobs/${job.id}"${opts.style ? html` style="${opts.style}"` : ''} title="${s.confirmed ? 'Confirmed' : 'Provisional'}${s.done_at ? ', done' : ''}">
+  // Editors drag a card sideways to another day (George, 31 Oct 2026); a tap still opens the job.
+  const movable = !!opts.movable && !s.done_at && !!s.start_date;
+  const cls = ['chip', `lane-${KINDS[s.kind].row}`, s.confirmed ? '' : 'prov', s.done_at ? 'done' : '', movable ? 'drag' : ''].filter(Boolean).join(' ');
+  const drag = movable ? html` data-step="${s.id}" data-job="${job.id}" draggable="false"` : '';
+  return html`<a class="${cls}" href="/jobs/${job.id}"${opts.style ? html` style="${opts.style}"` : ''}${drag} title="${s.confirmed ? 'Confirmed' : 'Provisional'}${s.done_at ? ', done' : ''}${movable ? '. Drag sideways to move it to another day.' : ''}">
     <strong>${jobTitle(job)}</strong><span>${label}</span><span>${s.owner || KINDS[s.kind].owner}${over ? html` · <span class="flag">Overdue</span>` : ''}${s.done_at ? ' · Done' : ''}</span></a>`;
 }
 
@@ -58,6 +61,7 @@ function reworkCard(r: ReworkRow, job: JobRow, span: boolean): Html {
 
 export function comingUp(d: ComingUpData): Html {
   const jobById = new Map(d.jobs.map((j) => [j.id, j]));
+  const editor = can(d.person, 'editor');
   const liveJobs = d.jobs.filter((j) => j.status === 'live' && (d.brand === 'all' || j.brand === d.brand));
   const live = new Set(liveJobs.map((j) => j.id));
   const mon = addDays(mondayOf(d.today), d.week * 7);
@@ -108,6 +112,7 @@ export function comingUp(d: ComingUpData): Html {
         prefix: f < mon ? '← ' : '',
         suffix: (t > fri ? ' →' : '') + weekend,
         style: `grid-column:${col(f) + 1} / ${col(t) + 2}`,
+        movable: editor,
       });
     });
     const extra = r.row === 'rework' ? undatedRework.map((x) => reworkCard(x, jobById.get(x.job_id)!, true)) : [];
@@ -125,7 +130,7 @@ export function comingUp(d: ComingUpData): Html {
       ${BOARD_ROWS.map((r) => list.filter((s) => KINDS[s.kind].row === r.row).map((s) => {
         const t = lastDate(s)!;
         const suffix = (t > day ? ` (to ${fmtShort(t)})` : '') + (s.start_date! < mon ? ', continuing' : '') + (s.start_date! > fri ? ` (${fmtShort(s.start_date!)})` : '');
-        return html`<div class="lane-${r.row}" style="display:flex;flex-direction:column;gap:3px"><span class="lanelabel">${r.label}</span>${chip(s, jobById.get(s.job_id)!, { today: d.today, suffix })}</div>`;
+        return html`<div class="lane-${r.row}" style="display:flex;flex-direction:column;gap:3px"><span class="lanelabel">${r.label}</span>${chip(s, jobById.get(s.job_id)!, { today: d.today, suffix })}${editor && !s.done_at ? html`<a class="small" href="/jobs/${s.job_id}/reschedule?step=${s.id}" style="align-self:flex-end">Move…</a>` : ''}</div>`;
       }))}
     </div></div>`;
   });
@@ -151,7 +156,8 @@ export function comingUp(d: ComingUpData): Html {
       </div>
     </div>
     ${legend()}
-    <div class="board">${board}</div>
+    ${editor ? html`<p class="muted small board-hint">Drag a card sideways to move it to another day. The next screen shows what happens to the rest of the job before anything saves.</p>` : ''}
+    <div class="board"${editor ? html` data-dragdays` : ''}>${board}</div>
     <div class="agenda">${agenda}</div>
   </section>
 

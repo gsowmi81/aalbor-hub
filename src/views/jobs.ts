@@ -48,7 +48,7 @@ export function allJobs(d: { jobs: JobRow[]; steps: StepRow[]; decisions: Decisi
       const z = s.kind === 'stone_measure' || s.kind === 'stone_install' || s.kind === 'delivery' ? 3 : 2;
       const title = `${stepLabel(s)} ${fmtShort(f)}${s.end_date ? ` to ${fmtShort(s.end_date)}` : ''}${s.confirmed ? '' : ' (provisional)'}${s.done_at ? ', done' : ''}`;
       // Editors drag a bar to move it (mouse), or tap it (phone): both open the Reschedule screen.
-      const movable = d.canMove && !s.done_at && s.kind !== 'rework';
+      const movable = d.canMove && !s.done_at;
       const drag = movable
         ? html` data-step="${s.id}" data-job="${s.job_id}" data-start="${f}" tabindex="0" role="button" aria-label="Move ${stepLabel(s)}, ${title}"`
         : '';

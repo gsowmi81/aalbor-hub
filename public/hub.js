@@ -58,6 +58,50 @@
     });
   }
 
+  // Coming up week board (Editors): drag a card sideways to another day. Day columns are
+  // working days, so the move is sent as working days (wd). A tap still opens the job.
+  var board = document.querySelector('.board[data-dragdays]');
+  if (board) {
+    board.querySelectorAll('.chip.drag').forEach(function (chip) {
+      var x0 = null, y0 = 0, pid = null, moved = 0, colPx = 0, dragging = false, badge = null, swallowClick = false;
+      var reset = function () {
+        x0 = null; dragging = false; chip.style.transform = ''; chip.classList.remove('dragging');
+        if (badge) { badge.remove(); badge = null; }
+      };
+      chip.addEventListener('pointerdown', function (e) {
+        if (e.button !== 0) return;
+        x0 = e.clientX; y0 = e.clientY; pid = e.pointerId; moved = 0; dragging = false;
+        colPx = chip.parentElement.getBoundingClientRect().width / 5;
+      });
+      chip.addEventListener('pointermove', function (e) {
+        if (x0 === null) return;
+        var dx = e.clientX - x0, dy = e.clientY - y0;
+        if (!dragging) {
+          if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) { x0 = null; return; } // scrolling, not dragging
+          if (Math.abs(dx) < 8) return;
+          dragging = true;
+          try { chip.setPointerCapture(pid); } catch (err) {}
+          chip.classList.add('dragging');
+          badge = document.createElement('span'); badge.className = 'shift-badge'; chip.appendChild(badge);
+        }
+        e.preventDefault();
+        moved = Math.round(dx / colPx);
+        chip.style.transform = 'translateX(' + dx + 'px)';
+        badge.textContent = moved === 0 ? 'Same day' : (moved > 0 ? '+' : '') + moved + ' working ' + (Math.abs(moved) === 1 ? 'day' : 'days');
+      });
+      chip.addEventListener('pointerup', function () {
+        if (x0 === null) return;
+        var was = dragging, n = moved;
+        if (!was) { x0 = null; return; } // a plain tap: let the link open the job
+        swallowClick = true;
+        if (n === 0) { reset(); return; }
+        location.href = '/jobs/' + chip.getAttribute('data-job') + '/reschedule?step=' + chip.getAttribute('data-step') + '&wd=' + n;
+      });
+      chip.addEventListener('pointercancel', reset);
+      chip.addEventListener('click', function (e) { if (swallowClick) { e.preventDefault(); swallowClick = false; } }, true);
+    });
+  }
+
   // Job picker: open the job as soon as one is chosen.
   document.querySelectorAll('select[data-autosubmit]').forEach(function (s) {
     s.addEventListener('change', function () { s.form.submit(); });

@@ -318,6 +318,12 @@ export function routes(): express.Router {
     let newStart = date(req.query.start, 'New date') ?? moved.start_date ?? today();
     // A drag on the timeline lands on calendar days; settle it on a working day for that step.
     if (req.query.snap === '1') newStart = cal.onOrAfter(newStart, KINDS[moved.kind].scope);
+    // A drag on the Coming up board moves by whole day columns, which are working days.
+    const wd = Number(req.query.wd);
+    if (req.query.wd !== undefined && Number.isInteger(wd) && wd !== 0 && moved.start_date) {
+      const scope = KINDS[moved.kind].scope;
+      newStart = cal.addWorkingDays(cal.onOrAfter(moved.start_date, scope), Math.max(-60, Math.min(60, wd)), scope);
+    }
     const newEnd = date(req.query.end, 'To');
     const next = applyChanges(rows, reschedule(rows, moved.id, newStart, newEnd, mode, cal)) as typeof rows;
     const body = reschedulePage({ job, rows, next, moved, newStart, newEnd, mode, violations: violations(next, cal), cal });

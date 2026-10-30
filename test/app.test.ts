@@ -252,6 +252,23 @@ describe('rescheduling (George, 30 Oct 2026)', () => {
     expect(home.text).toContain("Delivery can&#39;t start before");
   });
 
+  it('lets Editors drag cards on the Coming up board, by working days (George, 31 Oct 2026)', async () => {
+    const board = await req('GET', '/?week=0', 'George');
+    expect(board.text).toContain('data-dragdays');
+    expect(board.text).toMatch(/class="chip [^"]*drag"/);
+    for (const who of ['Phil', 'Angela']) {
+      const r = await req('GET', '/', who);
+      expect(r.text).not.toContain('data-dragdays');
+      expect(r.text).not.toMatch(/class="chip [^"]*drag"/);
+    }
+    // Dragging Steven's check measure (Thu 12 Nov) two columns right means two working days: Mon 16 Nov.
+    const job = await one(`select id from jobs where client_name = 'Greg Steven'`);
+    const cm = await one(`select id, start_date from steps where job_id = $1 and kind = 'check_measure'`, [job.id]);
+    expect(cm.start_date).toBe('2026-11-12');
+    const page = await req('GET', `/jobs/${job.id}/reschedule?step=${cm.id}&wd=2`, 'George');
+    expect(page.text).toContain(`name="start" value="2026-11-16"`);
+  });
+
   it('is for Editors only', async () => {
     const job = await one(`select id from jobs where client_name = 'Greg Steven'`);
     const del = await one(`select id from steps where job_id = $1 and kind = 'delivery'`, [job.id]);
