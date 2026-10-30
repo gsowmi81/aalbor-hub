@@ -12,7 +12,7 @@ const SHOWN: StepKind[] = ['contract_drafting', 'check_measure', 'production_dra
 
 const pct = (d: number) => `${((d / N) * 100).toFixed(3)}%`;
 
-export function allJobs(d: { jobs: JobRow[]; steps: StepRow[]; decisions: Decision[]; today: Iso; brand: string }): Html {
+export function allJobs(d: { jobs: JobRow[]; steps: StepRow[]; decisions: Decision[]; today: Iso; brand: string; canMove: boolean }): Html {
   const start = addDays(mondayOf(d.today), -7);
   const end = addDays(start, N - 1);
   const live = d.jobs.filter((j) => j.status === 'live' && (d.brand === 'all' || j.brand === d.brand));
@@ -47,7 +47,12 @@ export function allJobs(d: { jobs: JobRow[]; steps: StepRow[]; decisions: Decisi
       const top = BOTTOM.includes(s.kind) ? 25 : 5;
       const z = s.kind === 'stone_measure' || s.kind === 'stone_install' || s.kind === 'delivery' ? 3 : 2;
       const title = `${stepLabel(s)} ${fmtShort(f)}${s.end_date ? ` to ${fmtShort(s.end_date)}` : ''}${s.confirmed ? '' : ' (provisional)'}${s.done_at ? ', done' : ''}`;
-      return html`<div class="${cls}" title="${title}" style="top:${top}px;left:${pct(daysBetween(start, cf))};width:${pct(daysBetween(cf, ct) + 1)};background:var(--m-${KINDS[s.kind].code.toLowerCase()});z-index:${z}">${lab}</div>`;
+      // Editors drag a bar to move it (mouse), or tap it (phone): both open the Reschedule screen.
+      const movable = d.canMove && !s.done_at && s.kind !== 'rework';
+      const drag = movable
+        ? html` data-step="${s.id}" data-job="${s.job_id}" data-start="${f}" tabindex="0" role="button" aria-label="Move ${stepLabel(s)}, ${title}"`
+        : '';
+      return html`<div class="${cls}${movable ? ' drag' : ''}" title="${title}${movable ? '. Drag to move, or tap.' : ''}" style="top:${top}px;left:${pct(daysBetween(start, cf))};width:${pct(daysBetween(cf, ct) + 1)};background:var(--m-${KINDS[s.kind].code.toLowerCase()});z-index:${z}"${drag}>${lab}</div>`;
     });
     const issue = firstIssue.get(j.id);
     const none = !(byJob.get(j.id) ?? []).some((s) => s.start_date);
@@ -64,7 +69,7 @@ export function allJobs(d: { jobs: JobRow[]; steps: StepRow[]; decisions: Decisi
     <span><i class="mk over">!</i>Overdue</span><span><i class="mk done">IN</i>Done</span>
   </div>`;
 
-  return html`<div class="row"><div class="muted">Every live job from ${fmtShort(start)} to ${fmtShort(end)}, sorted by install. Tap a job name to open it. Orange means a date has passed and nobody ticked it. Scroll sideways on a phone.</div>${brandSeg('/jobs', d.brand)}</div>
+  return html`<div class="row"><div class="muted">Every live job from ${fmtShort(start)} to ${fmtShort(end)}, sorted by install. Tap a job name to open it. Orange means a date has passed and nobody ticked it. Scroll sideways on a phone.${d.canMove ? ' Drag a bar to move it, or tap it to pick a date; the next screen shows what happens to the rest of the job before anything saves.' : ''}</div>${brandSeg('/jobs', d.brand)}</div>
   ${legend}
-  <div class="tl-box"><div class="tl">${head}${rows}</div></div>`;
+  <div class="tl-box"><div class="tl" data-days="${N}">${head}${rows}</div></div>`;
 }

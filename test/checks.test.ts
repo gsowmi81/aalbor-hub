@@ -44,16 +44,17 @@ describe('needs a decision', () => {
       step(1, 'delivery', '2026-11-09'),
       step(1, 'install', '2026-11-10', '2026-11-12'),
     ], [], DEFAULT_RULES, cal, TODAY);
-    expect(keys(d)).toContain('chain');
-    expect(d.find((x) => x.key.endsWith('chain'))!.fact).toBe('Cut, edge and assemble finishes Wed 11 Nov, but delivery is Mon 09 Nov.');
+    expect(keys(d)).toEqual(['dep:factory:delivery']);
+    expect(d[0].fact).toBe('Delivery is on Mon 09 Nov, but Cut, edge and assemble runs to Wed 11 Nov.');
+    expect(d[0].ask).toBe("Delivery can't start before Wed 11 Nov. Reschedule it, or OK it as is.");
   });
 
   it('flags painted doors back after delivery but not on the day', () => {
     const base = [step(1, 'factory', '2026-11-02', '2026-11-03'), step(1, 'install', '2026-11-24', '2026-11-26')];
     const onDay = needsDecision([job(1, { door_finish: 'polyurethane', has_painting: true })], [...base, step(1, 'doors_back', '2026-11-23'), step(1, 'delivery', '2026-11-23')], [], DEFAULT_RULES, cal, TODAY);
-    expect(keys(onDay)).not.toContain('chain');
+    expect(keys(onDay)).toEqual([]);
     const late = needsDecision([job(1, { door_finish: 'polyurethane', has_painting: true })], [...base, step(1, 'doors_back', '2026-11-24'), step(1, 'delivery', '2026-11-23')], [], DEFAULT_RULES, cal, TODAY);
-    expect(keys(late)).toContain('chain');
+    expect(keys(late)).toEqual(['dep:doors_back:delivery']);
   });
 
   it('flags steps out of order, as on Bathroom Products', () => {
@@ -62,7 +63,7 @@ describe('needs a decision', () => {
       step(1, 'production_drawings', '2026-10-27', '2026-10-28'),
       step(1, 'install', '2026-12-10', '2026-12-11'),
     ], [], DEFAULT_RULES, cal, TODAY);
-    expect(keys(d)).toContain('order:check_measure:production_drawings');
+    expect(keys(d)).toContain('dep:check_measure:production_drawings');
   });
 
   it('flags a weekend stone install, as on Tesoriero', () => {
@@ -106,7 +107,7 @@ describe('needs a decision', () => {
       step(1, 'delivery', '2026-10-30'),
       step(1, 'install', '2026-11-02', '2026-11-06'),
     ], [], DEFAULT_RULES, cal, TODAY);
-    expect(keys(d)).toEqual(['chain']);
+    expect(keys(d)).toEqual(['dep:doors_back:delivery']);
   });
 
   it('says nothing about a tidy job', () => {

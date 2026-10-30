@@ -3,6 +3,7 @@
 
 import { Calendar, fmtShort, Iso, mondayOf, addDays, fmtRange } from './dates.js';
 import { KINDS, Rules, DEFAULT_RULES, StepKind, FLOW } from './steps.js';
+import { PlanRow, violations } from './schedule.js';
 
 export interface JobRow {
   id: number;
@@ -131,48 +132,21 @@ export function needsDecision(
       });
     }
 
-    // The factory chain finishes after delivery (or after the install starts if there's no delivery).
-    const delivery = std.get('delivery');
-    const needBy = delivery?.start_date ?? install?.start_date;
-    let chainRaised = false;
-    if (needBy && !(install?.done_at)) {
-      const chain = (['factory', 'doors_back'] as StepKind[])
-        .map((k) => open(k))
-        .filter((s): s is StepRow => !!s && !!s.start_date);
-      const latest = chain.map((s) => ({ s, d: lastDate(s)! })).sort((a, b) => b.d.localeCompare(a.d))[0];
-      if (latest && latest.d > needBy) {
-        const what = delivery?.start_date ? `delivery is ${fmtShort(needBy)}` : `install starts ${fmtShort(needBy)}`;
-        out.push({
-          key: `job:${j.id}:chain`, jobId: j.id, title,
-          fact: `${stepLabel(latest.s)} finishes ${fmtShort(latest.d)}, but ${what}.`,
-          ask: 'Bring the factory forward, or move delivery and install.',
-          okText: `Kept as is`,
-          fields: [latest.s, delivery, install].filter((s): s is StepRow => !!s).map(field),
-          fingerprint: fp([latest.d, needBy]),
-        });
-        chainRaised = true;
-      }
-    }
-
-    // Steps out of order. Materials are often ordered early on purpose, so ordering is left out.
-    // If the factory chain is already flagged above, its clash with delivery isn't raised twice.
-    const chainKinds: StepKind[] = ['factory', 'doors_to_painting', 'doors_back'];
-    const dated = FLOW.filter((k) => k !== 'materials_ordered').map((k) => open(k)).filter((s): s is StepRow => !!s && !!s.start_date);
-    for (let i = 0; i < dated.length - 1; i++) {
-      const a = dated[i];
-      const b = dated[i + 1];
-      if (chainRaised && chainKinds.includes(a.kind) && (b.kind === 'delivery' || b.kind === 'install')) continue;
-      const bad = a.kind === 'delivery' || b.kind === 'delivery' ? lastDate(a)! > b.start_date! : a.start_date! > b.start_date!;
-      if (bad) {
-        out.push({
-          key: `job:${j.id}:order:${a.kind}:${b.kind}`, jobId: j.id, title,
-          fact: `${stepLabel(a)} (${fmtRange(a.start_date, a.end_date)}) is dated after ${stepLabel(b)} (${fmtRange(b.start_date, b.end_date)}).`,
-          ask: 'Which comes first?',
-          okText: 'Kept in this order',
-          fields: [field(a), field(b)],
-          fingerprint: fp([a.start_date, a.end_date, b.start_date, b.end_date]),
-        });
-      }
+    // Dependency rules (schedule.ts): a step dated before something it has to wait for.
+    // Hard rules only (materials ordered early is fine), one item per broken rule. Saving
+    // dates with "Move anyway" lands here, so an override stays visible until it's fixed or OK'd.
+    const planRows: PlanRow[] = js.map((s) => ({ id: s.id, kind: s.kind, label: s.label, start_date: s.start_date, end_date: s.end_date, done: !!s.done_at, confirmed: s.confirmed }));
+    for (const v of violations(planRows, cal).filter((x) => x.dep.hard)) {
+      const a = js.find((s) => s.id === v.pred.id)!;
+      const b = js.find((s) => s.id === v.succ.id)!;
+      out.push({
+        key: `job:${j.id}:dep:${a.kind}:${b.kind}`, jobId: j.id, title,
+        fact: `${stepLabel(b)} is on ${fmtShort(b.start_date!)}, but ${stepLabel(a)} ${a.end_date ? 'runs to' : 'is on'} ${fmtShort(lastDate(a)!)}.`,
+        ask: `${stepLabel(b)} can't start before ${fmtShort(v.earliest)}. Reschedule it, or OK it as is.`,
+        okText: 'Kept as is (override)',
+        fields: [field(a), field(b)],
+        fingerprint: fp([a.start_date, a.end_date, b.start_date, b.end_date]),
+      });
     }
 
     // Stone install too long after stone measure.

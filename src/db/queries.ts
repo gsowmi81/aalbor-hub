@@ -1,6 +1,7 @@
 // Reads. Everyone signed in can read everything, so reads use the pool directly;
 // every write goes through withPerson() so the database checks the role.
-import { pool, Db } from './pool.js';
+import { pool, Db, withPerson } from './pool.js';
+import type { PlanRow, Template } from '../domain/schedule.js';
 import { Calendar, BlockedDay } from '../domain/dates.js';
 import type { JobRow, ReworkRow, StepRow } from '../domain/checks.js';
 import { DEFAULT_RULES, FLOW, kindsFor, Rules, StepKind, KINDS } from '../domain/steps.js';
@@ -88,4 +89,44 @@ export async function syncStepSet(db: Db, jobId: number): Promise<void> {
   for (const s of have) {
     if (!want.has(s.kind) && !s.done_at) await db.query('delete from steps where id = $1', [s.id]);
   }
+}
+
+// ---------- Templates and scheduling ----------
+
+export async function loadTemplates(): Promise<Template[]> {
+  return (await pool.query('select * from job_templates order by sort, name')).rows;
+}
+
+/** A job's template, or for jobs from before templates, the one matching its painting choice. */
+export async function templateFor(job: { template?: string | null; has_painting: boolean }): Promise<Template> {
+  const all = await loadTemplates();
+  return all.find((t) => t.key === job.template) ?? all.find((t) => t.has_painting === job.has_painting) ?? all[0];
+}
+
+export async function loadPlanRows(jobId: number): Promise<(PlanRow & { owner: string })[]> {
+  return (await pool.query(
+    `select id, kind, label, start_date, end_date, done_at is not null as done, confirmed, owner from steps where job_id = $1 order by sort, id`,
+    [jobId],
+  )).rows;
+}
+
+// ---------- Owners only ----------
+
+export interface Responsible {
+  rework_id: number;
+  responsible: string;
+  note: string;
+  set_by_name: string | null;
+  set_at: string;
+}
+
+/**
+ * Who was responsible for each rework. Read as the signed-in person, so Postgres's
+ * row-level security decides: an owner gets the rows, anyone else gets none.
+ */
+export async function loadResponsible(personId: number): Promise<Map<number, Responsible>> {
+  const rows = await withPerson(personId, async (db) => (await db.query(
+    `select r.rework_id, r.responsible, r.note, r.set_at, p.name as set_by_name
+       from rework_responsible r left join people p on p.id = r.set_by`)).rows as Responsible[]);
+  return new Map(rows.map((r) => [r.rework_id, r]));
 }

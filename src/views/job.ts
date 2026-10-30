@@ -3,7 +3,8 @@ import { fmtLong, fmtRange, fmtShort, Iso, sydneyDate } from '../domain/dates.js
 import { KINDS, StepKind, FLOW } from '../domain/steps.js';
 import { Decision, jobTitle, lastDate, nextUp, StepRow, stepLabel } from '../domain/checks.js';
 import { can, Person } from '../web/auth.js';
-import type { FullJob, LogEntry, ReworkFull } from '../db/queries.js';
+import type { FullJob, LogEntry, ReworkFull, Responsible } from '../db/queries.js';
+import { ANCHORS, AnchorKind, Template } from '../domain/schedule.js';
 import { decisionFields } from './comingUp.js';
 
 export const CAUSES = ['drafting', 'measure', 'factory', 'install', 'supplier', 'client change'] as const;
@@ -19,6 +20,10 @@ export interface JobPageData {
   list: { id: number; job_number: string | null; client_name: string; suburb: string; status: string }[];
   decisions: Decision[];
   history: LogEntry[];
+  templates: Template[];
+  /** Owners only: who was responsible for each rework. Empty for everyone else. */
+  responsible: Map<number, Responsible>;
+  peopleNames: string[];
 }
 
 const STATUS = { live: 'Live', on_hold: 'On hold', complete: 'Complete', cancelled: 'Cancelled' } as Record<string, string>;
@@ -39,7 +44,7 @@ function dateInputs(s: Step, editor: boolean, today: Iso): Html {
     ${k.range
       ? html`<div class="pair"><input id="${id}" type="date" name="start_${s.id}" value="${s.start_date ?? ''}" aria-label="${stepLabel(s)} from"><input type="date" name="end_${s.id}" value="${s.end_date ?? ''}" aria-label="${stepLabel(s)} to"></div>`
       : html`<input id="${id}" type="date" name="start_${s.id}" value="${s.start_date ?? ''}">`}
-    <div class="nice"><span>${nice}${over ? html` · <span class="nodate">overdue</span>` : ''}${s.done_at && s.start_date ? ' · done' : ''}</span>
+    <div class="nice"><span>${nice}${over ? html` · <span class="nodate">overdue</span>` : ''}${s.done_at && s.start_date ? ' · done' : ''}${!s.done_at ? html` · <a href="/jobs/${s.job_id}/reschedule?step=${s.id}">Move…</a>` : ''}</span>
       <label><input type="checkbox" name="confirmed_${s.id}" value="1"${s.confirmed ? html` checked` : ''}> Confirmed</label></div>
   </div>`;
 }
@@ -134,7 +139,7 @@ export function jobPage(d: JobPageData): Html {
   </section>
 
   ${reworkPanel(d, rw)}
-  ${editor ? detailsPanel(job) : html`<section class="panel"><h2>Notes</h2><p>${job.notes || 'No notes.'}</p></section>`}
+  ${editor ? detailsPanel(job, d.templates) : html`<section class="panel"><h2>Notes</h2><p>${job.notes || 'No notes.'}</p></section>`}
   ${historyPanel(d.history, d.steps)}
 </div>`;
 }
@@ -164,29 +169,67 @@ function reworkPanel(d: JobPageData, rwSteps: Step[]): Html {
             <label class="f">Extra hours<input name="extra_hours" inputmode="decimal" required pattern="[0-9]+([.][0-9])?"></label>
             <label class="f">Extra material $<input name="extra_material_cost" inputmode="decimal" required pattern="[0-9]+([.][0-9]{1,2})?"></label></div>
             <div class="acts"><button class="btn primary" type="submit">Close rework</button></div></form></details>` : ''}
+        ${d.person.is_owner ? responsibleBlock(r.id, d.responsible.get(r.id), back, d.peopleNames) : ''}
         ${editor ? confirmDelete(`/rework/${r.id}/delete`, back, 'Delete this rework', `Delete this rework and its ${steps.length} dated ${steps.length === 1 ? 'step' : 'steps'}? Use this for rework raised by mistake. The change log keeps a record.`) : ''}
       </div>`;
     })}
-    ${can(d.person, 'doer') ? raiseForm(d.job.id, back) : ''}
+    ${can(d.person, 'doer') ? raiseForm(d.job.id, back, undefined, d.person, d.peopleNames) : ''}
   </section>`;
 }
 
-export function raiseForm(jobId: number | null, back: string, jobs?: { id: number; client_name: string; suburb: string }[]): Html {
+/** People who don't sign in but can be responsible for a rework. */
+const OTHERS = ['Installer', 'Lunastone', 'Supplier', 'Client'];
+
+function peopleList(id: string, names: string[]): Html {
+  return html`<datalist id="${id}">${[...names, ...OTHERS].map((n) => html`<option value="${n}"></option>`)}</datalist>`;
+}
+
+/** Owners only (George and Gus): who was responsible. Never rendered for anyone else. */
+export function responsibleBlock(reworkId: number, r: Responsible | undefined, back: string, names: string[]): Html {
+  const listId = `people-${reworkId}`;
+  return html`<div class="owners small">
+    <span class="tag">Owners only</span>
+    ${r ? html`<strong>Responsible: ${r.responsible}</strong>${r.note ? ` · ${r.note}` : ''} <span class="muted">(set by ${r.set_by_name ?? 'an owner'})</span>` : html`<span class="muted">No one recorded as responsible.</span>`}
+    <details class="pop"><summary class="btn small">${r ? 'Change' : 'Record who was responsible'}</summary>
+      <form class="popbody" method="post" action="/rework/${reworkId}/responsible"><input type="hidden" name="back" value="${back}">
+        <div class="fixgrid"><label class="f">Responsible<input name="responsible" list="${listId}" value="${r?.responsible ?? ''}" maxlength="80" placeholder="Pick or type a name"></label>
+        <label class="f">Note<input name="responsible_note" value="${r?.note ?? ''}" maxlength="200"></label></div>
+        ${peopleList(listId, names)}
+        <span class="muted small">Only you and the other owner can see this. Leave the name empty and save to clear it.</span>
+        <div class="acts"><button class="btn primary" type="submit">Save</button></div>
+      </form></details>
+  </div>`;
+}
+
+export function raiseForm(jobId: number | null, back: string, jobs?: { id: number; client_name: string; suburb: string }[], person?: Person, names: string[] = []): Html {
   return html`<details class="pop"${jobId ? '' : html` open`}><summary class="btn">Raise rework</summary>
     <form class="popbody" method="post" action="/rework"><input type="hidden" name="back" value="${back}">
       ${jobId ? html`<input type="hidden" name="job_id" value="${jobId}">`
         : html`<label class="f">Job<select name="job_id" required><option value="">Pick a job</option>${(jobs ?? []).map((j) => html`<option value="${j.id}">${j.client_name} · ${j.suburb}</option>`)}</select></label>`}
       <label class="f">Cause<select name="cause" required><option value="">Pick a cause</option>${CAUSES.map((c) => html`<option value="${c}">${cap(c)}</option>`)}</select></label>
       <label class="f">What happened (one line)<input name="note" required maxlength="200" placeholder="e.g. Cabinet must be rebuilt: drafting, factory, painting, reinstall"></label>
+      ${person?.is_owner ? html`<div class="owners stack"><span class="tag">Owners only</span>
+        <label class="f">Responsible<input name="responsible" list="people-new-${jobId ?? 'any'}" maxlength="80" placeholder="Pick or type a name (optional)"></label>
+        <label class="f">Note<input name="responsible_note" maxlength="200"></label>
+        ${peopleList(`people-new-${jobId ?? 'any'}`, names)}</div>` : ''}
       <div class="acts"><button class="btn primary" type="submit">Raise it</button></div>
     </form></details>`;
 }
 
-export function jobFields(j: Partial<FullJob>, opts: { forNew?: boolean } = {}): Html {
+export function jobFields(j: Partial<FullJob> & { template?: string | null }, opts: { forNew?: boolean; templates?: Template[]; anchor?: AnchorKind; anchorDate?: string | null } = {}): Html {
   const v = (x: unknown) => (x === null || x === undefined ? '' : String(x));
+  const templates = opts.templates ?? [];
   return html`<div class="formgrid">
+    ${templates.length ? html`<label class="f wide">Job type<select name="template" data-template>
+      ${opts.forNew ? '' : html`<option value="">Not set</option>`}
+      ${templates.map((t) => html`<option value="${t.key}"${j.template === t.key ? html` selected` : ''} data-door="${t.door_finish}" data-painting="${t.has_painting ? '1' : '0'}" data-stone="${t.has_stone ? '1' : '0'}" data-factory="${t.factory_days}" data-install="${t.install_days}">${t.name}</option>`)}
+      </select></label>` : ''}
+    ${opts.forNew ? html`<label class="f">Work the dates out from<select name="anchor" data-anchor>
+        ${ANCHORS.map((a) => html`<option value="${a.kind}"${(opts.anchor ?? 'site_start') === a.kind ? html` selected` : ''}>${a.label}</option>`)}
+      </select></label>
+      <label class="f">That date (not needed for Site start)<input type="date" name="anchor_date" value="${v(opts.anchorDate)}" data-anchordate></label>` : ''}
     <label class="f">Job number (Buildertrend)<input name="job_number" value="${v(j.job_number)}" inputmode="numeric" placeholder="e.g. 270201"${opts.forNew ? html` data-jobnumber` : ''}></label>
-    <label class="f">Site start<input type="date" name="site_start" value="${v(j.site_start)}"${opts.forNew ? html` required data-sitestart` : ''}></label>
+    <label class="f">Site start${opts.forNew ? ' (from the job number, or worked out)' : ''}<input type="date" name="site_start" value="${v(j.site_start)}"${opts.forNew ? html` data-sitestart` : ''}></label>
     <label class="f">Client name<input name="client_name" required value="${v(j.client_name)}"></label>
     <label class="f">Suburb<input name="suburb" value="${v(j.suburb)}"></label>
     <label class="f">Brand<select name="brand">${['Aalbor', 'Origin'].map((b) => html`<option${j.brand === b ? html` selected` : ''}>${b}</option>`)}</select></label>
@@ -205,10 +248,10 @@ export function jobFields(j: Partial<FullJob>, opts: { forNew?: boolean } = {}):
   </div>`;
 }
 
-function detailsPanel(job: FullJob): Html {
+function detailsPanel(job: FullJob, templates: Template[]): Html {
   return html`<section class="panel"><details><summary style="cursor:pointer"><h2 style="display:inline">Job details</h2> <span class="muted small">Tap to edit</span></summary>
     <form method="post" action="/jobs/${job.id}/details" class="stack" style="padding-top:12px">
-      ${jobFields(job)}
+      ${jobFields(job, { templates })}
       <div class="acts"><button class="btn primary" type="submit">Save details</button></div>
       <span class="muted small">Ticking or unticking Painting or Stone adds or removes those steps. Steps already ticked done are kept.</span>
     </form>
@@ -219,7 +262,7 @@ function detailsPanel(job: FullJob): Html {
 
 const FIELD_NAMES: Record<string, string> = {
   start_date: 'from', end_date: 'to', confirmed: 'confirmed', done_at: 'done', owner: 'owner', note: 'note', label: 'name',
-  job_number: 'job number', client_name: 'client', suburb: 'suburb', scope: 'scope', door_finish: 'door finish', has_painting: 'painting', has_stone: 'stone',
+  job_number: 'job number', template: 'job type', client_name: 'client', suburb: 'suburb', scope: 'scope', door_finish: 'door finish', has_painting: 'painting', has_stone: 'stone',
   site_start: 'site start', factory_days: 'factory days', install_days: 'install days', status: 'status', at_risk: 'at risk',
   notes: 'notes', brand: 'brand', cause: 'cause', closed_on: 'closed', extra_hours: 'extra hours', extra_material_cost: 'extra material $',
 };

@@ -94,6 +94,8 @@ export interface ProposalInput {
   has_stone: boolean;
   factory_days: number;
   install_days: number;
+  /** From the job's template; if missing, the install-weeks settings by painting. */
+  install_weeks?: number;
 }
 
 export interface ProposedStep {
@@ -133,7 +135,7 @@ export function proposeDates(job: ProposalInput, rules: Rules, cal: Calendar): P
   }
 
   // The extra install week on poly jobs is there for painting, so it follows the painting choice.
-  const weeks = job.has_painting ? r.install_weeks_poly : r.install_weeks_melamine;
+  const weeks = job.install_weeks ?? (job.has_painting ? r.install_weeks_poly : r.install_weeks_melamine);
   const install = cal.span(mondayOf(addDays(job.site_start, weeks * 7)), job.install_days);
   put('delivery', cal.addWorkingDays(install.start, -1));
   put('install', install.start, install.end);

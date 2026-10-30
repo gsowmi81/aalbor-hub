@@ -2,14 +2,14 @@
 // described in CLAUDE.md. In GitHub Actions: the postgres service in ci.yml.
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-process.env.DATABASE_URL = process.env.TEST_DATABASE_URL ?? 'postgres://postgres@localhost:5433/hub_test?host=/var/tmp/hubpg';
+const { appDatabaseUrl } = await import('./db-setup.js');
+process.env.DATABASE_URL = await appDatabaseUrl();
 const { pool, withPerson, withSystem, isPermissionError } = await import('../src/db/pool.js');
 const { migrate } = await import('../src/db/migrate.js');
 
 let editor: number, doer: number, viewer: number, jobId: number, stepId: number;
 
 beforeAll(async () => {
-  await pool.query('drop schema public cascade; create schema public');
   await migrate(() => {});
   await withSystem(async (db) => {
     const ids = await db.query(

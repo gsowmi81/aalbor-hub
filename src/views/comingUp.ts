@@ -182,11 +182,11 @@ function overdueList(d: ComingUpData): Html {
       <span class="late">${late} ${late === 1 ? 'day' : 'days'} late</span>
       ${can(d.person, 'doer') ? html`<form method="post" action="/steps/${s.id}/done"><input type="hidden" name="done" value="1"><input type="hidden" name="back" value="${back}"><button class="btn" type="submit">Done</button></form>` : ''}
       ${can(d.person, 'editor') ? html`<details class="pop" style="display:contents"><summary class="btn">New date</summary>
-        <form class="popbody" method="post" action="/steps/${s.id}/move" style="flex-basis:100%">
-          <input type="hidden" name="back" value="${back}">
-          <div class="inline"><label class="f" for="nd-${s.id}">Move to<input type="date" id="nd-${s.id}" name="date" value="${addDays(d.today, 1)}" min="${d.today}" required></label>
-          <button class="btn primary" type="submit" style="align-self:flex-end">Save</button></div>
-          ${s.end_date ? html`<span class="muted small">The step keeps its length; later steps don't move. Use the shift buttons on the job to move the rest.</span>` : ''}
+        <form class="popbody" method="get" action="/jobs/${j.id}/reschedule" style="flex-basis:100%">
+          <input type="hidden" name="step" value="${s.id}">
+          <div class="inline"><label class="f" for="nd-${s.id}">Move to<input type="date" id="nd-${s.id}" name="start" value="${addDays(d.today, 1)}" min="${d.today}" required></label>
+          <button class="btn primary" type="submit" style="align-self:flex-end">Next</button></div>
+          <span class="muted small">Next shows what happens to the rest of the job before anything saves.</span>
         </form></details>` : ''}
     </div>`;
   })}`;

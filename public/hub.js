@@ -17,6 +17,47 @@
   }
   if (document.readyState === 'complete') restore(); else window.addEventListener('load', restore);
 
+  // All jobs timeline (Editors): drag a bar with a mouse to move it, or tap/click it.
+  // Either way the Reschedule screen opens; nothing saves until it's confirmed there.
+  var tl = document.querySelector('.tl[data-days]');
+  if (tl) {
+    var days = Number(tl.getAttribute('data-days'));
+    var addDays = function (iso, n) { var p = iso.split('-'); return new Date(Date.UTC(+p[0], +p[1] - 1, +p[2] + n)).toISOString().slice(0, 10); };
+    var leaving = false;
+    var go = function (mk, shift) {
+      if (leaving) return; // one drag fires pointerup and click; only the first counts
+      leaving = true;
+      var url = '/jobs/' + mk.getAttribute('data-job') + '/reschedule?step=' + mk.getAttribute('data-step');
+      if (shift) url += '&start=' + addDays(mk.getAttribute('data-start'), shift) + '&snap=1';
+      location.href = url;
+    };
+    tl.querySelectorAll('.mk.drag').forEach(function (mk) {
+      var x0 = null, moved = 0, dayPx = 0, badge = null;
+      mk.addEventListener('pointerdown', function (e) {
+        if (e.pointerType === 'touch' || e.button !== 0) return; // phones: tap only, so sideways scrolling still works
+        x0 = e.clientX; moved = 0; dayPx = mk.parentElement.getBoundingClientRect().width / days;
+        mk.setPointerCapture(e.pointerId); mk.classList.add('dragging');
+        badge = document.createElement('span'); badge.className = 'shift-badge'; mk.appendChild(badge);
+        e.preventDefault();
+      });
+      mk.addEventListener('pointermove', function (e) {
+        if (x0 === null) return;
+        moved = Math.round((e.clientX - x0) / dayPx);
+        mk.style.transform = 'translateX(' + moved * dayPx + 'px)';
+        badge.textContent = moved === 0 ? '' : (moved > 0 ? '+' : '') + moved + (Math.abs(moved) === 1 ? ' day' : ' days');
+      });
+      var end = function () {
+        if (x0 === null) return;
+        x0 = null; mk.classList.remove('dragging');
+        go(mk, moved);
+      };
+      mk.addEventListener('pointerup', end);
+      mk.addEventListener('pointercancel', function () { x0 = null; mk.style.transform = ''; mk.classList.remove('dragging'); if (badge) badge.remove(); });
+      mk.addEventListener('click', function (e) { if (e.pointerType !== 'mouse' && e.detail !== 0) go(mk, 0); });
+      mk.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(mk, 0); } });
+    });
+  }
+
   // Job picker: open the job as soon as one is chosen.
   document.querySelectorAll('select[data-autosubmit]').forEach(function (s) {
     s.addEventListener('change', function () { s.form.submit(); });
@@ -29,6 +70,19 @@
     var touched = false;
     box.addEventListener('change', function () { touched = true; });
     sel.addEventListener('change', function () { if (!touched) box.checked = sel.value === 'polyurethane'; });
+  });
+
+  // Job type fills door finish, painting, stone and the factory and install days from its template.
+  document.querySelectorAll('select[data-template]').forEach(function (sel) {
+    sel.addEventListener('change', function () {
+      var o = sel.options[sel.selectedIndex], f = sel.form;
+      if (!o || !o.getAttribute('data-door')) return;
+      f.querySelector('[name="door_finish"]').value = o.getAttribute('data-door');
+      f.querySelector('[name="has_painting"]').checked = o.getAttribute('data-painting') === '1';
+      f.querySelector('[name="has_stone"]').checked = o.getAttribute('data-stone') === '1';
+      f.querySelector('[name="factory_days"]').value = o.getAttribute('data-factory');
+      f.querySelector('[name="install_days"]').value = o.getAttribute('data-install');
+    });
   });
 
   // New job: fill site start from the job number (YYMMDD), and refresh the proposed dates as you type.

@@ -22,6 +22,13 @@ export async function migrate(log = console.log): Promise<void> {
     });
     log(`Applied ${file}`);
   }
+  // The owners-only rework records rely on row-level security, which a superuser skips.
+  const role = (await pool.query('select rolsuper, rolbypassrls from pg_roles where rolname = current_user')).rows[0];
+  if (role?.rolsuper || role?.rolbypassrls) {
+    log('WARNING: this database user skips row-level security, so owners-only records are protected by the app alone. Use an ordinary (non-superuser) user.');
+  } else {
+    log('Database user check: row-level security applies (owners-only records protected by the database).');
+  }
   if (config.initialEditorEmail) {
     await withSystem(async (db) => {
       await db.query(

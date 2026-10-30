@@ -4,7 +4,8 @@ import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-process.env.DATABASE_URL = process.env.TEST_DATABASE_URL ?? 'postgres://postgres@localhost:5433/hub_test?host=/var/tmp/hubpg';
+const { appDatabaseUrl } = await import('./db-setup.js');
+process.env.DATABASE_URL = await appDatabaseUrl();
 process.env.RESEND_API_KEY = '';
 const { pool, withSystem } = await import('../src/db/pool.js');
 const { migrate } = await import('../src/db/migrate.js');
@@ -17,12 +18,13 @@ const tokens: Record<string, string> = {};
 const ids: Record<string, number> = {};
 
 beforeAll(async () => {
-  await pool.query('drop schema public cascade; create schema public');
   await migrate(() => {});
   await importNotion(() => {});
   await withSystem(async (db) => {
-    for (const [name, role] of [['George', 'editor'], ['Phil', 'doer'], ['Angela', 'viewer']]) {
-      const id = (await db.query(`insert into people (name, email, role) values ($1, $2, $3) returning id`, [name, `${name.toLowerCase()}@test.au`, role])).rows[0].id;
+    const christine = (await db.query(`select id from people where email = 'design@aalborkitchens.com.au'`)).rows[0].id;
+    for (const [name, role, owner] of [['George', 'editor', true], ['Phil', 'doer', false], ['Angela', 'viewer', false], ['Gus', 'doer', true], ['Christine', 'editor', false]] as const) {
+      const id = name === 'Christine' ? christine
+        : (await db.query(`insert into people (name, email, role, is_owner) values ($1, $2, $3, $4) returning id`, [name, `${name.toLowerCase()}@test.au`, role, owner])).rows[0].id;
       const t = crypto.randomBytes(16).toString('hex');
       await db.query(`insert into sessions (token_hash, person_id, expires_at) values ($1, $2, now() + interval '1 day')`, [crypto.createHash('sha256').update(t).digest('hex'), id]);
       tokens[name] = t;
@@ -143,22 +145,30 @@ describe('Editors', () => {
     expect(install.start_date).toBe('2027-03-08');
   });
 
-  it('confirm dates and keep a history of the change', async () => {
+  it('confirm a date and keep a history of the change', async () => {
+    const job = await one(`select id from jobs where job_number = '270201'`);
+    const s = await one(`select id, start_date from steps where job_id = $1 and kind = 'check_measure'`, [job.id]);
+    await req('POST', `/jobs/${job.id}/dates`, 'George', { [`start_${s.id}`]: s.start_date, [`confirmed_${s.id}`]: '1' });
+    expect(await one('select confirmed from steps where id = $1', [s.id])).toEqual({ confirmed: true });
+    const page = await req('GET', `/jobs/${job.id}`, 'George');
+    expect(page.text).toContain('Check measure: confirmed no → yes');
+  });
+
+  it('send a single date change with later steps to the Reschedule screen', async () => {
     const job = await one(`select id from jobs where job_number = '270201'`);
     const s = await one(`select id from steps where job_id = $1 and kind = 'check_measure'`, [job.id]);
-    await req('POST', `/jobs/${job.id}/dates`, 'George', { [`start_${s.id}`]: '2027-02-12', [`confirmed_${s.id}`]: '1' });
-    expect(await one('select start_date, confirmed from steps where id = $1', [s.id])).toEqual({ start_date: '2027-02-12', confirmed: true });
-    const page = await req('GET', `/jobs/${job.id}`, 'George');
-    expect(page.text).toContain('Check measure: from Thu 11 Feb → Fri 12 Feb, confirmed no → yes');
+    const r = await req('POST', `/jobs/${job.id}/dates`, 'George', { [`start_${s.id}`]: '2027-02-12' });
+    expect(r.location).toBe(`/jobs/${job.id}/reschedule?step=${s.id}&start=2027-02-12`);
+    expect((await one('select start_date from steps where id = $1', [s.id])).start_date).toBe('2027-02-11');
   });
 
   it('refuse a "to" date before the "from" date', async () => {
     const job = await one(`select id from jobs where job_number = '270201'`);
-    const s = await one(`select id from steps where job_id = $1 and kind = 'install'`, [job.id]);
-    const r = await req('POST', `/jobs/${job.id}/dates`, 'George', { [`start_${s.id}`]: '2027-03-10', [`end_${s.id}`]: '2027-03-01' });
+    const s = await one(`select id, start_date from steps where job_id = $1 and kind = 'contract_drafting'`, [job.id]);
+    const r = await req('POST', `/jobs/${job.id}/dates`, 'George', { [`start_${s.id}`]: '2026-11-10', [`end_${s.id}`]: '2026-11-02' });
     expect(r.status).toBe(302);
     expect(decodeURIComponent(r.location ?? '')).toBe('/');
-    expect((await one('select start_date from steps where id = $1', [s.id])).start_date).toBe('2027-03-08');
+    expect((await one('select start_date from steps where id = $1', [s.id])).start_date).toBe(s.start_date);
   });
 
   it('clear a Needs a decision item with OK as is, and undo it', async () => {
@@ -191,6 +201,76 @@ describe('rework', () => {
     expect(await one('select extra_hours, extra_material_cost from rework where id = $1', [rw.id])).toEqual({ extra_hours: 2.5, extra_material_cost: 80 });
     const page = await req('GET', '/rework', 'Angela');
     expect(page.text).toContain('Door chipped in the factory');
+  });
+});
+
+describe('rescheduling (George, 30 Oct 2026)', () => {
+  const stepsOf = async (jobId: number) => Object.fromEntries((await pool.query(
+    `select kind, start_date, end_date, confirmed from steps where job_id = $1 and label = '' and kind <> 'rework'`, [jobId])).rows.map((r) => [r.kind, r]));
+
+  it('suggests moving everything after a step by the same working days, and saves it as provisional', async () => {
+    const job = await one(`select id from jobs where client_name = 'Greg Steven'`);
+    const before = await stepsOf(job.id);
+    const dr = await one(`select id from steps where job_id = $1 and kind = 'production_drawings'`, [job.id]);
+    const page = await req('GET', `/jobs/${job.id}/reschedule?step=${dr.id}&start=2026-11-16`, 'George');
+    expect(page.status).toBe(200);
+    expect(page.text).toContain('Move everything after it');
+    // Save what the screen suggests: post every date input it shows.
+    const fields = Object.fromEntries([...page.text.matchAll(/name="((?:start|end)_\d+)" value="([^"]*)"/g)].map((m) => [m[1], m[2]]));
+    const r = await req('POST', `/jobs/${job.id}/reschedule`, 'George', { step: String(dr.id), mode: 'shift', ...fields });
+    expect(r.location).toBe(`/jobs/${job.id}`);
+    const after = await stepsOf(job.id);
+    expect(after.production_drawings.start_date).toBe('2026-11-16');
+    expect(after.install.start_date).toBe('2026-12-01'); // was Mon 30 Nov, one working day later
+    expect(after.install.confirmed).toBe(false);
+    expect(after.check_measure.start_date).toBe(before.check_measure.start_date);
+  });
+
+  it('can keep the install date and squeeze the steps before it', async () => {
+    const job = await one(`select id from jobs where client_name = 'Greg Steven'`);
+    const before = await stepsOf(job.id);
+    const dr = await one(`select id from steps where job_id = $1 and kind = 'production_drawings'`, [job.id]);
+    const page = await req('GET', `/jobs/${job.id}/reschedule?step=${dr.id}&start=2026-11-17&mode=squeeze`, 'George');
+    const fields = Object.fromEntries([...page.text.matchAll(/name="((?:start|end)_\d+)" value="([^"]*)"/g)].map((m) => [m[1], m[2]]));
+    await req('POST', `/jobs/${job.id}/reschedule`, 'George', { step: String(dr.id), mode: 'squeeze', ...fields });
+    const after = await stepsOf(job.id);
+    expect(after.production_drawings.start_date).toBe('2026-11-17');
+    expect(after.install.start_date).toBe(before.install.start_date);
+  });
+
+  it('stops a step moving before what it waits for, unless you Move anyway, and then flags it', async () => {
+    const job = await one(`select id from jobs where client_name = 'Greg Steven'`);
+    const del = await one(`select id from steps where job_id = $1 and kind = 'delivery'`, [job.id]);
+    const body = { step: String(del.id), mode: 'only', [`start_${del.id}`]: '2026-11-10' };
+    const blocked = await req('POST', `/jobs/${job.id}/reschedule`, 'George', body);
+    expect(blocked.status).toBe(200);
+    expect(blocked.text).toContain('Move anyway');
+    expect((await one('select start_date from steps where id = $1', [del.id])).start_date).not.toBe('2026-11-10');
+    await req('POST', `/jobs/${job.id}/reschedule`, 'George', { ...body, override: '1' });
+    expect((await one('select start_date from steps where id = $1', [del.id])).start_date).toBe('2026-11-10');
+    const home = await req('GET', '/', 'George');
+    expect(home.text).toContain("Delivery can&#39;t start before");
+  });
+
+  it('is for Editors only', async () => {
+    const job = await one(`select id from jobs where client_name = 'Greg Steven'`);
+    const del = await one(`select id from steps where job_id = $1 and kind = 'delivery'`, [job.id]);
+    expect((await req('GET', `/jobs/${job.id}/reschedule?step=${del.id}`, 'Phil')).status).toBe(403);
+  });
+});
+
+describe('templates (George, 30 Oct 2026)', () => {
+  it('adds a job from its install date with the melamine kitchen template', async () => {
+    const r = await req('POST', '/jobs/new', 'George', {
+      action: 'save', client_name: 'Template Test', suburb: 'Mascot', template: 'kitchen_melamine', anchor: 'install', anchor_date: '2027-03-10',
+      door_finish: 'melamine', has_stone: '1', factory_days: '2', install_days: '3', site_start: '',
+    });
+    expect(r.status).toBe(302);
+    const job = await one(`select id, site_start, template from jobs where client_name = 'Template Test'`);
+    expect(job.template).toBe('kitchen_melamine');
+    expect(job.site_start).toBeTruthy();
+    const install = await one(`select start_date, end_date from steps where job_id = $1 and kind = 'install'`, [job.id]);
+    expect(install).toEqual({ start_date: '2027-03-10', end_date: '2027-03-12' });
   });
 });
 
@@ -245,6 +325,69 @@ describe('round 1 changes (George, 30 Oct 2026)', () => {
     expect(r.location).toBe('/jobs');
     expect(await one('select 1 from jobs where id = $1', [job.id])).toBeUndefined();
     expect((await one(`select count(*)::int as n from change_log where table_name = 'jobs' and record_id = $1 and action = 'delete'`, [String(job.id)])).n).toBe(1);
+  });
+});
+
+describe('who was responsible: owners only (George, 30 Oct 2026)', () => {
+  let reworkId = 0;
+  let jobId = 0;
+
+  it('lets an owner record it when raising a rework', async () => {
+    jobId = (await one(`select id from jobs where client_name = 'Malcolm Patch'`)).id;
+    await req('POST', '/rework', 'Gus', { job_id: String(jobId), cause: 'factory', note: 'Wrong hinge holes', responsible: 'Phil', responsible_note: 'Drilled to the old drawing' });
+    reworkId = (await one(`select id from rework where note = 'Wrong hinge holes'`)).id;
+    const page = await req('GET', `/jobs/${jobId}`, 'George');
+    expect(page.text).toContain('Responsible: Phil');
+  });
+
+  it('shows nothing of it to Christine or anyone else who is not an owner', async () => {
+    for (const who of ['Christine', 'Phil', 'Angela']) {
+      for (const path of [`/jobs/${jobId}`, '/rework']) {
+        const r = await req('GET', path, who);
+        expect(r.text, `${who} ${path}`).not.toContain('Responsible: Phil');
+        expect(r.text, `${who} ${path}`).not.toContain('Owners only');
+        expect(r.text, `${who} ${path}`).not.toContain('Drilled to the old drawing');
+      }
+    }
+    const history = await req('GET', `/jobs/${jobId}`, 'Christine');
+    expect(history.text).not.toContain('Phil · Drilled');
+  });
+
+  it('is refused by the database itself for non-owners, reading or writing', async () => {
+    const { withPerson } = await import('../src/db/pool.js');
+    const christine = (await one(`select id from people where email = 'design@aalborkitchens.com.au'`)).id;
+    const seen = await withPerson(christine, async (db) => (await db.query('select * from rework_responsible')).rows);
+    expect(seen).toEqual([]);
+    await expect(withPerson(christine, (db) => db.query(`insert into rework_responsible (rework_id, responsible) values ($1, 'Gus')`, [reworkId]))).rejects.toThrow(/row-level security/);
+    const r = await req('POST', `/rework/${reworkId}/responsible`, 'Christine', { responsible: 'Gus' });
+    expect(r.status).toBe(302);
+    expect((await withPerson(ids.George, async (db) => (await db.query('select responsible from rework_responsible where rework_id = $1', [reworkId])).rows[0])).responsible).toBe('Phil');
+  });
+
+  it("stops a non-owner making themselves an owner, or taking over an owner's sign-in", async () => {
+    const { withPerson, isPermissionError } = await import('../src/db/pool.js');
+    const christine = (await one(`select id from people where email = 'design@aalborkitchens.com.au'`)).id;
+    const refused = async (sql: string, params: unknown[]) => {
+      try { await withPerson(christine, (db) => db.query(sql, params)); } catch (e) { return isPermissionError(e); }
+      return false;
+    };
+    expect(await refused('update people set is_owner = true where id = $1', [christine])).toBe(true);
+    expect(await refused(`update people set email = 'design@aalborkitchens.com.au.x' where id = $1`, [ids.George])).toBe(true);
+    expect(await refused('update people set active = false where id = $1', [ids.Gus])).toBe(true);
+    const settings = await req('GET', '/settings', 'Christine');
+    expect(settings.text).not.toContain('name="is_owner"');
+    expect(settings.text).toContain('Only an owner can change this person.');
+  });
+
+  it('gives owners a tally by person, and keeps an owners-only log even when an Editor deletes the rework', async () => {
+    const tally = await req('GET', '/rework', 'George');
+    expect(tally.text).toContain('Who was responsible');
+    await req('POST', `/rework/${reworkId}/delete`, 'Christine', {});
+    expect(await one('select 1 from rework where id = $1', [reworkId])).toBeUndefined();
+    const { withPerson } = await import('../src/db/pool.js');
+    const log = await withPerson(ids.George, async (db) => (await db.query(`select action, person_name from owners_log where rework_id = $1 order by id`, [reworkId])).rows);
+    expect(log).toEqual([{ action: 'insert', person_name: 'Gus' }, { action: 'delete', person_name: 'Christine' }]);
+    expect(await withPerson(ids.Phil, async (db) => (await db.query('select * from owners_log')).rows)).toEqual([]);
   });
 });
 

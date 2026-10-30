@@ -23,19 +23,22 @@ Node 22, TypeScript, Express 5, Postgres 16 (`pg`). Pages are rendered on the se
 
 ```
 migrations/001_schema.sql   tables, role checks (hub_guard), change log (hub_log), settings, NSW holidays
+migrations/002_*.sql        painting as its own tick; fixed five Polytec jobs
+migrations/003_*.sql        job templates, Owner flag, owners-only rework_responsible + owners_log (row-level security)
 src/config.ts               every setting, from the environment
 src/db/pool.ts              withPerson() / withSystem(): the only ways to write
 src/db/queries.ts           reads, history, syncStepSet()
 src/db/migrate.ts           applies migrations/*.sql once each; adds INITIAL_EDITOR_EMAIL as an Editor
 src/domain/dates.ts         working-day calendar, date formats
 src/domain/steps.ts         step kinds, board rows, owners, proposeDates(), shiftStep()
+src/domain/schedule.ts      DEPENDENCIES, violations(), reschedule() (shift / squeeze / only), proposeFromAnchor() for templates
 src/domain/checks.ts        overdue(), needsDecision(), capacity(), nextUp()
 src/web/auth.ts             emailed-link sign-in, sessions, role courtesy checks
 src/web/routes.ts           every screen and form handler
 src/web/export.ts           spreadsheet download
-src/views/*.ts              the screens; public/hub.css is the mock-up's look
+src/views/*.ts              the screens (reschedule.ts is the Reschedule screen); public/hub.css is the mock-up's look
 scripts/import-notion.ts    one-off load of data/notion-snapshot-2026-10-28.json
-test/                       vitest: dates, checks, permissions (real Postgres), app end to end
+test/                       vitest: dates, checks, schedule, permissions and app end to end (real Postgres, as the ordinary user hub_app: see test/db-setup.ts)
 ```
 
 ## Rules that matter
@@ -49,6 +52,10 @@ test/                       vitest: dates, checks, permissions (real Postgres), 
 - **Painting** is its own tick on a job (`has_painting`, George, 30 Oct 2026), separate from door finish. It adds the Doors to painting and Doors back steps and the extra install week (`install_weeks_poly`). Choosing Polyurethane ticks it in the form; it can be unticked. Migration 002 also fixed five Polytec melamine jobs the first import had loaded as polyurethane.
 - **Deleting** (Editors): a rework (with its steps), a rework step or an extra named step, and a whole job added by mistake. Standard steps can't be deleted; clear their dates or untick Painting or Stone. People are switched off, never deleted, so history keeps their names. Every delete is in the change log. The page asks "Yes, delete" itself because the browser confirm box isn't used.
 - **Keeping your place:** `public/hub.js` puts the page back at the same scroll position after any form post; without it, the form's `back` anchor (`#c-<step id>`) lands near the item.
+- **Dependencies** (George, 30 Oct 2026; `DEPENDENCIES` in `schedule.ts`): finish-to-start, same day allowed unless the lag says otherwise. Check measure → drawings → (soft) materials ordered → materials in → factory → doors to painting → doors back → delivery (also after factory) → install → stone measure (next working day) → stone install (next working day). Materials ordered early only warns. Done steps never move and never count. Broken hard rules show in Needs a decision (`dep:` keys).
+- **Reschedule screen** (`/jobs/:id/reschedule?step=&start=&mode=`): every date move by an Editor goes through it: dragging a bar on All jobs (mouse; tap on phones), Overdue "New date", a "Move…" link on each date, and a single date change on the job's dates form. Modes: `shift` (default, every dependent step by the same working days; delivery travels with install), `squeeze` (hold install and later, push the steps between only as far as the rules force, using spare days first), `only`. Every row is editable; a hard clash needs **Move anyway**. Moved dates become provisional. The shift buttons and the dates form with several changes still save directly.
+- **Templates** (`job_templates`, Settings → Job types): "Kitchen, polyurethane painted doors" and "Kitchen, melamine doors" (George, 30 Oct 2026). They set door finish, painting, stone, factory and install days, and install weeks after site start (the old `install_weeks_*` settings moved here). The New job form takes one date (site start, check measure, drawings start or install start) and `proposeFromAnchor()` fills the rest; a blank site start is worked out backwards.
+- **Owners only: who was responsible** (George, 30 Oct 2026). `people.is_owner` (George and Gus, set by migration 003 by email; owners can tick it for others in Settings). `rework_responsible` and `owners_log` have row-level security: the database returns nothing to non-owners and refuses their writes, so read them only through `withPerson()` (`loadResponsible()`). They are deliberately not in `change_log`, the job History or the spreadsheet. Only an owner can make someone an owner or change an owner's own record (`hub_owner_guard`), so an Editor can't take over an owner's sign-in. RLS doesn't apply to superusers: `migrate` logs a WARNING if the database user is one. Never show the field, its tally or the word "Owners only" to anyone else, Christine included.
 - **Steps.** One standard step of each kind per job (`label = ''`). Extra named steps on a row (Tesoriero's "Install painted doors") carry a label. Rework steps are `kind = 'rework'` with a `rework_id`.
 - **Who ticks what** (George, 28 Oct 2026): Christine ticks Materials ordered; a shared factory sign-in (Doer) ticks Materials in, Doors back from painting and Delivery; Gus and Phil are Doers; Angela and Michael are Viewers.
 
