@@ -1,6 +1,12 @@
 import { html, Html } from '../web/html.js';
 import type { Person } from '../web/auth.js';
 
+/**
+ * Changes on every release (Render sets RENDER_GIT_COMMIT), so browsers fetch the new
+ * hub.js and hub.css straight away instead of using a cached copy (George, 31 Oct 2026).
+ */
+const ASSET_VERSION = (process.env.RENDER_GIT_COMMIT ?? String(Date.now())).slice(0, 12);
+
 const FONTS = 'https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap';
 
 function head(title: string): Html {
@@ -8,8 +14,8 @@ function head(title: string): Html {
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>${title} · Aalbor Hub</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="${FONTS}">
-<link rel="stylesheet" href="/static/hub.css">
-<script src="/static/hub.js" defer></script>
+<link rel="stylesheet" href="/static/hub.css?v=${ASSET_VERSION}">
+<script src="/static/hub.js?v=${ASSET_VERSION}" defer></script>
 </head>`;
 }
 

@@ -26,7 +26,8 @@ export function createApp(): express.Express {
     await pool.query('select 1');
     res.send('ok');
   });
-  app.use('/static', express.static(publicDir, { maxAge: config.production ? '1h' : 0 }));
+  // Pages link to /static/...?v=<release>, so a new release always loads fresh files.
+  app.use('/static', express.static(publicDir, { maxAge: config.production ? '7d' : 0 }));
   app.use(express.urlencoded({ extended: false, limit: '200kb' }));
   app.use(loadPerson);
   app.use(sameOrigin);

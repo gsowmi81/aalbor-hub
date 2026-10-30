@@ -33,6 +33,7 @@
     };
     tl.querySelectorAll('.mk.drag').forEach(function (mk) {
       var x0 = null, moved = 0, dayPx = 0, badge = null;
+      mk.addEventListener('dragstart', function (e) { e.preventDefault(); });
       mk.addEventListener('pointerdown', function (e) {
         if (e.pointerType === 'touch' || e.button !== 0) return; // phones: tap only, so sideways scrolling still works
         x0 = e.clientX; moved = 0; dayPx = mk.parentElement.getBoundingClientRect().width / days;
@@ -68,8 +69,11 @@
         x0 = null; dragging = false; chip.style.transform = ''; chip.classList.remove('dragging');
         if (badge) { badge.remove(); badge = null; }
       };
+      // Stop the browser's own link dragging (Chrome, Safari), which would cancel ours.
+      chip.addEventListener('dragstart', function (e) { e.preventDefault(); });
       chip.addEventListener('pointerdown', function (e) {
         if (e.button !== 0) return;
+        if (e.pointerType === 'mouse') e.preventDefault();
         x0 = e.clientX; y0 = e.clientY; pid = e.pointerId; moved = 0; dragging = false;
         colPx = chip.parentElement.getBoundingClientRect().width / 5;
       });
