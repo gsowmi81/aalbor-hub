@@ -7,6 +7,7 @@ import { pool, isPermissionError } from './db/pool.js';
 import { authRoutes, loadPerson, requireSignIn, sameOrigin } from './web/auth.js';
 import { backTo, flash, routes, UserError } from './web/routes.js';
 import { bare } from './views/layout.js';
+import { apiRoutes } from './web/api.js';
 import { html } from './web/html.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -28,6 +29,8 @@ export function createApp(): express.Express {
   });
   // Pages link to /static/...?v=<release>, so a new release always loads fresh files.
   app.use('/static', express.static(publicDir, { maxAge: config.production ? '7d' : 0 }));
+  // The bot's API: its own token sign-in and JSON errors, before the cookie sign-in.
+  app.use('/api', apiRoutes());
   app.use(express.urlencoded({ extended: false, limit: '200kb' }));
   app.use(loadPerson);
   app.use(sameOrigin);

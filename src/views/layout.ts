@@ -24,17 +24,19 @@ export function bare(title: string, body: Html): Html {
   return html`${head(title)}<body><main class="wrap narrow">${body}</main></body></html>`;
 }
 
-export type Tab = 'coming-up' | 'jobs' | 'job' | 'new' | 'rework' | 'settings';
+export type Tab = 'coming-up' | 'jobs' | 'job' | 'new' | 'rework' | 'suggestions' | 'settings';
 
 const ROLE_NAME = { editor: 'Editor', doer: 'Doer', viewer: 'Viewer' } as const;
 
 export function page(opts: { title: string; tab: Tab; person: Person; flash?: string | null; body: Html; sub?: Html | string }): Html {
   const p = opts.person;
-  const tabs: [Tab, string, string][] = [
+  const waiting = p.pending_suggestions ?? 0;
+  const tabs: [Tab, string | Html, string][] = [
     ['coming-up', 'Coming up', '/'],
     ['jobs', 'All jobs', '/jobs'],
     ['job', 'One job', '/job'],
     ['rework', 'Rework', '/rework'],
+    ['suggestions', waiting ? html`Suggestions <span class="badge" aria-label="${waiting} waiting">${waiting}</span>` : 'Suggestions', '/suggestions'],
   ];
   if (p.role === 'editor') tabs.push(['new', 'New job', '/jobs/new'], ['settings', 'Settings', '/settings']);
   const flash = opts.flash ? (opts.flash.startsWith('!') ? html`<div class="notice bad" role="alert">${opts.flash.slice(1)}</div>` : html`<div class="notice ok" role="status">${opts.flash}</div>`) : '';

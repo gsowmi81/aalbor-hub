@@ -25,9 +25,13 @@ Node 22, TypeScript, Express 5, Postgres 16 (`pg`). Pages are rendered on the se
 migrations/001_schema.sql   tables, role checks (hub_guard), change log (hub_log), settings, NSW holidays
 migrations/002_*.sql        painting as its own tick; fixed five Polytec jobs
 migrations/003_*.sql        job templates, Owner flag, owners-only rework_responsible + owners_log (row-level security)
+migrations/004_*.sql        search_path pinned on trigger/RLS functions (backups)
+migrations/005_*.sql        suggestions, api_tokens, api_calls, app_settings (text settings), change_log.suggestion_id
 src/config.ts               every setting, from the environment
-src/db/pool.ts              withPerson() / withSystem(): the only ways to write
+src/db/pool.ts              withPerson() / withSystem() / withToken(): the only ways to write
 src/db/queries.ts           reads, history, syncStepSet()
+src/db/edits.ts             the shared writes (step dates, confirmed, done, job status, new job) used by the screens and by accepted suggestions
+src/db/suggestions.ts       checking what the bot sends, decide() (accept / decline / Buildertrend is wrong)
 src/db/migrate.ts           applies migrations/*.sql once each; adds INITIAL_EDITOR_EMAIL as an Editor
 src/domain/dates.ts         working-day calendar, date formats
 src/domain/steps.ts         step kinds, board rows, owners, proposeDates(), shiftStep()
@@ -35,15 +39,17 @@ src/domain/schedule.ts      DEPENDENCIES, violations(), reschedule() (shift / sq
 src/domain/checks.ts        overdue(), needsDecision(), capacity(), nextUp()
 src/web/auth.ts             emailed-link sign-in, sessions, role courtesy checks
 src/web/routes.ts           every screen and form handler
+src/web/api.ts              /api for the bot: Bearer token, rate limit, call log, suggestions email
 src/web/export.ts           spreadsheet download
 src/views/*.ts              the screens (reschedule.ts is the Reschedule screen); public/hub.css is the mock-up's look
 scripts/import-notion.ts    one-off load of data/notion-snapshot-2026-10-28.json
-test/                       vitest: dates, checks, schedule, permissions and app end to end (real Postgres, as the ordinary user hub_app: see test/db-setup.ts)
+scripts/seed-suggestions.ts example suggestions, local copies only (npm run seed:suggestions:dev)
+test/                       vitest: dates, checks, schedule, permissions, suggestions and app end to end (real Postgres, as the ordinary user hub_app: see test/db-setup.ts)
 ```
 
 ## Rules that matter
 
-- **Roles live in the database.** `hub_guard()` runs before every insert, update and delete on the business tables. Editor: anything. Doer: tick steps done (plus a note) and raise rework, nothing else. Viewer: nothing. The app tells Postgres who is acting with `withPerson(id, ...)`. `withSystem()` is for migrations, the Notion import and sign-in only; never use it in a request handler for business data. `requireRole()` in the routes is a courtesy so people get a clear page; the database is the real check.
+- **Roles live in the database.** `hub_guard()` runs before every insert, update and delete on the business tables. Editor: anything. Doer: tick steps done (plus a note) and raise rework, nothing else. Viewer: nothing. The app tells Postgres who is acting with `withPerson(id, ...)`. `withSystem()` is for migrations, the Notion import, sign-in and the API's own bookkeeping (token last used, call log) only; never use it in a request handler for business data. `requireRole()` in the routes is a courtesy so people get a clear page; the database is the real check.
 - **Change log.** `hub_log()` writes every change (who, when, before, after) to `change_log`, which can't be edited or deleted. The One job screen's History reads it. New business tables need both triggers: add the table name to the loop in the migration pattern.
 - **Dates.** All dates are `YYYY-MM-DD` strings; Postgres `date` is parsed as a string (`pool.ts`). Working days skip weekends and `blocked_days` (scope `all` for everyone, `factory` for factory steps only). Rules and defaults are in `steps.ts` (`proposeDates`) and the `settings` table; the plan's worked example is a test in `test/dates.test.ts`, so a rule change that breaks it is deliberate or a bug.
 - **Provisional vs confirmed.** New jobs get proposed dates, all provisional (`confirmed = false`, drawn faded and dashed). Christine ticks Confirmed when a date matches Buildertrend. Imported Notion dates came in confirmed.
@@ -57,6 +63,7 @@ test/                       vitest: dates, checks, schedule, permissions and app
 - **Templates** (`job_templates`, Settings → Job types): "Kitchen, polyurethane painted doors" and "Kitchen, melamine doors" (George, 30 Oct 2026). They set door finish, painting, stone, factory and install days, and install weeks after site start (the old `install_weeks_*` settings moved here). The New job form takes one date (site start, check measure, drawings start or install start) and `proposeFromAnchor()` fills the rest; a blank site start is worked out backwards.
 - **Owners only: who was responsible** (George, 30 Oct 2026). `people.is_owner` (George and Gus, set by migration 003 by email; owners can tick it for others in Settings). `rework_responsible` and `owners_log` have row-level security: the database returns nothing to non-owners and refuses their writes, so read them only through `withPerson()` (`loadResponsible()`). They are deliberately not in `change_log`, the job History or the spreadsheet. Only an owner can make someone an owner or change an owner's own record (`hub_owner_guard`), so an Editor can't take over an owner's sign-in. RLS doesn't apply to superusers: `migrate` logs a WARNING if the database user is one. Backups and restores must run with `PGOPTIONS="-c hub.system=on"` and `pg_dump --enable-row-security` (see `backup/backup.sh`), or pg_dump refuses the RLS tables. Functions called by RLS or triggers need `set search_path` (migration 004), because pg_dump runs with an empty search path. Never show the field, its tally or the word "Owners only" to anyone else, Christine included.
 - **Steps.** One standard step of each kind per job (`label = ''`). Extra named steps on a row (Tesoriero's "Install painted doors") carry a label. Rework steps are `kind = 'rework'` with a `rework_id`.
+- **Suggestions** (George, 1 Nov 2026; API documented in `README.md`). A bot (Grokbot) checks Buildertrend each weekday and POSTs suggestions to `/api/suggestions` with an API token. Tokens: owners make and revoke them in Settings (shown once, stored as a SHA-256 hash; `hub_token_guard`). The API runs as `withToken()`: Postgres sees no person, so `hub_guard()` refuses every change to jobs and steps, and `hub_suggestion_guard()` lets it only add pending suggestions (and supersede older pending ones through the `suggestions_supersede` trigger: same job number, stage, field and type; notes never). Editors decide on the Suggestions screen (tab with a waiting count; panels on Coming up and One job); Doers and Viewers only look. `decide()` locks the row, checks the hub still shows `current_value` (else `failed`, nothing changes), then applies through `edits.ts` inside a savepoint; a failed apply rolls back to it and records the reason. Accepting a date ticks it Confirmed. Changes made by accepting carry `change_log.suggestion_id` (set from `hub.suggestion_id`), shown as "(suggestion #n)" in History. Decided suggestions can't change again; none are ever deleted. `add_job` payloads keep only whitelisted fields; street addresses are cut to the suburb and phone numbers and emails are scrubbed from text. One email per batch (first POST of a `batch_id` with an urgent or normal item) to `app_settings.suggestions_email` (Settings; default design@aalborkitchens.com.au). 60 calls a minute per token (in memory, per instance); every call in `api_calls`.
 - **Who ticks what** (George, 28 Oct 2026): Christine ticks Materials ordered; a shared factory sign-in (Doer) ticks Materials in, Doors back from painting and Delivery; Gus and Phil are Doers; Angela and Michael are Viewers.
 
 ## Run it locally
@@ -87,7 +94,7 @@ Tests use `TEST_DATABASE_URL` (default: the local cluster above) and wipe that d
 
 ## Changing the database
 
-Add `migrations/002_what.sql`; never edit a migration that has run on Render. Migrations run as the system before each deploy (`preDeployCommand`). Seeding or fixing data in a migration is fine; it is logged as "System".
+Add the next `migrations/00N_what.sql`; never edit a migration that has run on Render. Migrations run as the system before each deploy (`preDeployCommand`). Seeding or fixing data in a migration is fine; it is logged as "System".
 
 ## What's live (29 Oct 2026)
 

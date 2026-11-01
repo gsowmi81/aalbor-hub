@@ -13,11 +13,14 @@ import { allJobs } from '../views/jobs.js';
 import { CAUSES, jobPage } from '../views/job.js';
 import { newJobPage, proposalBlock, reworkPage, settingsPage } from '../views/other.js';
 import { exportWorkbook } from './export.js';
+import { checkDates, createJob, setStepDates, setStepDone, UserError } from '../db/edits.js';
 import { html } from './html.js';
+import { applyOrder, decide, loadSuggestions, PRIORITIES, STATUSES, Action, Outcome } from '../db/suggestions.js';
+import { jobPanel, pendingPanel, suggestionSettings, suggestionsPage } from '../views/suggestions.js';
+import { hashToken, newToken } from './api.js';
 import type { FullJob } from '../db/queries.js';
 
-/** A mistake in what someone typed. Shown back to them, not logged as a fault. */
-export class UserError extends Error {}
+export { UserError };
 
 const me = (req: Request) => req.person as Person;
 const today = () => todaySydney();
@@ -64,16 +67,6 @@ async function board() {
   return { ...all, rules, cal, stored, t, decisions: needsDecision(all.jobs, all.steps, all.rework, rules, cal, t) };
 }
 
-function checkDates(start: Iso | null, end: Iso | null, label: string): Iso | null {
-  if (!start && end) throw new UserError(`${label}: give a "from" date as well as a "to" date.`);
-  if (start && end && end < start) throw new UserError(`${label}: the "to" date is before the "from" date.`);
-  return end && end !== start ? end : null;
-}
-
-/** Set a step's dates, checking they make sense. */
-async function setStepDates(db: Db, stepId: number, start: Iso | null, end: Iso | null, label: string): Promise<void> {
-  await db.query('update steps set start_date = $2, end_date = $3 where id = $1', [stepId, start, checkDates(start, end, label)]);
-}
 
 function parseJobForm(body: Record<string, unknown>) {
   const s = (k: string) => String(body[k] ?? '').trim();
@@ -118,6 +111,7 @@ export function routes(): express.Router {
       person: me(req), today: b.t, week, brand: brandOf(req), jobs: b.jobs, steps: b.steps, rework: b.rework,
       overdue: overdue(b.jobs, b.steps, b.t), decisions: b.decisions, stored: b.stored,
       capacity: capacity(b.jobs, b.steps, b.rules, b.cal, b.t), cal: b.cal,
+      suggestionsPanel: pendingPanel(await loadSuggestions({ status: 'pending' })),
     });
     res.send(page({ title: 'Coming up', tab: 'coming-up', person: me(req), flash: takeFlash(req, res), body }).value);
   });
@@ -202,19 +196,7 @@ export function routes(): express.Router {
     }
     const { proposal, site_start } = await proposalFor(values);
     const v = { ...values, site_start: values.site_start ?? site_start };
-    const id = await withPerson(me(req).id, async (db) => {
-      const job = await db.query(
-        `insert into jobs (job_number, brand, client_name, suburb, scope, door_finish, has_painting, has_stone, site_start, factory_days, install_days, notes, added_on, template)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) returning id`,
-        [v.job_number, v.brand, v.client_name, v.suburb, v.scope, v.door_finish, v.has_painting, v.has_stone, v.site_start, v.factory_days, v.install_days, v.notes, today(), v.template]);
-      const jobId = job.rows[0].id as number;
-      for (const p of proposal ?? []) {
-        await db.query(`insert into steps (job_id, kind, start_date, end_date, owner, sort, confirmed) values ($1,$2,$3,$4,$5,$6,false)`,
-          [jobId, p.kind, p.start_date, p.end_date, KINDS[p.kind].owner, FLOW.indexOf(p.kind) * 10]);
-      }
-      await syncStepSet(db, jobId);
-      return jobId;
-    });
+    const id = await withPerson(me(req).id, (db) => createJob(db, v, proposal ?? [], today()));
     flash(res, `${v.client_name} added. Every date is provisional until you confirm it.`);
     res.redirect(`/jobs/${id}`);
   });
@@ -230,7 +212,8 @@ export function routes(): express.Router {
       me(req).is_owner ? loadResponsible(me(req).id) : Promise.resolve(new Map()),
       pool.query('select name from people where active order by name'),
     ]);
-    const body = jobPage({ person: me(req), today: b.t, ...data, list, history, decisions, templates, responsible, peopleNames: people.rows.map((p) => p.name) });
+    const suggestionsPanel = jobPanel(await loadSuggestions({ status: 'pending', jobId: id }), me(req).role === 'editor', id);
+    const body = jobPage({ person: me(req), today: b.t, ...data, list, history, decisions, templates, responsible, peopleNames: people.rows.map((p) => p.name), suggestionsPanel });
     res.send(page({ title: 'One job', tab: 'job', person: me(req), flash: takeFlash(req, res), body }).value);
   });
 
@@ -401,7 +384,7 @@ export function routes(): express.Router {
   r.post('/steps/:id/done', doer, async (req, res) => {
     const id = idParam(req);
     const done = req.body.done === '1';
-    await withPerson(me(req).id, (db) => db.query(`update steps set done_at = ${done ? 'coalesce(done_at, now())' : 'null'} where id = $1`, [id]));
+    await withPerson(me(req).id, (db) => setStepDone(db, id, done));
     res.redirect(backTo(req));
   });
 
@@ -583,16 +566,96 @@ export function routes(): express.Router {
     res.redirect(backTo(req));
   });
 
+  // ---------- Suggestions from the bot ----------
+
+  r.get('/suggestions', async (req, res) => {
+    const q = (k: string) => String(req.query[k] ?? '').trim();
+    const status = (STATUSES as readonly string[]).includes(q('status')) || q('status') === 'all' ? q('status') : 'pending';
+    const priority = (PRIORITIES as readonly string[]).includes(q('priority')) ? q('priority') : '';
+    const dateQ = /^\d{4}-\d{2}-\d{2}$/.test(q('date')) ? q('date') : '';
+    const id = Number(q('id')) || undefined;
+    const batch = q('batch').slice(0, 100);
+    const filter = { status: batch || id ? (q('status') ? status : 'all') : status, priority, job: q('job').slice(0, 40), date: dateQ, batch };
+    let list = await loadSuggestions({ id, status: filter.status, priority, job: filter.job || undefined, batchDate: dateQ || undefined });
+    if (batch) list = list.filter((s) => s.batch_id === batch);
+    const body = suggestionsPage({ list, editor: me(req).role === 'editor', filter, pending: me(req).pending_suggestions ?? 0 });
+    res.send(page({ title: 'Suggestions', tab: 'suggestions', person: me(req), flash: takeFlash(req, res), body,
+      sub: 'Changes the bot found in Buildertrend. Nothing changes until an Editor accepts.' }).value);
+  });
+
+  r.post('/suggestions/act', editor, async (req, res) => {
+    const act = String(req.body.act ?? '');
+    const back = backTo(req, '/suggestions');
+    const m = /^(accept|decline|bt_wrong):(\d+)$/.exec(act);
+    let todo: { id: number; action: Action }[] = [];
+    if (m) todo = [{ id: Number(m[2]), action: m[1] as Action }];
+    else if (act === 'accept-selected' || act === 'decline-selected') {
+      const raw = req.body.ids;
+      const ids = (Array.isArray(raw) ? raw : raw ? [raw] : []).map(Number).filter((n) => Number.isInteger(n) && n > 0);
+      if (!ids.length) throw new UserError('Tick at least one suggestion first.');
+      const rows = (await loadSuggestions({ status: 'pending', limit: 2000 })).filter((s) => ids.includes(s.id)).sort(applyOrder);
+      todo = rows.map((s) => ({ id: s.id, action: act === 'accept-selected' ? 'accept' : 'decline' }));
+    } else {
+      throw new UserError('Pick Accept, Decline or Buildertrend is wrong.');
+    }
+    const outcomes: Outcome[] = [];
+    for (const t of todo) outcomes.push(await decide(me(req).id, t.id, t.action, String(req.body[`note_${t.id}`] ?? '').trim()));
+    const failed = outcomes.filter((o) => o.result === 'failed' || o.result === 'skipped');
+    const ok = outcomes.length - failed.length;
+    if (outcomes.length === 1) flash(res, failed.length ? `!${failed[0].message}` : outcomes[0].message);
+    else flash(res, `${failed.length ? '!' : ''}${ok} done.${failed.length ? ` ${failed.length} couldn't be applied: ${failed.map((f) => `#${f.id} ${f.message}`).join(' ')}` : ''}`);
+    res.redirect(back);
+  });
+
   // ---------- Settings (Editors) ----------
 
-  r.get('/settings', editor, async (req, res) => {
-    const [settings, blocked, people] = await Promise.all([
+  async function settingsBody(req: Request, newTok?: { name: string; token: string }) {
+    const [settings, blocked, people, email, tokens, calls] = await Promise.all([
       pool.query('select key, value, label from settings order by sort'),
       loadBlocked(),
       pool.query('select id, name, email, role, active, is_owner from people order by active desc, role, name'),
+      pool.query(`select value from app_settings where key = 'suggestions_email'`),
+      me(req).is_owner ? pool.query(`select t.id, t.name, t.created_at, p.name as created_by_name, t.last_used_at, t.revoked_at from api_tokens t left join people p on p.id = t.created_by order by t.revoked_at nulls first, t.id desc`) : null,
+      me(req).is_owner ? pool.query(`select c.at, c.method, c.path, c.status, c.items, t.name as token_name from api_calls c left join api_tokens t on t.id = c.token_id order by c.id desc limit 30`) : null,
     ]);
-    const body = settingsPage({ settings: settings.rows, blocked, people: people.rows, today: today(), templates: await loadTemplates(), viewerIsOwner: me(req).is_owner });
+    const extra = suggestionSettings({ email: email.rows[0]?.value ?? '', isOwner: me(req).is_owner, tokens: tokens?.rows ?? [], calls: calls?.rows ?? [], newToken: newTok });
+    return settingsPage({ settings: settings.rows, blocked, people: people.rows, today: today(), templates: await loadTemplates(), viewerIsOwner: me(req).is_owner, extra });
+  }
+
+  r.get('/settings', editor, async (req, res) => {
+    const body = await settingsBody(req);
     res.send(page({ title: 'Settings', tab: 'settings', person: me(req), flash: takeFlash(req, res), body }).value);
+  });
+
+  r.post('/settings/suggestions-email', editor, async (req, res) => {
+    const e = String(req.body.email ?? '').trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) throw new UserError('That email address looks wrong.');
+    await withPerson(me(req).id, (db) => db.query(`update app_settings set value = $1 where key = 'suggestions_email'`, [e]));
+    flash(res, `Suggestions emails now go to ${e}.`);
+    res.redirect('/settings#suggestions-email');
+  });
+
+  const owner = (req: Request) => {
+    if (!me(req).is_owner) throw new UserError('Only an owner can manage API tokens.');
+  };
+
+  r.post('/settings/tokens', editor, async (req, res) => {
+    owner(req);
+    const name = String(req.body.name ?? '').trim().slice(0, 60);
+    if (!name) throw new UserError('Give the token a name, e.g. Grokbot.');
+    const token = newToken();
+    await withPerson(me(req).id, (db) => db.query('insert into api_tokens (name, token_hash) values ($1, $2)', [name, hashToken(token)]));
+    // Shown once, on this page only: not in a cookie, a redirect or the log.
+    res.setHeader('Cache-Control', 'no-store');
+    const body = await settingsBody(req, { name, token });
+    res.send(page({ title: 'Settings', tab: 'settings', person: me(req), body }).value);
+  });
+
+  r.post('/settings/tokens/:id/revoke', editor, async (req, res) => {
+    owner(req);
+    await withPerson(me(req).id, (db) => db.query('update api_tokens set revoked_at = now() where id = $1 and revoked_at is null', [idParam(req)]));
+    flash(res, 'Token revoked. Anything still using it now gets "revoked".');
+    res.redirect('/settings#api-tokens');
   });
 
   r.post('/settings/values', editor, async (req, res) => {

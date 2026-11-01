@@ -21,7 +21,16 @@ export async function withPerson<T>(personId: number, fn: (db: Db) => Promise<T>
   return inTransaction(fn, "select set_config('hub.person_id', $1, true)", [String(personId)]);
 }
 
-/** For migrations, the Notion import and the sign-in code only. */
+/**
+ * For the bot's API calls (src/web/api.ts): Postgres knows the token, not a person, so
+ * hub_guard() refuses any change to jobs or steps and hub_suggestion_guard() lets it add
+ * suggestions only.
+ */
+export async function withToken<T>(tokenId: number, fn: (db: Db) => Promise<T>): Promise<T> {
+  return inTransaction(fn, "select set_config('hub.token_id', $1, true)", [String(tokenId)]);
+}
+
+/** For migrations, the Notion import, sign-in and the API's own bookkeeping (token last used, call log) only. */
 export async function withSystem<T>(fn: (db: Db) => Promise<T>): Promise<T> {
   return inTransaction(fn, "select set_config('hub.system', 'on', true)", []);
 }

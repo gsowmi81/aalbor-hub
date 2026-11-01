@@ -25,6 +25,7 @@ export interface ComingUpData {
   stored: Map<string, StoredDecision>;
   capacity: CapacityWarning[];
   cal: Calendar;
+  suggestionsPanel?: Html;
 }
 
 const DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
@@ -161,6 +162,7 @@ export function comingUp(d: ComingUpData): Html {
     <div class="agenda">${agenda}</div>
   </section>
 
+  ${d.suggestionsPanel ?? ''}
   <div class="two">
     <section class="panel" id="overdue">
       <div class="row"><h2>Overdue</h2><span class="muted small">Tick it or give it a new date</span></div>

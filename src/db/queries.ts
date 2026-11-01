@@ -62,12 +62,14 @@ export interface LogEntry {
   changed_at: string;
   before: Record<string, unknown> | null;
   after: Record<string, unknown> | null;
+  /** Set when the change came from accepting a bot suggestion. */
+  suggestion_id?: number | null;
 }
 
 /** Change log for a job, its steps and its rework, newest first. */
 export async function loadJobHistory(jobId: number, limit = 40): Promise<LogEntry[]> {
   return (await pool.query(
-    `select table_name, record_id, action, person_name, changed_at, before, after from change_log
+    `select table_name, record_id, action, person_name, changed_at, before, after, suggestion_id::int as suggestion_id from change_log
      where (table_name = 'jobs' and record_id = $1)
         or (table_name in ('steps', 'rework') and coalesce(after->>'job_id', before->>'job_id') = $1)
      order by id desc limit $2`,

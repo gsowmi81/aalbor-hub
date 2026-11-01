@@ -15,6 +15,7 @@
     "migrate:dev": "tsx src/db/migrate.ts",
     "import:notion": "node dist/scripts/import-notion.js",
     "import:notion:dev": "tsx scripts/import-notion.ts",
+    "seed:suggestions:dev": "tsx scripts/seed-suggestions.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run"
   },

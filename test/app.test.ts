@@ -83,7 +83,7 @@ describe('sign-in', () => {
 describe('every screen renders', () => {
   it('for an Editor', async () => {
     const jobs = (await pool.query('select id from jobs')).rows;
-    for (const p of ['/', '/?week=1', '/?brand=Origin', '/jobs', '/rework', '/settings', '/jobs/new', ...jobs.map((j) => `/jobs/${j.id}`)]) {
+    for (const p of ['/', '/?week=1', '/?brand=Origin', '/jobs', '/rework', '/suggestions', '/suggestions?status=all', '/settings', '/jobs/new', ...jobs.map((j) => `/jobs/${j.id}`)]) {
       const r = await req('GET', p, 'George');
       expect(r.status, p).toBe(200);
     }

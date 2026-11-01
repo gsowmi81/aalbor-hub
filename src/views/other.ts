@@ -123,6 +123,8 @@ export function settingsPage(d: {
   today: Iso;
   templates: Template[];
   viewerIsOwner: boolean;
+  /** Suggestions email and, for owners, API tokens (views/suggestions.ts). */
+  extra?: Html;
 }): Html {
   const upcoming = d.blocked.filter((b) => b.day >= d.today);
   return html`
@@ -186,5 +188,6 @@ export function settingsPage(d: {
       <label class="f">Role<select name="role"><option value="viewer">Viewer</option><option value="doer">Doer</option><option value="editor">Editor</option></select></label>
       ${d.viewerIsOwner ? html`<label class="checkline"><input type="checkbox" name="is_owner" value="1"> Owner</label>` : ''}
       <button class="btn primary" type="submit" style="align-self:end">Add person</button>
-    </form></section>`;
+    </form></section>
+  ${d.extra ?? ''}`;
 }

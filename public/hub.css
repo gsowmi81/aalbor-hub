@@ -196,3 +196,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .hist div { padding: 6px 0; border-top: 1px solid var(--line); }
 .hist time { color: var(--muted); font-variant-numeric: tabular-nums; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
+
+/* Suggestions: the count on the tab */
+.badge { display: inline-block; min-width: 20px; padding: 0 6px; margin-left: 4px; border-radius: 999px; background: var(--over); color: #fff; font-size: 12px; font-weight: 700; line-height: 20px; text-align: center; }
+.sugg input[type=text] { min-height: 36px; }

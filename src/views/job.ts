@@ -24,6 +24,8 @@ export interface JobPageData {
   /** Owners only: who was responsible for each rework. Empty for everyone else. */
   responsible: Map<number, Responsible>;
   peopleNames: string[];
+  /** Bot suggestions waiting on this job (views/suggestions.ts). */
+  suggestionsPanel?: Html;
 }
 
 const STATUS = { live: 'Live', on_hold: 'On hold', complete: 'Complete', cancelled: 'Cancelled' } as Record<string, string>;
@@ -96,6 +98,7 @@ export function jobPage(d: JobPageData): Html {
     <noscript><button class="btn" type="submit">Open</button></noscript>
   </form>
 
+  ${d.suggestionsPanel ?? ''}
   <div style="display:flex;flex-direction:column;gap:6px">
     <div class="eyebrow">Job ${job.job_number ?? '(no number)'} · site start ${job.site_start ? fmtLong(job.site_start) : 'not set'}</div>
     <h2 style="font-size:24px">${jobTitle(job)}</h2>
@@ -303,7 +306,7 @@ function historyPanel(history: LogEntry[], steps: Step[]): Html {
     return `${date} ${time}`;
   };
   return html`<section class="panel"><details><summary style="cursor:pointer"><h2 style="display:inline">History</h2> <span class="muted small">Every change, newest first</span></summary>
-    <div class="hist" style="padding-top:8px">${history.length ? history.map((e) => html`<div><time>${when(e.changed_at)}</time> · <strong>${e.person_name}</strong> · ${describe(e, stepName)}</div>`) : html`<div>No changes yet.</div>`}</div>
+    <div class="hist" style="padding-top:8px">${history.length ? history.map((e) => html`<div><time>${when(e.changed_at)}</time> · <strong>${e.person_name}</strong> · ${describe(e, stepName)}${e.suggestion_id ? html` <a class="muted small" href="/suggestions?status=all&amp;id=${e.suggestion_id}#s-${e.suggestion_id}">(suggestion #${e.suggestion_id})</a>` : ''}</div>`) : html`<div>No changes yet.</div>`}</div>
   </details></section>`;
 }
 
