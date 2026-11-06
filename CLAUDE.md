@@ -6,6 +6,7 @@ Production planning (Phase 1, live) and stock control (Phase 2, not built yet) f
 - Approved mock-up (the look to match): https://claude.ai/artifact/HBbUtp5Vc858fJDH2RnK1K
 - Approved build plan, with George's answers: `docs/build-plan.html` (phone copy https://claude.ai/artifact/MNiU6BvSXjJ8dj8GHgw1AW)
 - Setting it up on Render, email, domain and backups: `docs/setup.md`
+- Jobman teardown and step-change recommendations, 6 Nov 2026: `docs/jobman-review.html` (phone copy https://claude.ai/artifact/8QDv1FFbmtRwQtWSAGfubV)
 
 ## Never put these in the hub
 
