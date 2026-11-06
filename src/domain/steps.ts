@@ -72,6 +72,26 @@ export function isReworkArea(k: unknown): k is ReworkArea {
   return (REWORK_ORDER as unknown[]).includes(k);
 }
 
+/**
+ * The categories a rework item can sit in (George, 6 Nov 2026): one per board row, each the
+ * standard step it stands for. Picked from a list when adding an item; owner comes from it.
+ */
+export const REWORK_CATEGORIES: { kind: StepKind; label: string }[] = [
+  { kind: 'contract_drafting', label: 'Drafting for contract' },
+  { kind: 'check_measure', label: 'Check measure' },
+  { kind: 'production_drawings', label: 'Production drawings' },
+  { kind: 'materials_ordered', label: 'Materials orders' },
+  { kind: 'factory', label: 'Factory' },
+  { kind: 'delivery', label: 'Delivery' },
+  { kind: 'install', label: 'Install' },
+  { kind: 'stone_install', label: 'Stone' },
+];
+export function isReworkCategory(k: unknown): k is StepKind {
+  return REWORK_CATEGORIES.some((c) => c.kind === k);
+}
+/** Only factory and install rework items take hours: they count toward the weekly loads. */
+export const takesHours = (k: StepKind | null | undefined) => k === 'factory' || k === 'install';
+
 /** Where a task added to one job can go (George, 6 Nov 2026): its row and the step it travels with. */
 export const TASK_AREAS: { kind: StepKind; label: string }[] = [
   { kind: 'production_drawings', label: 'Production' },

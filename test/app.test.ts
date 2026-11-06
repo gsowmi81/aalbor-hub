@@ -397,6 +397,22 @@ describe('round two revisions (George, 6 Nov 2026)', () => {
     expect(page.text).toContain('name Rework: factory work → Rebuild sink cabinet, hours 4 → 6');
   });
 
+  it('files each added rework item under a category, not a person, and shows it in red in that row', async () => {
+    const rwk = await one(`select id, job_id from rework where note like 'Sink cabinet%'`);
+    const page = await req('GET', `/jobs/${rwk.job_id}`, 'George');
+    expect(page.text).toContain('Add a rework item');
+    const form = page.text.slice(page.text.indexOf(`action="/rework/${rwk.id}/steps"`));
+    expect(form.slice(0, form.indexOf('</form>'))).not.toContain('name="owner"');
+    // No category: refused, nothing added.
+    await req('POST', `/rework/${rwk.id}/steps`, 'George', { label: 'Reorder 2 white boards', start: nextMonday });
+    expect(await one(`select count(*)::int as n from steps where rework_id = $1 and label = 'Reorder 2 white boards'`, [rwk.id])).toEqual({ n: 0 });
+    await req('POST', `/rework/${rwk.id}/steps`, 'George', { label: 'Reorder 2 white boards', area: 'materials_ordered', start: nextMonday });
+    expect(await one(`select rework_area, owner, hours, confirmed from steps where rework_id = $1 and label = 'Reorder 2 white boards'`, [rwk.id]))
+      .toEqual({ rework_area: 'materials_ordered', owner: 'Christine', hours: null, confirmed: true });
+    const board = await req('GET', '/?week=1', 'Angela');
+    expect(board.text).toMatch(/class="chip lane-orders rw[^"]*"[^>]*>\s*<strong>Malcolm Patch[^<]*<\/strong><span>Reorder 2 white boards/);
+  });
+
   it('lets an Editor raise a dated rework in one go', async () => {
     const job = await one(`select id from jobs where client_name = 'Malcolm Patch'`);
     await req('POST', '/rework', 'Christine', { job_id: String(job.id), cause: 'drafting', note: 'Pantry redrawn', task_production_drawings: '1', task_factory: '1', hours_factory: '12', start: nextMonday });

@@ -3,7 +3,7 @@
 // timeline, Overdue "New date" and new-job templates all use these.
 
 import { Calendar, Iso } from './dates.js';
-import { baseKind, FLOW, KINDS, ProposalInput, proposeDates, REWORK_ORDER, ReworkArea, Rules, DEFAULT_RULES, shiftStep, StepKind } from './steps.js';
+import { baseKind, FLOW, isReworkCategory, KINDS, ProposalInput, proposeDates, REWORK_ORDER, ReworkArea, Rules, DEFAULT_RULES, shiftStep, StepKind } from './steps.js';
 
 export interface Dependency {
   pred: StepKind;
@@ -60,10 +60,10 @@ export function descendants(kind: StepKind): Set<StepKind> {
 }
 
 const isStandard = (r: PlanRow) => r.kind !== 'rework' && !r.label;
-/** A rework task that stands for a standard step, so it follows the rework's own order. */
-const isReworkTask = (r: PlanRow): r is PlanRow & { rework_id: number; rework_area: ReworkArea } =>
-  r.kind === 'rework' && !!r.rework_id && !!r.rework_area && (REWORK_ORDER as StepKind[]).includes(r.rework_area);
-const areaIndex = (r: PlanRow) => REWORK_ORDER.indexOf(r.rework_area as ReworkArea);
+/** A rework item in a category, so it follows the rework's own order (the job's step order). */
+const isReworkTask = (r: PlanRow): r is PlanRow & { rework_id: number; rework_area: StepKind } =>
+  r.kind === 'rework' && !!r.rework_id && isReworkCategory(r.rework_area);
+const areaIndex = (r: PlanRow) => FLOW.indexOf(r.rework_area as StepKind);
 const last = (r: { start_date: Iso | null; end_date: Iso | null }) => r.end_date ?? r.start_date;
 
 export interface Violation {
@@ -85,7 +85,7 @@ export function violations(rows: PlanRow[], cal: Calendar): Violation[] {
     const earliest = cal.addWorkingDays(last(p)!, dep.lag);
     if (s.start_date < earliest) out.push({ dep, pred: p, succ: s, earliest });
   }
-  // Each rework runs in its own order: drawings, factory work, delivery, install. Same day is fine.
+  // Each rework runs in its own order, the job's step order (drawings, orders, factory, delivery, install, stone). Same day is fine.
   const byRework = new Map<number, PlanRow[]>();
   for (const r of rows.filter(isReworkTask)) (byRework.get(r.rework_id!) ?? byRework.set(r.rework_id!, []).get(r.rework_id!)!).push(r);
   for (const tasks of byRework.values()) {

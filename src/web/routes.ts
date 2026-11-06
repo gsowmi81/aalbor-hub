@@ -5,7 +5,7 @@ import { AnchorKind, ANCHORS, applyChanges, Mode, PlanRow, proposeFromAnchor, pr
 import { canSqueeze, reschedulePage } from '../views/reschedule.js';
 import { addDays, fmtLong, Iso, todaySydney } from '../domain/dates.js';
 import { capacity, needsDecision, overdue, StepRow } from '../domain/checks.js';
-import { DoorFinish, FLOW, isReworkArea, KINDS, proposeDates, ProposalInput, REWORK_AREAS, REWORK_ORDER, ReworkArea, shiftStep, siteStartFromJobNumber, StepKind, TASK_AREAS } from '../domain/steps.js';
+import { DoorFinish, FLOW, isReworkCategory, KINDS, takesHours, proposeDates, ProposalInput, REWORK_AREAS, REWORK_ORDER, ReworkArea, shiftStep, siteStartFromJobNumber, StepKind, TASK_AREAS } from '../domain/steps.js';
 import type { Calendar } from '../domain/dates.js';
 import { Person, readCookie, requireRole, setCookie } from './auth.js';
 import { page } from '../views/layout.js';
@@ -577,13 +577,15 @@ export function routes(): express.Router {
     if (!rw) throw new UserError('That rework has gone.');
     const label = String(req.body.label ?? '').trim();
     if (!label) throw new UserError('Say what the step is.');
-    const area: ReworkArea | null = isReworkArea(req.body.area) ? req.body.area : null;
-    const hours = hoursOf(req.body.hours, label, false);
+    // A category, not a name (George, 6 Nov 2026): it sets the row and who usually does it.
+    if (!isReworkCategory(req.body.area)) throw new UserError(`${label}: pick the category it sits in.`);
+    const area: StepKind = req.body.area;
+    const hours = takesHours(area) ? hoursOf(req.body.hours, label, false) : null;
     const start = date(req.body.start, label);
     const end = date(req.body.end, label);
     await withPerson(me(req).id, async (db) => {
-      const s = await db.query(`insert into steps (job_id, kind, rework_id, rework_area, label, owner, hours, sort, confirmed) values ($1, 'rework', $2, $3, $4, $5, $6, 210, true) returning id`,
-        [rw.job_id, id, area, label.slice(0, 80), String(req.body.owner ?? '').trim().slice(0, 40) || (area ? KINDS[area].owner : ''), area && (area === 'factory' || area === 'install') ? hours : null]);
+      const s = await db.query(`insert into steps (job_id, kind, rework_id, rework_area, label, owner, hours, sort, confirmed) values ($1, 'rework', $2, $3, $4, $5, $6, $7, true) returning id`,
+        [rw.job_id, id, area, label.slice(0, 80), KINDS[area].owner, hours, 200 + FLOW.indexOf(area)]);
       await setStepDates(db, s.rows[0].id, start, end, label);
     });
     flash(res, 'Rework step added.');
@@ -596,7 +598,7 @@ export function routes(): express.Router {
     const start = date(req.body.start, 'Start');
     if (!start) throw new UserError('Pick the day the rework starts.');
     const tasks = (await pool.query(
-      `select id, rework_area, hours from steps where rework_id = $1 and rework_area is not null and start_date is null and done_at is null`, [id])).rows as { id: number; rework_area: ReworkArea; hours: number | null }[];
+      `select id, rework_area, hours from steps where rework_id = $1 and rework_area = any($2) and start_date is null and done_at is null`, [id, REWORK_ORDER])).rows as { id: number; rework_area: ReworkArea; hours: number | null }[];
     if (!tasks.length) throw new UserError('Every task on this rework already has a date. Use Move… to change one.');
     const [rules, cal] = await Promise.all([loadRules(), loadCalendar()]);
     const hours = Object.fromEntries(tasks.map((t) => [t.rework_area, t.hours]));
@@ -634,8 +636,9 @@ export function routes(): express.Router {
     const owner = String(req.body.owner ?? '').trim().slice(0, 40);
     await withPerson(me(req).id, async (db) => {
       if (s.kind === 'rework') {
-        const area: ReworkArea | null = isReworkArea(req.body.area) ? req.body.area : null;
-        const hours = area === 'factory' || area === 'install' ? hoursOf(req.body.hours, label, false) : null;
+        if (!isReworkCategory(req.body.area)) throw new UserError(`${label}: pick the category it sits in.`);
+        const area: StepKind = req.body.area;
+        const hours = takesHours(area) ? hoursOf(req.body.hours, label, false) : null;
         await db.query('update steps set label = $2, owner = $3, rework_area = $4, hours = $5 where id = $1', [id, label, owner, area, hours]);
       } else {
         const kind = TASK_AREAS.some((a) => a.kind === req.body.area) ? String(req.body.area) : s.kind;

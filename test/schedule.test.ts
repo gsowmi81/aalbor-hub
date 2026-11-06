@@ -149,6 +149,13 @@ describe('round two revisions (George, 6 Nov 2026)', () => {
     expect(c.map((x) => [x.id, x.start_date])).toEqual([[102, '2027-03-11'], [103, '2027-03-12']]);
   });
 
+  it('orders every rework category the way a job runs: a reorder waits for drawings, the factory for the reorder', () => {
+    const rows = [...plan(), rw(101, 'production_drawings', '2027-03-08'), rw(102, 'materials_ordered', '2027-03-05'), rw(103, 'factory', '2027-03-09')];
+    expect(violations(rows, cal).map((x) => [x.pred.id, x.succ.id])).toEqual([[101, 102]]);
+    const c = reschedule(rows, 102, '2027-03-10', null, 'shift', cal);
+    expect(c.map((x) => [x.id, x.start_date])).toEqual([[102, '2027-03-10'], [103, '2027-03-12']]);
+  });
+
   it('flags a rework task dated before the one it waits for', () => {
     const rows = [...plan(), rw(101, 'factory', '2027-03-10'), rw(102, 'install', '2027-03-09')];
     const v = violations(rows, cal);

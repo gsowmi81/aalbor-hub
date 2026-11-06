@@ -1,6 +1,6 @@
 import { html, Html } from '../web/html.js';
 import { fmtLong, fmtRange, fmtShort, Iso, sydneyDate } from '../domain/dates.js';
-import { KINDS, StepKind, FLOW, REWORK_AREAS, TASK_AREAS, rowOf } from '../domain/steps.js';
+import { BOARD_ROWS, KINDS, StepKind, FLOW, REWORK_AREAS, REWORK_CATEGORIES, REWORK_ORDER, TASK_AREAS, rowOf } from '../domain/steps.js';
 import { Decision, jobTitle, lastDate, nextUp, StepRow, stepLabel } from '../domain/checks.js';
 import { can, Person } from '../web/auth.js';
 import type { FullJob, LogEntry, ReworkFull, Responsible } from '../db/queries.js';
@@ -11,7 +11,7 @@ export const CAUSES = ['drafting', 'measure', 'factory', 'install', 'supplier', 
 
 type Step = StepRow & { note: string };
 
-const ROW_NAME: Record<string, string> = { drawings: 'Production drawings row', factory: 'Factory row', install: 'Install row', rework: 'Rework row' };
+const ROW_NAME: Record<string, string> = Object.fromEntries(BOARD_ROWS.map((r) => [r.row, `${r.label} row`]));
 
 export interface JobPageData {
   person: Person;
@@ -180,8 +180,9 @@ function tasksPanel(d: JobPageData, tasks: Step[]): Html {
   </section>`;
 }
 
-function reworkAreaSelect(current: StepKind | null | undefined): Html {
-  return html`<select name="area"><option value="">Other (Rework row)</option>${REWORK_AREAS.map((a) => html`<option value="${a.kind}"${current === a.kind ? html` selected` : ''}>${a.label}</option>`)}</select>`;
+/** Which category (board row) a rework item sits in: required, so every item is filed (George, 6 Nov 2026). */
+function reworkCategorySelect(current: StepKind | null | undefined): Html {
+  return html`<select name="area" required>${current ? '' : html`<option value="">Pick a category</option>`}${REWORK_CATEGORIES.map((c) => html`<option value="${c.kind}"${current === c.kind ? html` selected` : ''}>${c.label}</option>`)}</select>`;
 }
 
 function reworkPanel(d: JobPageData, rwSteps: Step[]): Html {
@@ -192,7 +193,7 @@ function reworkPanel(d: JobPageData, rwSteps: Step[]): Html {
     ${!d.rework.length ? html`<p class="muted">No rework on this job.</p>` : ''}
     ${d.rework.map((r) => {
       const steps = rwSteps.filter((s) => s.rework_id === r.id);
-      const undated = steps.filter((s) => s.rework_area && !s.start_date && !s.done_at);
+      const undated = steps.filter((s) => (REWORK_ORDER as StepKind[]).includes(s.rework_area as StepKind) && !s.start_date && !s.done_at);
       return html`<div class="item stack">
         <div><strong>${r.cause ? cap(r.cause) : 'Cause not recorded'}</strong> · ${r.note}</div>
         <div class="muted small">Raised by ${r.raised_by_name ?? 'unknown'} on ${fmtLong(sydneyDate(r.raised_at))}${r.closed_on ? ` · closed ${fmtLong(r.closed_on)} · ${r.extra_hours ?? 0} extra hours · $${(r.extra_material_cost ?? 0).toFixed(2)} extra material` : ''}</div>
@@ -209,8 +210,8 @@ function reworkPanel(d: JobPageData, rwSteps: Step[]): Html {
               <form class="popbody" method="post" action="/steps/${s.id}/edit"><input type="hidden" name="back" value="${back}">
                 <div class="fixgrid"><label class="f">Name<input name="label" required maxlength="80" value="${stepLabel(s)}"></label>
                 <label class="f">Who<input name="owner" maxlength="40" value="${s.owner}"></label>
-                <label class="f">Shows in${reworkAreaSelect(s.rework_area)}</label>
-                <label class="f">Hours (factory or install)<input name="hours" inputmode="decimal" pattern="[0-9]+([.][0-9])?" value="${s.hours ?? ''}"></label></div>
+                <label class="f">Category${reworkCategorySelect(s.rework_area)}</label>
+                <label class="f">Hours (factory or install only)<input name="hours" inputmode="decimal" pattern="[0-9]+([.][0-9])?" value="${s.hours ?? ''}"></label></div>
                 <div class="acts"><button class="btn primary" type="submit">Save</button></div></form></details>
               ${confirmDelete(`/steps/${s.id}/delete`, back, 'Remove', `Remove "${stepLabel(s)}" from this rework?`)}` : ''}
           </div>`)}
@@ -218,14 +219,14 @@ function reworkPanel(d: JobPageData, rwSteps: Step[]): Html {
         ${editor && !r.closed_on && undated.length ? html`<form class="inline" method="post" action="/rework/${r.id}/date"><input type="hidden" name="back" value="${back}">
             <label class="f" for="rwd-${r.id}">Date ${undated.length === 1 ? 'the task' : `the ${undated.length} tasks`} from<input type="date" id="rwd-${r.id}" name="start" required></label>
             <button class="btn primary" type="submit" style="align-self:flex-end">Set dates</button></form>` : ''}
-        ${editor && !r.closed_on ? html`<details class="pop"><summary class="btn small">Add a dated step</summary>
+        ${editor && !r.closed_on ? html`<details class="pop"><summary class="btn small">Add a rework item</summary>
           <form class="popbody" method="post" action="/rework/${r.id}/steps"><input type="hidden" name="back" value="${back}">
-            <div class="fixgrid"><label class="f">What<input name="label" required placeholder="e.g. Rebuild cabinet in factory"></label>
-            <label class="f">Who<input name="owner" placeholder="e.g. Phil"></label>
-            <label class="f">Shows in${reworkAreaSelect(null)}</label>
-            <label class="f">Hours (factory or install)<input name="hours" inputmode="decimal" pattern="[0-9]+([.][0-9])?"></label>
+            <div class="fixgrid"><label class="f">What<input name="label" required maxlength="80" placeholder="e.g. Reorder 2 white boards"></label>
+            <label class="f">Category${reworkCategorySelect(null)}</label>
+            <label class="f">Hours (factory or install only)<input name="hours" inputmode="decimal" pattern="[0-9]+([.][0-9])?"></label>
             <label class="f">From<input type="date" name="start" required></label><label class="f">To<input type="date" name="end"></label></div>
-            <div class="acts"><button class="btn primary" type="submit">Add step</button></div></form></details>
+            <span class="muted small">It shows in red in that category's row on the board, and goes to whoever usually does that step.</span>
+            <div class="acts"><button class="btn primary" type="submit">Add item</button></div></form></details>
           <details class="pop"><summary class="btn small">Close this rework</summary>
           <form class="popbody" method="post" action="/rework/${r.id}/close"><input type="hidden" name="back" value="${back}">
             <div class="fixgrid"><label class="f">Cause<select name="cause" required>${CAUSES.map((c) => html`<option value="${c}"${r.cause === c ? html` selected` : ''}>${cap(c)}</option>`)}</select></label>
