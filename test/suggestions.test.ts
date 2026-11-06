@@ -325,6 +325,80 @@ describe('screens', () => {
   });
 });
 
+describe('clearing the pending queue before a fresh rebuild (George, 6 Nov 2026)', () => {
+  const pendingN = async () => (await one(`select count(*)::int as n from suggestions where status = 'pending'`)).n;
+  const decided = async () => (await pool.query(`select id, status, decided_by, decided_at, decision_note from suggestions where status not in ('pending', 'superseded') order by id`)).rows;
+  async function queue(batch: string, n = 2) {
+    const j = await liveInstall();
+    const r = await api('POST', '/suggestions', { batch_id: batch, suggestions: Array.from({ length: n }, (_, i) =>
+      ({ job_number: j.job_number, type: 'note', proposed_value: `Check ${batch} ${i}`, priority: 'info' })) });
+    expect(r.status).toBe(201);
+  }
+
+  it('the bot supersedes every pending suggestion, keeps decided ones, records why and who, and sends no email', async () => {
+    await queue('stale-1', 3);
+    const before = await pendingN();
+    const keep = await decided();
+    expect(before).toBeGreaterThan(2);
+    expect(keep.length).toBeGreaterThan(0);
+    const waiting = (await pool.query(`select id::int as id from suggestions where status = 'pending' order by id`)).rows.map((r) => r.id);
+
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const r = await api('POST', '/suggestions/supersede-pending', { reason: 'Fresh rebuild 2026-11-06-refresh', batch_id: '2026-11-06-refresh' });
+    await new Promise((x) => setTimeout(x, 150));
+    const mails = log.mock.calls.map((c) => String(c[0])).filter((m) => m.startsWith('[suggestions email'));
+    log.mockRestore();
+
+    expect(r.status).toBe(200);
+    expect(r.json).toEqual({ superseded: before, ids: waiting });
+    expect(mails).toHaveLength(0);
+    expect(await pendingN()).toBe(0);
+    expect(await decided()).toEqual(keep);
+    const row = await one('select status, decision_note, decided_by, decided_by_token, decided_at from suggestions where id = $1', [waiting[0]]);
+    expect(row).toMatchObject({ status: 'superseded', decision_note: 'Fresh rebuild 2026-11-06-refresh', decided_by: null, decided_by_token: tokenId });
+    expect(row.decided_at).not.toBeNull();
+    const listed = await api('GET', '/suggestions?status=superseded');
+    expect(listed.json.suggestions.find((x: { id: number }) => x.id === waiting[0]).decided_by).toMatch(/^api:/);
+    const call = await one(`select status, items from api_calls where path = '/api/suggestions/supersede-pending' order by id desc limit 1`);
+    expect(call).toEqual({ status: 200, items: before });
+  });
+
+  it('with nothing waiting, or no body at all, it supersedes nothing; a default reason is used', async () => {
+    expect((await api('POST', '/suggestions/supersede-pending')).json).toEqual({ superseded: 0, ids: [] });
+    await queue('stale-2', 1);
+    const r = await api('POST', '/suggestions/supersede-pending', { batch_id: 'b-7' });
+    expect(r.json.superseded).toBe(1);
+    expect((await one('select decision_note from suggestions where id = $1', [r.json.ids[0]])).decision_note).toBe('Superseded by bot rebuild (b-7)');
+  });
+
+  it('still lets the token do nothing else: no accepting, no undoing a decision, no job edits', async () => {
+    await queue('stale-3', 1);
+    const s = await one(`select id from suggestions where status = 'pending' limit 1`);
+    const done = await one(`select id from suggestions where status in ('accepted', 'declined', 'bt_wrong') limit 1`);
+    const j = await liveInstall();
+    expect(await refused(withToken(tokenId, (db) => db.query(`update suggestions set status = 'accepted' where id = $1`, [s.id])))).toMatch(/token/);
+    expect(await refused(withToken(tokenId, (db) => db.query(`update suggestions set status = 'superseded' where id = $1`, [done.id])))).toMatch(/token/);
+    expect(await refused(withToken(tokenId, (db) => db.query(`update suggestions set status = 'superseded', proposed_value = 'x' where id = $1`, [s.id])))).toMatch(/token/);
+    expect(await refused(withToken(tokenId, (db) => db.query(`update steps set start_date = '2026-12-01' where id = $1`, [j.step_id])))).toBeTruthy();
+  });
+
+  it('an Editor can do the same from the Suggestions screen; Viewers and Doers cannot', async () => {
+    const viewer = await page('GET', '/suggestions', 'Angela');
+    expect(viewer.text).not.toContain('/suggestions/supersede-pending');
+    expect((await page('POST', '/suggestions/supersede-pending', 'Angela', {})).status).toBe(403);
+    expect((await page('POST', '/suggestions/supersede-pending', 'Phil', {})).status).toBe(403);
+    expect(await pendingN()).toBe(1);
+    const ed = await page('GET', '/suggestions', 'Christine');
+    expect(ed.text).toContain('Supersede all 1 waiting');
+    const r = await page('POST', '/suggestions/supersede-pending', 'Christine', { reason: '' });
+    expect(flashOf(r.cookie)).toContain('1 waiting suggestion marked superseded');
+    expect(await pendingN()).toBe(0);
+    const row = await one(`select decided_by, decision_note from suggestions where batch_id = 'stale-3'`);
+    expect(row).toEqual({ decided_by: ids.Christine, decision_note: 'Cleared by Christine before a fresh rebuild' });
+    expect((await page('GET', '/suggestions?status=superseded', 'Angela')).text).toContain('by Christine');
+  });
+});
+
 describe('limits', () => {
   it('a revoked token stops working', async () => {
     await page('POST', `/settings/tokens/${tokenId}/revoke`, 'George');

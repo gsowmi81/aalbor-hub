@@ -4,7 +4,7 @@
 import crypto from 'node:crypto';
 import express, { NextFunction, Request, Response } from 'express';
 import { pool, withSystem, withToken } from '../db/pool.js';
-import { checkItem, insertSuggestions, knownJobs, loadSuggestions, MAX_ITEMS, NewSuggestion, STATUSES, Suggestion } from '../db/suggestions.js';
+import { checkItem, insertSuggestions, knownJobs, loadSuggestions, MAX_ITEMS, NewSuggestion, STATUSES, Suggestion, SUPERSEDE_NOTE, supersedePending } from '../db/suggestions.js';
 import { UserError } from '../db/edits.js';
 import { FLOW, KINDS, StepKind } from '../domain/steps.js';
 import { config } from '../config.js';
@@ -135,7 +135,19 @@ export function apiRoutes(): express.Router {
     }
   });
 
-  r.use((_req: Request, res: Response) => fail(res, 404, 'No such API call. See README: GET /api/jobs, GET /api/suggestions, POST /api/suggestions.'));
+  // Clear the pending queue before posting a fresh full rebuild (George, 6 Nov 2026). Accepted,
+  // declined, "Buildertrend is wrong" and failed suggestions stay as they are. No email.
+  r.post('/suggestions/supersede-pending', async (req, res) => {
+    const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
+    const reason = typeof body.reason === 'string' ? body.reason.trim() : '';
+    const batch = typeof body.batch_id === 'string' ? body.batch_id.trim().slice(0, 100) : '';
+    const note = reason || (batch ? `${SUPERSEDE_NOTE} (${batch})` : SUPERSEDE_NOTE);
+    const ids = await withToken(loc(res).tokenId!, (db) => supersedePending(db, note));
+    loc(res).items = ids.length;
+    res.json({ superseded: ids.length, ids });
+  });
+
+  r.use((_req: Request, res: Response) => fail(res, 404, 'No such API call. See README: GET /api/jobs, GET /api/suggestions, POST /api/suggestions, POST /api/suggestions/supersede-pending.'));
   r.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
     if ((err as { type?: string })?.type === 'entity.parse.failed') return fail(res, 400, 'That body is not valid JSON.');
     if ((err as { type?: string })?.type === 'entity.too.large') return fail(res, 413, 'That body is too large.');
@@ -150,7 +162,7 @@ function publicRow(s: Suggestion) {
     id: s.id, created_at: s.created_at, source: s.source, batch_id: s.batch_id, job_id: s.job_id, job_number: s.job_number,
     stage_key: s.stage_key, type: s.type, field: s.field, current_value: s.current_value, proposed_value: s.proposed_value,
     reason: s.reason, priority: s.priority, status: s.status, superseded_by: s.superseded_by,
-    decided_by: s.decided_by_name ?? null, decided_at: s.decided_at, decision_note: s.decision_note, failure: s.failure || null,
+    decided_by: s.decided_by_name ?? (s.decided_by_token ? `api:${s.decided_by_token_name ?? 'bot'}` : null), decided_at: s.decided_at, decision_note: s.decision_note, failure: s.failure || null,
     payload: s.payload,
   };
 }

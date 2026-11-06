@@ -52,7 +52,7 @@ function priorityTag(s: Suggestion): Html {
 function row(s: Suggestion, editor: boolean, select = true): Html {
   const pending = s.status === 'pending';
   const decided = !pending ? html`<div class="small"><span class="pill${s.status === 'failed' ? ' over' : s.status === 'accepted' ? '' : ' warn'}">${STATUS_LABEL[s.status]}</span>
-      ${s.decided_by_name ? html` by ${s.decided_by_name}` : ''}${s.decided_at ? html` · ${fmtLong(sydneyDate(s.decided_at))}` : ''}
+      ${s.decided_by_name ? html` by ${s.decided_by_name}` : s.decided_by_token ? html` by the bot (${s.decided_by_token_name ?? 'API'})` : ''}${s.decided_at ? html` · ${fmtLong(sydneyDate(s.decided_at))}` : ''}
       ${s.failure ? html` · ${s.failure}` : ''}${s.decision_note ? html` · “${s.decision_note}”` : ''}
       ${s.superseded_by ? html` · by #${s.superseded_by}` : ''}</div>` : '';
   return html`<div class="item stack sugg" id="s-${s.id}">
@@ -132,6 +132,11 @@ export function suggestionsPage(d: SuggestionsPageData): Html {
     </div>
     ${f.batch ? html`<span class="muted small">Only batch ${f.batch}. <a href="/suggestions">Show all waiting</a></span>` : ''}
   </form>
+  ${d.editor && d.pending ? html`<details class="pop"><summary class="btn small">Supersede all ${d.pending} waiting</summary>
+    <form class="popbody" method="post" action="/suggestions/supersede-pending">
+      <span class="small">Marks every waiting suggestion “Replaced by a newer one”, for when the bot is about to post a fresh rebuild. Nothing in any job changes, and accepted, declined and the rest stay as they are.</span>
+      <label class="f">Why (shown on each one)<input name="reason" maxlength="300" placeholder="e.g. Schedules rewritten, fresh rebuild coming"></label>
+      <div class="acts"><button class="btn small danger" type="submit">Yes, supersede ${d.pending}</button></div></form></details>` : ''}
   ${d.list.length ? form(d.list, d.editor, back, true) : html`<section class="panel"><strong>${f.status === 'pending' && !f.job && !f.priority && !f.date && !f.batch ? 'Nothing waiting. The bot will add more after its next look at Buildertrend.' : 'No suggestions match.'}</strong></section>`}`;
 }
 

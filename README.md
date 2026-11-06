@@ -15,7 +15,14 @@ npm run typecheck && npm test && npm run build
 
 ## Suggestions API (for the Buildertrend bot)
 
-A bot (Grokbot) compares the hub with Buildertrend each weekday and posts suggested changes. Nothing in a job changes until an Editor accepts on the **Suggestions** screen. The bot can add and read suggestions and read jobs; Postgres refuses anything else from its token.
+A bot (Grokbot) compares the hub with Buildertrend each weekday and posts suggested changes. Nothing in a job changes until an Editor accepts on the **Suggestions** screen. The bot can add and read suggestions, supersede waiting ones, and read jobs; Postgres refuses anything else from its token.
+
+| Call | What it does |
+|---|---|
+| `GET /api/jobs` | live and on-hold jobs with every stage, read only |
+| `GET /api/suggestions` | suggestions by status, date and job |
+| `POST /api/suggestions` | add a batch of suggestions |
+| `POST /api/suggestions/supersede-pending` | mark every waiting suggestion superseded, before a fresh rebuild |
 
 **Token.** An owner makes one in Settings → API tokens. It is shown once; the hub keeps only its SHA-256 hash. Revoke it there too. Send it on every call:
 
@@ -99,5 +106,24 @@ Reply (`201` if anything was saved, `400` if nothing was):
 ```bash
 curl -H "Authorization: Bearer $HUB_API_TOKEN" "https://hub.aalborkitchens.com.au/api/suggestions?status=bt_wrong&since=2026-11-01"
 ```
+
+### POST /api/suggestions/supersede-pending
+
+Clears the waiting queue before the bot posts a fresh full rebuild (George, 6 Nov 2026), so Christine doesn't see stale proposals. Every `pending` suggestion becomes `superseded`; `accepted`, `declined`, `bt_wrong`, `failed` and already `superseded` ones don't change. Nothing in any job changes, and no email is sent (the next batch sends its own).
+
+```bash
+curl -X POST https://hub.aalborkitchens.com.au/api/suggestions/supersede-pending \
+  -H "Authorization: Bearer $HUB_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{ "reason": "Fresh rebuild 2026-11-06-refresh", "batch_id": "2026-11-06-refresh" }'
+```
+
+Both fields are optional. `reason` is saved as each row's `decision_note` (up to 300 characters); without it the note is `Superseded by bot rebuild`, plus ` (<batch_id>)` if one was given. Each row also gets `decided_at`, and `decided_by` reads `api:<token name>` in `GET /api/suggestions`. Reply `200`:
+
+```json
+{ "superseded": 71, "ids": [12, 13, 14, …] }
+```
+
+Calling it with nothing waiting returns `{ "superseded": 0, "ids": [] }`. Editors can do the same from the Suggestions screen (**Supersede all … waiting**); their name goes on each row instead.
 
 Try it locally: `npm run seed:suggestions:dev` adds example suggestions (it refuses to run in production).

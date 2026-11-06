@@ -16,7 +16,7 @@ import { newJobPage, proposalBlock, reworkPage, settingsPage } from '../views/ot
 import { exportWorkbook } from './export.js';
 import { checkDates, createJob, setStepDates, setStepDone, UserError } from '../db/edits.js';
 import { html } from './html.js';
-import { applyOrder, decide, loadSuggestions, PRIORITIES, STATUSES, Action, Outcome } from '../db/suggestions.js';
+import { applyOrder, decide, loadSuggestions, PRIORITIES, STATUSES, Action, Outcome, supersedePending } from '../db/suggestions.js';
 import { jobPanel, pendingPanel, suggestionSettings, suggestionsPage } from '../views/suggestions.js';
 import { hashToken, newToken } from './api.js';
 import type { FullJob } from '../db/queries.js';
@@ -750,6 +750,14 @@ export function routes(): express.Router {
     if (outcomes.length === 1) flash(res, failed.length ? `!${failed[0].message}` : outcomes[0].message);
     else flash(res, `${failed.length ? '!' : ''}${ok} done.${failed.length ? ` ${failed.length} couldn't be applied: ${failed.map((f) => `#${f.id} ${f.message}`).join(' ')}` : ''}`);
     res.redirect(back);
+  });
+
+  // Clear every waiting suggestion before the bot's fresh rebuild (George, 6 Nov 2026). Editors only.
+  r.post('/suggestions/supersede-pending', editor, async (req, res) => {
+    const note = String(req.body.reason ?? '').trim() || `Cleared by ${me(req).name} before a fresh rebuild`;
+    const ids = await withPerson(me(req).id, (db) => supersedePending(db, note));
+    flash(res, ids.length ? `${ids.length} waiting ${ids.length === 1 ? 'suggestion' : 'suggestions'} marked superseded. Accepted, declined and the rest are unchanged.` : 'Nothing was waiting.');
+    res.redirect('/suggestions');
   });
 
   // ---------- Settings (Editors) ----------

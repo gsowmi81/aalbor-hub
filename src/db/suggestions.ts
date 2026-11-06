@@ -38,6 +38,9 @@ export interface Suggestion {
   superseded_by: number | null;
   decided_by: number | null;
   decided_by_name?: string | null;
+  /** Set when the bot's token decided it (a bulk supersede, or a newer suggestion). */
+  decided_by_token?: number | null;
+  decided_by_token_name?: string | null;
   decided_at: string | null;
   decision_note: string;
   failure: string;
@@ -260,12 +263,26 @@ export async function loadSuggestions(f: SuggestionFilter = {}): Promise<Suggest
   if (f.since) add('greatest(s.created_at, s.decided_at) >= ?::timestamptz', f.since);
   params.push(Math.min(f.limit ?? 500, 2000));
   const r = await pool.query(
-    `select s.*, s.id::int as id, s.superseded_by::int as superseded_by, p.name as decided_by_name, j.client_name
-     from suggestions s left join people p on p.id = s.decided_by left join jobs j on j.id = s.job_id
+    `select s.*, s.id::int as id, s.superseded_by::int as superseded_by, p.name as decided_by_name, t.name as decided_by_token_name, j.client_name
+     from suggestions s left join people p on p.id = s.decided_by left join api_tokens t on t.id = s.decided_by_token left join jobs j on j.id = s.job_id
      ${where.length ? `where ${where.join(' and ')}` : ''}
      order by case s.priority when 'urgent' then 0 when 'normal' then 1 else 2 end, s.job_number nulls last, s.id
      limit $${params.length}`, params);
   return r.rows;
+}
+
+export const SUPERSEDE_NOTE = 'Superseded by bot rebuild';
+
+/**
+ * Clear the queue before a fresh rebuild (George, 6 Nov 2026): every pending suggestion becomes
+ * superseded, with the reason. Run as the bot's token (withToken) or an Editor (withPerson); the
+ * database records who and when on each row and refuses anyone else. Decided ones never change.
+ */
+export async function supersedePending(db: Db, note: string): Promise<number[]> {
+  const r = await db.query(
+    `update suggestions set status = 'superseded', decision_note = $1 where status = 'pending' returning id::int as id`,
+    [note.trim().slice(0, 300) || SUPERSEDE_NOTE]);
+  return r.rows.map((x) => x.id).sort((a, b) => a - b);
 }
 
 export async function pendingCount(): Promise<number> {
