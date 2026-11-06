@@ -113,3 +113,60 @@ describe('templates: propose from the one date you know', () => {
     expect(violations(rows, cal).filter((v) => v.dep.hard)).toEqual([]);
   });
 });
+
+describe('round two revisions (George, 6 Nov 2026)', () => {
+  it('puts Delivery in the Factory row, and rework tasks in the row of the step they stand for', async () => {
+    const { rowOf } = await import('../src/domain/steps.js');
+    expect(rowOf({ kind: 'delivery' })).toBe('factory');
+    expect(rowOf({ kind: 'install' })).toBe('install');
+    expect(rowOf({ kind: 'rework', rework_area: 'production_drawings' })).toBe('drawings');
+    expect(rowOf({ kind: 'rework', rework_area: 'factory' })).toBe('factory');
+    expect(rowOf({ kind: 'rework', rework_area: 'install' })).toBe('install');
+    expect(rowOf({ kind: 'rework', rework_area: null })).toBe('rework');
+  });
+
+  it('works out rework dates in order: drawings, factory the next day, delivery the day after, install with delivery', async () => {
+    const { proposeRework } = await import('../src/domain/schedule.js');
+    // Mon 09 Nov 2026 start, all four tasks, 4 hours of factory work, 2 of install.
+    const p = proposeRework(['production_drawings', 'factory', 'delivery', 'install'], '2026-11-09', { factory: 4, install: 2 }, DEFAULT_RULES, cal);
+    expect(p.map((x) => [x.area, x.start_date, x.end_date])).toEqual([
+      ['production_drawings', '2026-11-09', null],
+      ['factory', '2026-11-10', null],
+      ['delivery', '2026-11-11', null],
+      ['install', '2026-11-11', null],
+    ]);
+    // 12 hours of factory work over 8-hour days is two days; a Saturday start waits for Monday.
+    const q = proposeRework(['factory', 'install'], '2026-11-14', { factory: 12, install: 3 }, DEFAULT_RULES, cal);
+    expect(q.map((x) => [x.area, x.start_date, x.end_date])).toEqual([['factory', '2026-11-16', '2026-11-17'], ['install', '2026-11-18', null]]);
+  });
+
+  const rw = (id: number, area: StepKind, start: string, end: string | null = null): PlanRow =>
+    ({ id, kind: 'rework', label: `Rework ${area}`, start_date: start, end_date: end, done: false, confirmed: true, rework_id: 50, rework_area: area });
+
+  it('moves the later tasks of a rework with it, and never the main job', () => {
+    const rows = [...plan(), rw(101, 'production_drawings', '2027-03-08'), rw(102, 'factory', '2027-03-09'), rw(103, 'install', '2027-03-10')];
+    const c = reschedule(rows, 102, '2027-03-11', null, 'shift', cal);
+    expect(c.map((x) => [x.id, x.start_date])).toEqual([[102, '2027-03-11'], [103, '2027-03-12']]);
+  });
+
+  it('flags a rework task dated before the one it waits for', () => {
+    const rows = [...plan(), rw(101, 'factory', '2027-03-10'), rw(102, 'install', '2027-03-09')];
+    const v = violations(rows, cal);
+    expect(v.map((x) => [x.pred.id, x.succ.id, x.earliest])).toEqual([[101, 102, '2027-03-10']]);
+  });
+
+  it('takes a task added to one job along with its area, in both shift and keep-install moves', () => {
+    const rows = plan();
+    const extra: PlanRow = { id: 90, kind: 'install', label: 'Install painted doors', start_date: '2027-03-04', end_date: null, done: false, confirmed: true };
+    const fac: PlanRow = { id: 91, kind: 'factory', label: 'Spray test panel', start_date: '2027-02-18', end_date: null, done: false, confirmed: true };
+    const all = [...rows, extra, fac];
+    // Factory moves 2 working days later: the Factory task goes with it; in shift mode install (and its task) too.
+    const f = rows.find((r) => r.kind === 'factory')!;
+    const shifted = applyChanges(all, reschedule(all, f.id, '2027-02-19', null, 'shift', cal));
+    expect(shifted.find((r) => r.id === 91)!.start_date).toBe('2027-02-22');
+    expect(shifted.find((r) => r.id === 90)!.start_date).toBe('2027-03-08');
+    // Only this one: nothing else moves, the tasks stay put.
+    const only = reschedule(all, f.id, '2027-02-19', null, 'only', cal);
+    expect(only.map((x) => x.id)).toEqual([f.id]);
+  });
+});

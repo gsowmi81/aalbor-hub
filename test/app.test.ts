@@ -11,6 +11,7 @@ const { pool, withSystem } = await import('../src/db/pool.js');
 const { migrate } = await import('../src/db/migrate.js');
 const { importNotion } = await import('../scripts/import-notion.js');
 const { createApp } = await import('../src/server.js');
+const { addDays, mondayOf, todaySydney } = await import('../src/domain/dates.js');
 
 let server: Server;
 let base = '';
@@ -208,7 +209,7 @@ describe('rescheduling (George, 30 Oct 2026)', () => {
   const stepsOf = async (jobId: number) => Object.fromEntries((await pool.query(
     `select kind, start_date, end_date, confirmed from steps where job_id = $1 and label = '' and kind <> 'rework'`, [jobId])).rows.map((r) => [r.kind, r]));
 
-  it('suggests moving everything after a step by the same working days, and saves it as provisional', async () => {
+  it('suggests moving everything after a step by the same working days, and saves it confirmed (George, 6 Nov 2026)', async () => {
     const job = await one(`select id from jobs where client_name = 'Greg Steven'`);
     const before = await stepsOf(job.id);
     const dr = await one(`select id from steps where job_id = $1 and kind = 'production_drawings'`, [job.id]);
@@ -222,7 +223,7 @@ describe('rescheduling (George, 30 Oct 2026)', () => {
     const after = await stepsOf(job.id);
     expect(after.production_drawings.start_date).toBe('2026-11-16');
     expect(after.install.start_date).toBe('2026-12-01'); // was Mon 30 Nov, one working day later
-    expect(after.install.confirmed).toBe(false);
+    expect(after.install.confirmed).toBe(true);
     expect(after.check_measure.start_date).toBe(before.check_measure.start_date);
   });
 
@@ -273,6 +274,138 @@ describe('rescheduling (George, 30 Oct 2026)', () => {
     const job = await one(`select id from jobs where client_name = 'Greg Steven'`);
     const del = await one(`select id from steps where job_id = $1 and kind = 'delivery'`, [job.id]);
     expect((await req('GET', `/jobs/${job.id}/reschedule?step=${del.id}`, 'Phil')).status).toBe(403);
+  });
+});
+
+describe('round two revisions (George, 6 Nov 2026)', () => {
+  const nextMonday = addDays(mondayOf(todaySydney()), 7);
+
+  it('lists jobs in job-number order, oldest first, live jobs first', async () => {
+    const job = await one(`select id from jobs where status = 'live' limit 1`);
+    const page = await req('GET', `/jobs/${job.id}`, 'Angela');
+    const picker = page.text.slice(page.text.indexOf('id="job-pick"'), page.text.indexOf('</select>', page.text.indexOf('id="job-pick"')));
+    const nums = [...picker.matchAll(/<option value="\d+"[^>]*>(\d{6}) · [^<]*<\/option>/g)].filter((m) => !m[0].includes('(')).map((m) => m[1]);
+    expect(nums.length).toBeGreaterThan(5);
+    expect(nums).toEqual([...nums].sort());
+    const rw = await req('GET', '/rework', 'Phil');
+    expect(rw.text).toMatch(/<option value="\d+">\d{6} · /);
+  });
+
+  it('adds a task to one job, in an area, that moves with that area and saves confirmed', async () => {
+    const job = await one(`select id from jobs where client_name = 'Greg Steven'`);
+    const install = await one(`select id, start_date from steps where job_id = $1 and kind = 'install' and label = ''`, [job.id]);
+    const r = await req('POST', `/jobs/${job.id}/tasks`, 'George', { label: 'Install painted doors', area: 'install', start: install.start_date });
+    expect(r.status).toBe(302);
+    const t = await one(`select id, kind, owner, confirmed, start_date from steps where job_id = $1 and label = 'Install painted doors'`, [job.id]);
+    expect(t).toMatchObject({ kind: 'install', owner: 'Installer', confirmed: true, start_date: install.start_date });
+    expect((await req('POST', `/jobs/${job.id}/tasks`, 'Phil', { label: 'x', area: 'install' })).status).toBe(403);
+    const page = await req('GET', `/jobs/${job.id}`, 'George');
+    expect(page.text).toContain('Tasks for this job only');
+    expect(page.text).toContain('Install painted doors');
+    // Dragging install one working day later in the box: the task goes with it, everything confirmed.
+    const moved = await req('POST', `/jobs/${job.id}/reschedule/quick`, 'George', { step: String(install.id), wd: '1', mode: 'shift', back: `/jobs?brand=all` });
+    expect(moved.location).toBe('/jobs?brand=all');
+    const after = await one('select start_date, confirmed from steps where id = $1', [t.id]);
+    const inst = await one('select start_date, confirmed from steps where id = $1', [install.id]);
+    expect(after.start_date).toBe(inst.start_date);
+    expect(after.start_date).not.toBe(install.start_date);
+    expect(inst.confirmed).toBe(true);
+    // Editing renames it and moves it to the Factory row.
+    await req('POST', `/steps/${t.id}/edit`, 'George', { label: 'Spray doors', area: 'factory', owner: 'Phil' });
+    expect(await one('select kind, label, owner from steps where id = $1', [t.id])).toEqual({ kind: 'factory', label: 'Spray doors', owner: 'Phil' });
+  });
+
+  it('sends a dragged move that makes a new clash to the Reschedule screen instead of saving it', async () => {
+    const job = await one(`select id from jobs where client_name = 'Greg Steven'`);
+    const fac = await one(`select id, start_date, end_date from steps where job_id = $1 and kind = 'factory' and label = ''`, [job.id]);
+    const del = await one(`select id, start_date from steps where job_id = $1 and kind = 'delivery'`, [job.id]);
+    // An earlier test left a clash on this job (Move anyway). Clear it first: that saves.
+    const ok = await req('POST', `/jobs/${job.id}/reschedule/quick`, 'George', { step: String(fac.id), start: addDays(del.start_date, -7), mode: 'only', back: '/' });
+    expect(ok.location).toBe('/');
+    const cleared = await one('select start_date from steps where id = $1', [fac.id]);
+    expect(cleared.start_date).toBe(addDays(del.start_date, -7));
+    // Factory finishing after delivery is a new clash: nothing saves, the Reschedule screen opens.
+    const r = await req('POST', `/jobs/${job.id}/reschedule/quick`, 'George', { step: String(fac.id), start: addDays(del.start_date, 7), mode: 'only', back: '/' });
+    expect(r.location).toContain(`/jobs/${job.id}/reschedule?step=${fac.id}`);
+    expect((await one('select start_date from steps where id = $1', [fac.id])).start_date).toBe(cleared.start_date);
+    expect((await req('POST', `/jobs/${job.id}/reschedule/quick`, 'Christine', { step: String(fac.id), wd: '1', mode: 'only' })).status).toBe(302);
+    expect((await req('POST', `/jobs/${job.id}/reschedule/quick`, 'Phil', { step: String(fac.id), wd: '1', mode: 'only' })).status).toBe(403);
+  });
+
+  it('can leave the moved dates provisional on the Reschedule screen', async () => {
+    const job = await one(`select id from jobs where client_name = 'Greg Steven'`);
+    const cm = await one(`select id, start_date from steps where job_id = $1 and kind = 'check_measure'`, [job.id]);
+    await req('POST', `/jobs/${job.id}/reschedule`, 'George', { step: String(cm.id), mode: 'only', [`start_${cm.id}`]: addDays(cm.start_date, -1), provisional: '1', override: '1' });
+    expect(await one('select start_date, confirmed from steps where id = $1', [cm.id])).toEqual({ start_date: addDays(cm.start_date, -1), confirmed: false });
+  });
+
+  it('lets a Doer raise rework with its tasks and hours, undated, and an Editor date them in order', async () => {
+    const job = await one(`select id from jobs where client_name = 'Malcolm Patch'`);
+    const missing = await req('POST', '/rework', 'Phil', { job_id: String(job.id), cause: 'factory', note: 'No hours given', task_factory: '1' });
+    expect(missing.status).toBe(302); // the form comes back with the message shown
+    const shown = await fetch(base + missing.location, { headers: { Cookie: `hub_session=${tokens.Phil}; hub_flash=x` } });
+    expect(shown.status).toBe(200);
+    expect(await one(`select count(*)::int as n from rework where note = 'No hours given'`)).toEqual({ n: 0 });
+
+    await req('POST', '/rework', 'Phil', { job_id: String(job.id), cause: 'factory', note: 'Sink cabinet rebuilt', task_factory: '1', hours_factory: '4', task_delivery: '1', task_install: '1', hours_install: '2', start: nextMonday });
+    const rwk = await one(`select id from rework where note = 'Sink cabinet rebuilt'`);
+    const tasks = (await pool.query('select rework_area, label, hours, start_date, confirmed from steps where rework_id = $1 order by sort', [rwk.id])).rows;
+    // A Doer's start date is ignored: Christine dates rework.
+    expect(tasks).toEqual([
+      { rework_area: 'factory', label: 'Rework: factory work', hours: 4, start_date: null, confirmed: false },
+      { rework_area: 'delivery', label: 'Rework: delivery', hours: null, start_date: null, confirmed: false },
+      { rework_area: 'install', label: 'Rework: install', hours: 2, start_date: null, confirmed: false },
+    ]);
+    expect((await req('POST', `/rework/${rwk.id}/date`, 'Phil', { start: nextMonday })).status).toBe(403);
+    await req('POST', `/rework/${rwk.id}/date`, 'Christine', { start: nextMonday });
+    const dated = (await pool.query('select rework_area, start_date, confirmed from steps where rework_id = $1 order by sort', [rwk.id])).rows;
+    expect(dated).toEqual([
+      { rework_area: 'factory', start_date: nextMonday, confirmed: true },
+      { rework_area: 'delivery', start_date: addDays(nextMonday, 1), confirmed: true },
+      { rework_area: 'install', start_date: addDays(nextMonday, 1), confirmed: true },
+    ]);
+    // Next week's board shows them in red in the Factory and Install rows.
+    const board = await req('GET', '/?week=1', 'Angela');
+    expect(board.text).toMatch(/class="chip lane-factory rw[^"]*"[^>]*>\s*<strong>Malcolm Patch[^<]*<\/strong><span>Rework: factory work/);
+    expect(board.text).toMatch(/class="chip lane-install rw[^"]*"[^>]*>\s*<strong>Malcolm Patch[^<]*<\/strong><span>Rework: install/);
+  });
+
+  it('moves the later rework tasks with a dragged one, never the main job, and the job slip buttons leave rework alone', async () => {
+    const job = await one(`select id from jobs where client_name = 'Malcolm Patch'`);
+    const rwk = await one(`select id from rework where note = 'Sink cabinet rebuilt'`);
+    const ids2 = Object.fromEntries((await pool.query('select rework_area, id from steps where rework_id = $1', [rwk.id])).rows.map((r) => [r.rework_area, r.id]));
+    const mainBefore = (await pool.query(`select id, start_date from steps where job_id = $1 and kind <> 'rework' order by id`, [job.id])).rows;
+    await req('POST', `/jobs/${job.id}/reschedule/quick`, 'George', { step: String(ids2.factory), wd: '2', mode: 'shift', back: '/' });
+    const after = Object.fromEntries((await pool.query('select rework_area, start_date from steps where rework_id = $1', [rwk.id])).rows.map((r) => [r.rework_area, r.start_date]));
+    expect(after).toEqual({ factory: addDays(nextMonday, 2), delivery: addDays(nextMonday, 3), install: addDays(nextMonday, 3) });
+    expect((await pool.query(`select id, start_date from steps where job_id = $1 and kind <> 'rework' order by id`, [job.id])).rows).toEqual(mainBefore);
+    await req('POST', `/jobs/${job.id}/shift`, 'George', { n: '1' });
+    const still = Object.fromEntries((await pool.query('select rework_area, start_date from steps where rework_id = $1', [rwk.id])).rows.map((r) => [r.rework_area, r.start_date]));
+    expect(still).toEqual(after);
+  });
+
+  it('lets an Editor edit a rework and its tasks, and keeps it in the history', async () => {
+    const rwk = await one(`select id, job_id from rework where note = 'Sink cabinet rebuilt'`);
+    const t = await one(`select id from steps where rework_id = $1 and rework_area = 'factory'`, [rwk.id]);
+    expect((await req('POST', `/rework/${rwk.id}/edit`, 'Phil', { cause: 'drafting', note: 'x' })).status).toBe(403);
+    await req('POST', `/rework/${rwk.id}/edit`, 'George', { cause: 'drafting', note: 'Sink cabinet drawn wrong, rebuilt' });
+    expect(await one('select cause, note from rework where id = $1', [rwk.id])).toEqual({ cause: 'drafting', note: 'Sink cabinet drawn wrong, rebuilt' });
+    await req('POST', `/steps/${t.id}/edit`, 'George', { label: 'Rebuild sink cabinet', owner: 'Phil', area: 'factory', hours: '6' });
+    expect(await one('select label, owner, rework_area, hours from steps where id = $1', [t.id])).toEqual({ label: 'Rebuild sink cabinet', owner: 'Phil', rework_area: 'factory', hours: 6 });
+    const page = await req('GET', `/jobs/${rwk.job_id}`, 'George');
+    expect(page.text).toContain('Rebuild sink cabinet');
+    expect(page.text).toContain('name Rework: factory work → Rebuild sink cabinet, hours 4 → 6');
+  });
+
+  it('lets an Editor raise a dated rework in one go', async () => {
+    const job = await one(`select id from jobs where client_name = 'Malcolm Patch'`);
+    await req('POST', '/rework', 'Christine', { job_id: String(job.id), cause: 'drafting', note: 'Pantry redrawn', task_production_drawings: '1', task_factory: '1', hours_factory: '12', start: nextMonday });
+    const rwk = await one(`select id from rework where note = 'Pantry redrawn'`);
+    const tasks = (await pool.query('select rework_area, start_date, end_date, confirmed from steps where rework_id = $1 order by sort', [rwk.id])).rows;
+    expect(tasks).toEqual([
+      { rework_area: 'production_drawings', start_date: nextMonday, end_date: null, confirmed: true },
+      { rework_area: 'factory', start_date: addDays(nextMonday, 1), end_date: addDays(nextMonday, 2), confirmed: true },
+    ]);
   });
 });
 

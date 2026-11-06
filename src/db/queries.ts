@@ -30,7 +30,10 @@ export async function loadCalendar(): Promise<Calendar> {
   return new Calendar(await loadBlocked());
 }
 
-const STEP_COLS = 'id, job_id, kind, rework_id, label, start_date, end_date, confirmed, owner, done_at, note, sort';
+const STEP_COLS = 'id, job_id, kind, rework_id, rework_area, hours, label, start_date, end_date, confirmed, owner, done_at, note, sort';
+
+/** Job-number order, oldest first (George, 6 Nov 2026): YYMMDD numbers by value, then any others, then none. */
+export const JOB_NUMBER_ORDER = `coalesce(job_number ~ '^[0-9]+$', false) desc, case when job_number ~ '^[0-9]{1,15}$' then job_number::bigint end, job_number nulls last, client_name`;
 
 export async function loadEverything(): Promise<{ jobs: FullJob[]; steps: (StepRow & { note: string })[]; rework: ReworkFull[] }> {
   const [jobs, steps, rework] = await Promise.all([
@@ -51,7 +54,7 @@ export async function loadJob(id: number) {
 }
 
 export async function loadJobList(): Promise<{ id: number; job_number: string | null; client_name: string; suburb: string; status: string }[]> {
-  return (await pool.query(`select id, job_number, client_name, suburb, status from jobs where status <> 'cancelled' order by status = 'live' desc, client_name`)).rows;
+  return (await pool.query(`select id, job_number, client_name, suburb, status from jobs where status <> 'cancelled' order by status = 'live' desc, ${JOB_NUMBER_ORDER}`)).rows;
 }
 
 export interface LogEntry {
@@ -107,7 +110,7 @@ export async function templateFor(job: { template?: string | null; has_painting:
 
 export async function loadPlanRows(jobId: number): Promise<(PlanRow & { owner: string })[]> {
   return (await pool.query(
-    `select id, kind, label, start_date, end_date, done_at is not null as done, confirmed, owner from steps where job_id = $1 order by sort, id`,
+    `select id, kind, label, start_date, end_date, done_at is not null as done, confirmed, owner, rework_id, rework_area from steps where job_id = $1 order by sort, id`,
     [jobId],
   )).rows;
 }

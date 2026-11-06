@@ -148,3 +148,18 @@ describe('capacity', () => {
     expect(capacity(jobs, steps, { ...DEFAULT_RULES, factory_kitchens_per_week: 3 }, cal, TODAY)).toHaveLength(0);
   });
 });
+
+describe('capacity counts rework by its hours (George, 6 Nov 2026)', () => {
+  it('adds a rework factory task as part of a day, and leaves rework without a row out', () => {
+    // Week of Mon 02 Nov: two kitchens of 2 days fill the 4 factory days exactly.
+    const jobs = [job(1), job(2), job(3)];
+    const base = [step(1, 'factory', '2026-11-02', '2026-11-03'), step(2, 'factory', '2026-11-04', '2026-11-05')];
+    expect(capacity(jobs, base, DEFAULT_RULES, cal, TODAY)).toHaveLength(0);
+    // A 4-hour rework in the factory takes it to 4.5 job-days, over the limit.
+    const rwk = step(3, 'rework', '2026-11-06', null, { rework_id: 9, rework_area: 'factory', hours: 4 });
+    const w = capacity(jobs, [...base, rwk], DEFAULT_RULES, cal, TODAY);
+    expect(w.map((x) => [x.row, x.booked])).toEqual([['factory', 4.5]]);
+    // The same rework with no row (an old one) isn't counted.
+    expect(capacity(jobs, [...base, { ...rwk, rework_area: null }], DEFAULT_RULES, cal, TODAY)).toHaveLength(0);
+  });
+});

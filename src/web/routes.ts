@@ -1,11 +1,12 @@
 import express, { Request, Response } from 'express';
 import { pool, withPerson, Db } from '../db/pool.js';
-import { loadBlocked, loadCalendar, loadEverything, loadJob, loadJobHistory, loadJobList, loadPlanRows, loadResponsible, loadRules, loadTemplates, syncStepSet, templateFor } from '../db/queries.js';
-import { AnchorKind, ANCHORS, applyChanges, Mode, proposeFromAnchor, reschedule, violations } from '../domain/schedule.js';
+import { JOB_NUMBER_ORDER, loadBlocked, loadCalendar, loadEverything, loadJob, loadJobHistory, loadJobList, loadPlanRows, loadResponsible, loadRules, loadTemplates, syncStepSet, templateFor } from '../db/queries.js';
+import { AnchorKind, ANCHORS, applyChanges, Mode, PlanRow, proposeFromAnchor, proposeRework, reschedule, violations } from '../domain/schedule.js';
 import { canSqueeze, reschedulePage } from '../views/reschedule.js';
-import { addDays, Iso, todaySydney } from '../domain/dates.js';
+import { addDays, fmtLong, Iso, todaySydney } from '../domain/dates.js';
 import { capacity, needsDecision, overdue, StepRow } from '../domain/checks.js';
-import { DoorFinish, FLOW, KINDS, proposeDates, ProposalInput, shiftStep, siteStartFromJobNumber, StepKind } from '../domain/steps.js';
+import { DoorFinish, FLOW, isReworkArea, KINDS, proposeDates, ProposalInput, REWORK_AREAS, REWORK_ORDER, ReworkArea, shiftStep, siteStartFromJobNumber, StepKind, TASK_AREAS } from '../domain/steps.js';
+import type { Calendar } from '../domain/dates.js';
 import { Person, readCookie, requireRole, setCookie } from './auth.js';
 import { page } from '../views/layout.js';
 import { comingUp, StoredDecision } from '../views/comingUp.js';
@@ -51,6 +52,34 @@ function date(v: unknown, what: string): Iso | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(s) || Number.isNaN(Date.parse(s))) throw new UserError(`${what}: that isn't a date.`);
   return s;
 }
+/** Hours a rework task needs: a positive number, to one decimal place. */
+function hoursOf(v: unknown, what: string, required: boolean): number | null {
+  const t = String(v ?? '').trim();
+  if (!t) {
+    if (required) throw new UserError(`${what}: say how many hours it needs.`);
+    return null;
+  }
+  const n = Number(t);
+  if (!/^\d+([.]\d)?$/.test(t) || !(n > 0) || n > 500) throw new UserError(`${what}: hours must be a number like 3 or 1.5.`);
+  return n;
+}
+
+/** Where a dragged or picked step lands: a date, a whole number of working-day columns (wd), or a calendar day to settle (snap). */
+function targetStart(src: Record<string, unknown>, moved: PlanRow, cal: Calendar): Iso {
+  const scope = KINDS[moved.kind === 'rework' && moved.rework_area ? moved.rework_area : moved.kind].scope;
+  let start = date(src.start, 'New date') ?? moved.start_date ?? today();
+  // A drag on the timeline lands on calendar days; settle it on a working day for that step.
+  if (src.snap === '1') start = cal.onOrAfter(start, scope);
+  // A drag on the Coming up board moves by whole day columns, which are working days.
+  const wd = Number(src.wd);
+  if (src.wd !== undefined && src.wd !== '' && Number.isInteger(wd) && wd !== 0 && moved.start_date) {
+    start = cal.addWorkingDays(cal.onOrAfter(moved.start_date, scope), Math.max(-60, Math.min(60, wd)), scope);
+  }
+  return start;
+}
+
+const clashKey = (v: { pred: { id: number }; succ: { id: number } }) => `${v.pred.id}>${v.succ.id}`;
+
 function brandOf(req: Request): string {
   const b = String(req.query.brand ?? 'all');
   return ['Aalbor', 'Origin'].includes(b) ? b : 'all';
@@ -298,15 +327,7 @@ export function routes(): express.Router {
 
   r.get('/jobs/:id/reschedule', editor, async (req, res) => {
     const { job, rows, cal, moved, mode } = await rescheduleContext(req);
-    let newStart = date(req.query.start, 'New date') ?? moved.start_date ?? today();
-    // A drag on the timeline lands on calendar days; settle it on a working day for that step.
-    if (req.query.snap === '1') newStart = cal.onOrAfter(newStart, KINDS[moved.kind].scope);
-    // A drag on the Coming up board moves by whole day columns, which are working days.
-    const wd = Number(req.query.wd);
-    if (req.query.wd !== undefined && Number.isInteger(wd) && wd !== 0 && moved.start_date) {
-      const scope = KINDS[moved.kind].scope;
-      newStart = cal.addWorkingDays(cal.onOrAfter(moved.start_date, scope), Math.max(-60, Math.min(60, wd)), scope);
-    }
+    const newStart = targetStart(req.query as Record<string, unknown>, moved, cal);
     const newEnd = date(req.query.end, 'To');
     const next = applyChanges(rows, reschedule(rows, moved.id, newStart, newEnd, mode, cal)) as typeof rows;
     const body = reschedulePage({ job, rows, next, moved, newStart, newEnd, mode, violations: violations(next, cal), cal });
@@ -333,14 +354,43 @@ export function routes(): express.Router {
       const b = rows.find((x) => x.id === r.id)!;
       return b.start_date !== r.start_date || b.end_date !== r.end_date;
     });
-    await withPerson(me(req).id, async (db) => {
+    // Moved dates are confirmed: someone chose them (George, 6 Nov 2026). A tick box leaves them provisional.
+    const confirmed = req.body.provisional !== '1';
+    await saveMoves(me(req).id, id, changed, confirmed);
+    flash(res, `${changed.length} ${changed.length === 1 ? 'date' : 'dates'} changed, ${confirmed ? 'confirmed' : 'left provisional'}.${hard.length ? ' Saved with a clash, so it shows in Needs a decision.' : ''}`);
+    res.redirect(`/jobs/${id}`);
+  });
+
+  async function saveMoves(personId: number, jobId: number, changed: { id: number; start_date: Iso | null; end_date: Iso | null }[], confirmed: boolean) {
+    await withPerson(personId, async (db) => {
       for (const r of changed) {
-        await db.query('update steps set start_date = $2, end_date = $3, confirmed = false where id = $1 and job_id = $4 and done_at is null',
-          [r.id, r.start_date, r.end_date, id]);
+        await db.query('update steps set start_date = $2, end_date = $3, confirmed = ($5 and $2::date is not null) where id = $1 and job_id = $4 and done_at is null',
+          [r.id, r.start_date, r.end_date, jobId, confirmed]);
       }
     });
-    flash(res, `${changed.length} ${changed.length === 1 ? 'date' : 'dates'} changed, now provisional.${hard.length ? ' Saved with a clash, so it shows in Needs a decision.' : ''}`);
-    res.redirect(`/jobs/${id}`);
+  }
+
+  // A drag on Coming up or All jobs, answered in the small box on the page (George, 6 Nov 2026):
+  // saves at once, confirmed. A move that makes a new clash goes to the full Reschedule screen instead.
+  r.post('/jobs/:id/reschedule/quick', editor, async (req, res) => {
+    const { id, rows, cal, moved, mode } = await rescheduleContext(req);
+    const newStart = targetStart(req.body, moved, cal);
+    const changes = reschedule(rows, moved.id, newStart, null, mode, cal);
+    const next = applyChanges(rows, changes);
+    const before = new Set(violations(rows, cal).filter((v) => v.dep.hard).map(clashKey));
+    const fresh = violations(next, cal).filter((v) => v.dep.hard && !before.has(clashKey(v)));
+    if (fresh.length) {
+      flash(res, '!That move puts a step before something it waits for. Check the dates below, or Move anyway.');
+      return res.redirect(`/jobs/${id}/reschedule?step=${moved.id}&start=${newStart}&mode=${mode}`);
+    }
+    const changed = changes.filter((c) => {
+      const b = rows.find((x) => x.id === c.id)!;
+      return b.start_date !== c.start_date || b.end_date !== c.end_date;
+    });
+    await saveMoves(me(req).id, id, changed, true);
+    const label = moved.label || KINDS[moved.kind].label;
+    flash(res, changed.length ? `${label} moved. ${changed.length} ${changed.length === 1 ? 'date' : 'dates'} changed and confirmed.` : 'Nothing moved.');
+    res.redirect(backTo(req, `/jobs/${id}`));
   });
 
   r.post('/jobs/:id/shift', editor, async (req, res) => {
@@ -348,7 +398,8 @@ export function routes(): express.Router {
     const n = Number(req.body.n);
     if (![-1, 1, 5].includes(n)) throw new UserError('Pick −1 day, +1 day or +1 week.');
     const cal = await loadCalendar();
-    const steps = (await pool.query(`select id, kind, start_date, end_date from steps where job_id = $1 and done_at is null and start_date is not null`, [id])).rows;
+    // Rework keeps its own dates: the main job moving never moves it.
+    const steps = (await pool.query(`select id, kind, start_date, end_date from steps where job_id = $1 and kind <> 'rework' and done_at is null and start_date is not null`, [id])).rows;
     await withPerson(me(req).id, async (db) => {
       for (const s of steps) {
         const moved = shiftStep(s, n, cal);
@@ -458,7 +509,7 @@ export function routes(): express.Router {
     const rows = (await pool.query(
       `select r.*, p.name as raised_by_name, j.client_name, j.suburb from rework r join jobs j on j.id = r.job_id
        left join people p on p.id = r.raised_by order by r.raised_at desc`)).rows;
-    const jobs = (await pool.query(`select id, client_name, suburb from jobs where status = 'live' order by client_name`)).rows;
+    const jobs = (await pool.query(`select id, job_number, client_name, suburb from jobs where status = 'live' order by ${JOB_NUMBER_ORDER}`)).rows;
     const [responsible, people] = await Promise.all([
       me(req).is_owner ? loadResponsible(me(req).id) : Promise.resolve(new Map()),
       pool.query('select name from people where active order by name'),
@@ -475,15 +526,31 @@ export function routes(): express.Router {
     if (!(CAUSES as readonly string[]).includes(cause)) throw new UserError('Pick a cause.');
     if (!note) throw new UserError('Add one line on what happened.');
     const responsible = String(req.body.responsible ?? '').trim();
+    // Rework is a mini job (George, 6 Nov 2026): pick its tasks; factory and install say their hours.
+    const areas = REWORK_ORDER.filter((a) => req.body[`task_${a}`] === '1');
+    const hours: Partial<Record<ReworkArea, number | null>> = {};
+    for (const a of REWORK_AREAS) if (a.hours && areas.includes(a.kind)) hours[a.kind] = hoursOf(req.body[`hours_${a.kind}`], a.label, true);
+    // Only Editors date it; Doers' tasks wait for Christine.
+    const start = me(req).role === 'editor' ? date(req.body.start, 'Start') : null;
+    const [rules, cal] = await Promise.all([loadRules(), loadCalendar()]);
+    const plan = new Map((start ? proposeRework(areas, start, hours, rules, cal) : []).map((p) => [p.area, p]));
     await withPerson(me(req).id, async (db) => {
       const id = (await db.query('insert into rework (job_id, cause, note) values ($1, $2, $3) returning id', [jobId, cause, note.slice(0, 200)])).rows[0].id;
+      for (const [i, a] of REWORK_AREAS.filter((x) => areas.includes(x.kind)).entries()) {
+        const p = plan.get(a.kind);
+        await db.query(
+          `insert into steps (job_id, kind, rework_id, rework_area, label, owner, hours, sort, start_date, end_date, confirmed)
+           values ($1, 'rework', $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+          [jobId, id, a.kind, a.task, KINDS[a.kind].owner, hours[a.kind] ?? null, 200 + i, p?.start_date ?? null, p?.end_date ?? null, !!p]);
+      }
       // Owners only. The database refuses this for anyone else (row-level security).
       if (responsible && me(req).is_owner) {
         await db.query('insert into rework_responsible (rework_id, responsible, note, set_by) values ($1, $2, $3, $4)',
           [id, responsible.slice(0, 80), String(req.body.responsible_note ?? '').trim().slice(0, 200), me(req).id]);
       }
     });
-    flash(res, 'Rework raised. It shows in Needs a decision until Christine dates it.');
+    const n = areas.length;
+    flash(res, `Rework raised${n ? ` with ${n} ${n === 1 ? 'task' : 'tasks'}` : ''}.${start && n ? ` Dates worked out from ${fmtLong(start)} and confirmed.` : ' It shows in Needs a decision until Christine dates it.'}`);
     res.redirect(backTo(req, '/rework'));
   });
 
@@ -510,15 +577,90 @@ export function routes(): express.Router {
     if (!rw) throw new UserError('That rework has gone.');
     const label = String(req.body.label ?? '').trim();
     if (!label) throw new UserError('Say what the step is.');
+    const area: ReworkArea | null = isReworkArea(req.body.area) ? req.body.area : null;
+    const hours = hoursOf(req.body.hours, label, false);
     const start = date(req.body.start, label);
     const end = date(req.body.end, label);
     await withPerson(me(req).id, async (db) => {
-      const s = await db.query(`insert into steps (job_id, kind, rework_id, label, owner, sort, confirmed) values ($1, 'rework', $2, $3, $4, 200, true) returning id`,
-        [rw.job_id, id, label, String(req.body.owner ?? '').trim()]);
+      const s = await db.query(`insert into steps (job_id, kind, rework_id, rework_area, label, owner, hours, sort, confirmed) values ($1, 'rework', $2, $3, $4, $5, $6, 210, true) returning id`,
+        [rw.job_id, id, area, label.slice(0, 80), String(req.body.owner ?? '').trim().slice(0, 40) || (area ? KINDS[area].owner : ''), area && (area === 'factory' || area === 'install') ? hours : null]);
       await setStepDates(db, s.rows[0].id, start, end, label);
     });
     flash(res, 'Rework step added.');
     res.redirect(backTo(req));
+  });
+
+  // Date a rework's undated tasks from one start date, in the rework's order.
+  r.post('/rework/:id/date', editor, async (req, res) => {
+    const id = idParam(req);
+    const start = date(req.body.start, 'Start');
+    if (!start) throw new UserError('Pick the day the rework starts.');
+    const tasks = (await pool.query(
+      `select id, rework_area, hours from steps where rework_id = $1 and rework_area is not null and start_date is null and done_at is null`, [id])).rows as { id: number; rework_area: ReworkArea; hours: number | null }[];
+    if (!tasks.length) throw new UserError('Every task on this rework already has a date. Use Move… to change one.');
+    const [rules, cal] = await Promise.all([loadRules(), loadCalendar()]);
+    const hours = Object.fromEntries(tasks.map((t) => [t.rework_area, t.hours]));
+    const plan = new Map(proposeRework(tasks.map((t) => t.rework_area), start, hours, rules, cal).map((p) => [p.area, p]));
+    await withPerson(me(req).id, async (db) => {
+      for (const t of tasks) {
+        const p = plan.get(t.rework_area)!;
+        await db.query('update steps set start_date = $2, end_date = $3, confirmed = true where id = $1', [t.id, p.start_date, p.end_date]);
+      }
+    });
+    flash(res, `${tasks.length} rework ${tasks.length === 1 ? 'task' : 'tasks'} dated and confirmed.`);
+    res.redirect(backTo(req));
+  });
+
+  // Edit a rework: its cause and what happened (George, 6 Nov 2026).
+  r.post('/rework/:id/edit', editor, async (req, res) => {
+    const id = idParam(req);
+    const cause = String(req.body.cause ?? '');
+    const note = String(req.body.note ?? '').trim();
+    if (!(CAUSES as readonly string[]).includes(cause)) throw new UserError('Pick a cause.');
+    if (!note) throw new UserError('Add one line on what happened.');
+    await withPerson(me(req).id, (db) => db.query('update rework set cause = $2, note = $3 where id = $1', [id, cause, note.slice(0, 200)]));
+    flash(res, 'Rework saved.');
+    res.redirect(backTo(req));
+  });
+
+  // Edit a rework task or a task added to one job: name, who, and its row. Dates move by dragging or Move….
+  r.post('/steps/:id/edit', editor, async (req, res) => {
+    const id = idParam(req);
+    const s = (await pool.query('select id, job_id, kind, label, rework_id from steps where id = $1', [id])).rows[0];
+    if (!s) throw new UserError('That step has gone.');
+    if (s.kind !== 'rework' && !s.label) throw new UserError("Standard steps keep their names. Only rework tasks and added tasks can be edited.");
+    const label = String(req.body.label ?? '').trim().slice(0, 80);
+    if (!label) throw new UserError('Give the task a name.');
+    const owner = String(req.body.owner ?? '').trim().slice(0, 40);
+    await withPerson(me(req).id, async (db) => {
+      if (s.kind === 'rework') {
+        const area: ReworkArea | null = isReworkArea(req.body.area) ? req.body.area : null;
+        const hours = area === 'factory' || area === 'install' ? hoursOf(req.body.hours, label, false) : null;
+        await db.query('update steps set label = $2, owner = $3, rework_area = $4, hours = $5 where id = $1', [id, label, owner, area, hours]);
+      } else {
+        const kind = TASK_AREAS.some((a) => a.kind === req.body.area) ? String(req.body.area) : s.kind;
+        await db.query('update steps set label = $2, owner = $3, kind = $4, sort = $5 where id = $1', [id, label, owner, kind, FLOW.indexOf(kind as StepKind) * 10 + 5]);
+      }
+    });
+    flash(res, `${label} saved.`);
+    res.redirect(backTo(req, `/jobs/${s.job_id}`));
+  });
+
+  // Add a task to one job only, in an area (George, 6 Nov 2026). It travels with that area's step.
+  r.post('/jobs/:id/tasks', editor, async (req, res) => {
+    const id = idParam(req);
+    const label = String(req.body.label ?? '').trim().slice(0, 80);
+    if (!label) throw new UserError('Give the task a name.');
+    const area = TASK_AREAS.find((a) => a.kind === req.body.area);
+    if (!area) throw new UserError('Pick where the task goes: Production, Factory or Site.');
+    const start = date(req.body.start, label);
+    const end = checkDates(start, date(req.body.end, label), label);
+    const owner = String(req.body.owner ?? '').trim().slice(0, 40) || KINDS[area.kind].owner;
+    await withPerson(me(req).id, (db) => db.query(
+      `insert into steps (job_id, kind, label, owner, sort, start_date, end_date, confirmed) values ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [id, area.kind, label, owner, FLOW.indexOf(area.kind) * 10 + 5, start, end, !!start]));
+    flash(res, `${label} added to this job.`);
+    res.redirect(`/jobs/${id}#tasks`);
   });
 
   // ---------- Deleting things added by mistake (Editors) ----------

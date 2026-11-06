@@ -19,6 +19,7 @@ export interface RescheduleData {
 }
 
 const label = (r: PlanRow) => r.label || KINDS[r.kind].label;
+const scopeKind = (r: PlanRow) => (r.kind === 'rework' && r.rework_area ? r.rework_area : r.kind);
 const order = (r: PlanRow) => (r.kind === 'rework' ? 999 : FLOW.indexOf(r.kind) * 2 + (r.label ? 1 : 0));
 
 /** Can this move keep the install date? Only when install comes after the moved step. */
@@ -28,7 +29,7 @@ export function canSqueeze(moved: PlanRow, rows: PlanRow[]): boolean {
 }
 
 export function reschedulePage(d: RescheduleData): Html {
-  const k = KINDS[d.moved.kind];
+  const k = KINDS[scopeKind(d.moved)];
   const squeezeOk = canSqueeze(d.moved, d.rows);
   const install = d.rows.find((r) => r.kind === 'install' && !r.label);
   const before = new Map(d.rows.map((r) => [r.id, r]));
@@ -78,7 +79,7 @@ export function reschedulePage(d: RescheduleData): Html {
       <input type="hidden" name="step" value="${d.moved.id}">
       <input type="hidden" name="mode" value="${d.mode}">
       <div class="row"><h2>New dates</h2><span class="muted small">${changedCount} ${changedCount === 1 ? 'step changes' : 'steps change'}</span></div>
-      <p class="muted small" style="padding-bottom:6px">Change any date below before saving. Dates that move become provisional, so they can be checked against Buildertrend.</p>
+      <p class="muted small" style="padding-bottom:6px">Change any date below before saving. The dates you save are confirmed, since you chose them; tick the box at the bottom to leave them provisional.</p>
       ${rows.map((r) => {
         const b = before.get(r.id)!;
         const changed = b.start_date !== r.start_date || b.end_date !== r.end_date;
@@ -90,16 +91,17 @@ export function reschedulePage(d: RescheduleData): Html {
         }
         return html`<div class="field"${isHard ? html` style="border-left:3px solid var(--over);padding-left:8px"` : ''}>
           <div class="ftop"><label for="r-${r.id}">${label(r)}</label><span class="muted small">${r.owner || KINDS[r.kind].owner}</span></div>
-          ${KINDS[r.kind].range
+          ${KINDS[scopeKind(r)].range || r.end_date
             ? html`<div class="pair"><input id="r-${r.id}" type="date" name="start_${r.id}" value="${r.start_date ?? ''}" aria-label="${label(r)} from"><input type="date" name="end_${r.id}" value="${r.end_date ?? ''}" aria-label="${label(r)} to"></div>`
             : html`<input id="r-${r.id}" type="date" name="start_${r.id}" value="${r.start_date ?? ''}">`}
-          <div class="nice"><span>${changed ? html`<strong>${fmtRange(b.start_date, b.end_date)} → ${fmtRange(r.start_date, r.end_date)}</strong>` : 'Unchanged'}${changed && b.confirmed ? ' · was confirmed, becomes provisional' : ''}</span></div>
+          <div class="nice"><span>${changed ? html`<strong>${fmtRange(b.start_date, b.end_date)} → ${fmtRange(r.start_date, r.end_date)}</strong>` : 'Unchanged'}${changed && !b.confirmed ? ' · was provisional' : ''}</span></div>
           ${why ? html`<div class="small" style="color:${isHard ? 'var(--over)' : 'var(--warn-fg)'};font-weight:600">${why}</div>` : ''}
         </div>`;
       })}
       <div style="display:flex;flex-direction:column;gap:8px;padding-top:12px;border-top:1px solid var(--line)">
         ${hard.length ? html`<div class="notice bad">${hard.length} ${hard.length === 1 ? 'step is' : 'steps are'} before something ${hard.length === 1 ? 'it waits' : 'they wait'} for. Change ${hard.length === 1 ? 'it' : 'them'} above, or Move anyway: the job will show in Needs a decision until it's fixed or OK'd.</div>` : ''}
         ${soft.length && !hard.length ? html`<p class="small" style="color:var(--warn-fg)">Materials are ordered before drawings are signed off. That's allowed.</p>` : ''}
+        <label class="checkline" style="font-weight:400"><input type="checkbox" name="provisional" value="1"> Leave the changed dates provisional</label>
         <div class="acts">
           ${hard.length
             ? html`<button class="btn danger" type="submit" name="override" value="1">Move anyway</button>`

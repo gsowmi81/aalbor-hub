@@ -31,7 +31,8 @@ export const KINDS: Record<StepKind, KindInfo> = {
   factory:             { label: 'Cut, edge and assemble',  owner: 'Phil',      row: 'factory',  code: 'F',  range: true,  scope: 'factory' },
   doors_to_painting:   { label: 'Doors to painting',       owner: 'Phil',      row: 'factory',  code: 'P',  range: false, scope: 'factory' },
   doors_back:          { label: 'Doors back from painting', owner: 'Factory',  row: 'factory',  code: 'PB', range: false, scope: 'all' },
-  delivery:            { label: 'Delivery',                owner: 'Factory',   row: 'install',  code: 'DL', range: false, scope: 'all' },
+  // Delivery sits in the Factory row: the factory sends it (George, 6 Nov 2026).
+  delivery:            { label: 'Delivery',                owner: 'Factory',   row: 'factory',  code: 'DL', range: false, scope: 'all' },
   install:             { label: 'Install cabinets',        owner: 'Installer', row: 'install',  code: 'IN', range: true,  scope: 'all' },
   stone_measure:       { label: 'Stone measure',           owner: 'Lunastone', row: 'stone',    code: 'SM', range: false, scope: 'all' },
   stone_install:       { label: 'Stone install',           owner: 'Lunastone', row: 'stone',    code: 'SI', range: false, scope: 'all' },
@@ -54,6 +55,38 @@ export const BOARD_ROWS: { row: BoardRow; label: string }[] = [
   { row: 'stone', label: 'Stone' },
   { row: 'rework', label: 'Rework' },
 ];
+
+/**
+ * Rework is a mini job (George, 6 Nov 2026): its tasks are picked from these standard steps,
+ * in this order, and each shows on the board in its step's row, in red.
+ */
+export type ReworkArea = 'production_drawings' | 'factory' | 'delivery' | 'install';
+export const REWORK_AREAS: { kind: ReworkArea; label: string; task: string; hours: boolean }[] = [
+  { kind: 'production_drawings', label: 'Drafting / production drawings', task: 'Rework: drawings', hours: false },
+  { kind: 'factory', label: 'Factory work (cut, edge, assemble)', task: 'Rework: factory work', hours: true },
+  { kind: 'delivery', label: 'Delivery to site', task: 'Rework: delivery', hours: false },
+  { kind: 'install', label: 'Install', task: 'Rework: install', hours: true },
+];
+export const REWORK_ORDER: ReworkArea[] = REWORK_AREAS.map((a) => a.kind);
+export function isReworkArea(k: unknown): k is ReworkArea {
+  return (REWORK_ORDER as unknown[]).includes(k);
+}
+
+/** Where a task added to one job can go (George, 6 Nov 2026): its row and the step it travels with. */
+export const TASK_AREAS: { kind: StepKind; label: string }[] = [
+  { kind: 'production_drawings', label: 'Production' },
+  { kind: 'factory', label: 'Factory' },
+  { kind: 'install', label: 'Site' },
+];
+
+/** The standard step whose rules (row, scope, length) a step follows: a rework task follows the one it stands for. */
+export function baseKind(s: { kind: StepKind; rework_area?: StepKind | null }): StepKind {
+  return s.kind === 'rework' && s.rework_area ? s.rework_area : s.kind;
+}
+/** The board row a step sits in. Rework tasks sit in the row of the step they stand for. */
+export function rowOf(s: { kind: StepKind; rework_area?: StepKind | null }): BoardRow {
+  return KINDS[baseKind(s)].row;
+}
 
 export type DoorFinish = 'melamine' | 'polyurethane';
 
@@ -84,6 +117,8 @@ export const DEFAULT_RULES: Rules = {
   stone_measure_after_install: 1,
   stone_install_after_measure: 5,
   stone_install_max: 10,
+  rework_drawings_days: 1,
+  hours_per_day: 8,
 };
 
 export interface ProposalInput {
@@ -151,11 +186,11 @@ export function proposeDates(job: ProposalInput, rules: Rules, cal: Calendar): P
 
 /** Shift a step's dates by n working days, keeping it on working days for its scope. */
 export function shiftStep(
-  s: { kind: StepKind; start_date: Iso | null; end_date: Iso | null },
+  s: { kind: StepKind; rework_area?: StepKind | null; start_date: Iso | null; end_date: Iso | null },
   n: number,
   cal: Calendar,
 ): { start_date: Iso | null; end_date: Iso | null } {
-  const scope = KINDS[s.kind].scope;
+  const scope = KINDS[baseKind(s)].scope;
   const move = (d: Iso | null) => (d ? cal.addWorkingDays(cal.onOrAfter(d, scope), n, scope) : null);
   if (!s.start_date) return { start_date: null, end_date: null };
   if (!s.end_date) return { start_date: move(s.start_date), end_date: null };

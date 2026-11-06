@@ -48,7 +48,7 @@ export function proposalBlock(proposal: ProposedStep[] | null, clashes: Capacity
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-export function reworkPage(d: { person: Person; rework: (ReworkFull & { client_name: string; suburb: string })[]; jobs: { id: number; client_name: string; suburb: string }[]; today: Iso; responsible: Map<number, Responsible>; peopleNames: string[] }): Html {
+export function reworkPage(d: { person: Person; rework: (ReworkFull & { client_name: string; suburb: string })[]; jobs: { id: number; job_number: string | null; client_name: string; suburb: string }[]; today: Iso; responsible: Map<number, Responsible>; peopleNames: string[] }): Html {
   const open = d.rework.filter((r) => !r.closed_on);
   const closed = d.rework.filter((r) => r.closed_on).slice(0, 30);
   const months: string[] = [];
@@ -79,7 +79,7 @@ export function reworkPage(d: { person: Person; rework: (ReworkFull & { client_n
     ${d.person.is_owner ? html`<div style="flex-basis:100%">${responsibleBlock(r.id, d.responsible.get(r.id), '/rework', d.peopleNames)}</div>` : ''}</div>`;
 
   return html`
-  ${can(d.person, 'doer') ? html`<section class="panel"><h2>Raise rework</h2><p class="muted small">Pick the job, pick a cause, one line on what happened. Christine dates the steps.</p>${raiseForm(null, '/rework', d.jobs, d.person, d.peopleNames)}</section>` : ''}
+  ${can(d.person, 'doer') ? html`<section class="panel"><h2>Raise rework</h2><p class="muted small">Pick the job and the cause, one line on what happened, and tick what needs doing.</p>${raiseForm(null, '/rework', d.jobs, d.person, d.peopleNames)}</section>` : ''}
   ${d.person.is_owner ? ownersTally(d) : ''}
   <div class="two">
     <section class="panel"><div class="row"><h2>Open</h2><span class="muted small">${open.length}</span></div><div>${open.length ? open.map(item) : html`<p>No open rework.</p>`}</div></section>

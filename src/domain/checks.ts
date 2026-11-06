@@ -32,6 +32,9 @@ export interface StepRow {
   confirmed: boolean;
   owner: string;
   done_at: string | null;
+  /** Rework tasks: the standard step it stands for (its board row), and hours needed. */
+  rework_area?: StepKind | null;
+  hours?: number | null;
 }
 
 export interface ReworkRow {
@@ -52,6 +55,10 @@ export function lastDate(s: Pick<StepRow, 'start_date' | 'end_date'>): Iso | nul
 }
 export function jobTitle(j: Pick<JobRow, 'client_name' | 'suburb'>): string {
   return j.suburb ? `${j.client_name} · ${j.suburb}` : j.client_name;
+}
+
+export function planRow(s: StepRow): PlanRow {
+  return { id: s.id, kind: s.kind, label: s.label, start_date: s.start_date, end_date: s.end_date, done: !!s.done_at, confirmed: s.confirmed, rework_id: s.rework_id, rework_area: s.rework_area ?? null };
 }
 
 /** Steps whose last date has passed and nobody has ticked. */
@@ -135,12 +142,12 @@ export function needsDecision(
     // Dependency rules (schedule.ts): a step dated before something it has to wait for.
     // Hard rules only (materials ordered early is fine), one item per broken rule. Saving
     // dates with "Move anyway" lands here, so an override stays visible until it's fixed or OK'd.
-    const planRows: PlanRow[] = js.map((s) => ({ id: s.id, kind: s.kind, label: s.label, start_date: s.start_date, end_date: s.end_date, done: !!s.done_at, confirmed: s.confirmed }));
+    const planRows: PlanRow[] = js.map(planRow);
     for (const v of violations(planRows, cal).filter((x) => x.dep.hard)) {
       const a = js.find((s) => s.id === v.pred.id)!;
       const b = js.find((s) => s.id === v.succ.id)!;
       out.push({
-        key: `job:${j.id}:dep:${a.kind}:${b.kind}`, jobId: j.id, title,
+        key: a.kind === 'rework' ? `job:${j.id}:dep:rw:${a.id}:${b.id}` : `job:${j.id}:dep:${a.kind}:${b.kind}`, jobId: j.id, title,
         fact: `${stepLabel(b)} is on ${fmtShort(b.start_date!)}, but ${stepLabel(a)} ${a.end_date ? 'runs to' : 'is on'} ${fmtShort(lastDate(a)!)}.`,
         ask: `${stepLabel(b)} can't start before ${fmtShort(v.earliest)}. Reschedule it, or OK it as is.`,
         okText: 'Kept as is (override)',
@@ -228,15 +235,20 @@ export function capacity(jobs: JobRow[], steps: StepRow[], rulesIn: Rules, cal: 
     const scope = KINDS[kind].scope;
     const weeks = new Map<Iso, { days: number; jobs: Set<number> }>();
     for (const s of steps) {
-      if (s.kind !== kind || !s.start_date || !live.has(s.job_id)) continue;
+      // Rework factory and install tasks count too, by their hours (George, 6 Nov 2026).
+      const rework = s.kind === 'rework' && s.rework_area === kind;
+      if ((s.kind !== kind && !rework) || !s.start_date || !live.has(s.job_id)) continue;
       const end = s.end_date ?? s.start_date;
       if (end < from) continue;
+      // A job-day per working day; a rework task with hours spreads them over its working days.
+      const total = cal.workingDaysWithin(s.start_date, end, s.start_date, end, scope);
+      const perDay = rework && s.hours && total ? s.hours / Math.max(1, rules.hours_per_day) / total : 1;
       for (let w = mondayOf(s.start_date); w <= end; w = addDays(w, 7)) {
         if (w < from) continue;
         const n = cal.workingDaysWithin(s.start_date, end, w, addDays(w, 4), scope);
         if (!n) continue;
         const e = weeks.get(w) ?? weeks.set(w, { days: 0, jobs: new Set() }).get(w)!;
-        e.days += n;
+        e.days = Math.round((e.days + n * perDay) * 10) / 10;
         e.jobs.add(s.job_id);
       }
     }

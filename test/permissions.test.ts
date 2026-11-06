@@ -71,6 +71,28 @@ describe('roles are enforced by the database', () => {
     expect(r.raised_by).toBe(doer);
   });
 
+  it('lets a Doer add undated tasks to a rework they raised, and nothing more (George, 6 Nov 2026)', async () => {
+    const mine = await withPerson(doer, async (db) =>
+      (await db.query(`insert into rework (job_id, cause, note) values ($1, 'factory', 'Rebuild') returning id`, [jobId])).rows[0].id);
+    const task = (extra: string, rework = mine) => withPerson(doer, (db) => db.query(
+      `insert into steps (job_id, kind, rework_id, rework_area, label, hours${extra ? ', ' + extra.split('=')[0] : ''})
+       values ($1, 'rework', $2, 'factory', 'Rework: factory work', 4${extra ? ', ' + extra.split('=')[1] : ''})`, [jobId, rework]));
+    await task('');
+    expect((await pool.query(`select count(*)::int as n from steps where rework_id = $1`, [mine])).rows[0].n).toBe(1);
+    // Not dated, not confirmed, not done.
+    expect(await refused(task(`start_date='2026-11-09'`))).toMatch(/Doers/);
+    expect(await refused(task(`confirmed=true`))).toMatch(/Doers/);
+    expect(await refused(task(`done_at=now()`))).toMatch(/Doers/);
+    // Not on someone else's rework, nor a closed one.
+    const theirs = await withPerson(editor, async (db) =>
+      (await db.query(`insert into rework (job_id, cause, note) values ($1, 'factory', 'Theirs') returning id`, [jobId])).rows[0].id);
+    expect(await refused(task('', theirs))).toMatch(/Doers/);
+    await withPerson(editor, (db) => db.query(`update rework set closed_on = current_date where id = $1`, [mine]));
+    expect(await refused(task(''))).toMatch(/Doers/);
+    // A step that isn't a rework task is still refused.
+    expect(await refused(withPerson(doer, (db) => db.query(`insert into steps (job_id, kind, label) values ($1, 'factory', 'Extra')`, [jobId])))).toMatch(/Doers/);
+  });
+
   it('refuses a person who has been switched off', async () => {
     await withPerson(editor, (db) => db.query(`update people set active = false where id = $1`, [doer]));
     expect(await refused(withPerson(doer, (db) => db.query(`update steps set done_at = null where id = $1`, [stepId])))).toMatch(/no access/);
