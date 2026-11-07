@@ -13,7 +13,20 @@ Rules:
   laptop and a hole on a public address.
 - The Buildertrend bot never posts to it. Don't make an API token on it.
 
-## Setting it up (George, once, about 10 minutes)
+## What exists (set up through Render's API on 7 Nov 2026)
+
+| Thing | Where |
+|---|---|
+| Web service `aalbor-hub-preview` | https://aalbor-hub-preview.onrender.com, branch `claude/cool-ptolemy-ojevwz`, Starter plan, Singapore, auto-deploys on every push |
+| Database `aalbor-hub-preview-db` | Render's free Postgres plan, Singapore. **Free databases are deleted after 30 days: this one expires on 7 Dec 2026.** Fine for a preview; the cutover copies nothing from it. |
+| Data | Last night's R2 dump (`aalbor-hub-2026-11-06.dump`) restored with `backup/restore.sh`: 19 jobs, 214 steps, 7 people, every API token revoked, suggestion emails pointed at George. |
+
+To refresh the data again, build a one-off cron service from `backup/Dockerfile` (context `./backup`, this branch) with the
+backup job's four R2 variables plus `RESTORE_DATABASE_URL` set to the preview database's internal URL, docker command
+`/restore.sh`, trigger a run, then delete the service. The script never touches the live database. After a restore the next
+deploy of the preview re-runs the migrations, which is why a push follows a restore.
+
+## Setting it up by hand (if it ever needs recreating)
 
 In Render, workspace "Quote-Desk":
 
@@ -57,17 +70,16 @@ In Render, workspace "Quote-Desk":
 
 Every push to the branch redeploys the preview on its own, usually within three or four minutes.
 
-## Fresher data (optional, before cutover)
+## Fresher data (before cutover)
 
-To see the new screens on real jobs before merging, restore last night's backup into the preview database.
-The nightly dump sits in the Cloudflare R2 bucket `aalbor-hub-backups` (see `backup/backup.sh` for the file name).
-Download the latest dump, then from a machine with `psql`:
+Run `backup/restore.sh` as above. By hand instead: download the newest dump from the R2 bucket `aalbor-hub-backups`, then
+from a machine with `psql` and the preview database's external URL:
 
 ```
 PGOPTIONS="-c hub.system=on" pg_restore --no-owner --clean --if-exists -d "<preview external database URL>" <dump file>
 ```
 
-Then, on the preview, revoke every API token under Settings → API tokens, so the bot can never reach it.
+Then revoke every API token on the preview under Settings → API tokens, and push or redeploy so the migrations run again.
 
 ## Cutover
 
