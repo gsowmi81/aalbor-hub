@@ -10,7 +10,9 @@ Roles: **Editor** changes anything. **Doer** ticks steps, raises rework, flags, 
 
 ## Capacity
 
-Hours a day per weekday for the Factory and the Install crew, and periods with different hours (a shutdown is 0, someone on leave is less, an extra pair of hands is more).
+**Saturdays are working days** is the switch at the top. Off (the default), dates skip Saturdays and one on a Saturday shows under Needs a decision. On, dates can land on Saturdays, the Board, Factory TV and Load get a Saturday column, and each crew has Saturday hours. Sundays are never working days.
+
+Hours a day per weekday for the Factory and the Install crew (Saturday too when it's on), and periods with different hours (a shutdown is 0, someone on leave is less, an extra pair of hands is more).
 
 ## Job types
 

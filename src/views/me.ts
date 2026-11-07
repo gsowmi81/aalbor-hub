@@ -27,6 +27,8 @@ export interface MyDayData {
   files?: Map<number, JobFile[]>;
   /** The step just ticked from this screen, for the Undo line (George, 7 Nov 2026). */
   undo?: StepRow;
+  /** Saturdays are working days (Settings → Capacity): "later this week" runs to Saturday. */
+  saturdays?: boolean;
 }
 
 /** Is this step one of mine: in an area I work in, or with my name on it. */
@@ -59,7 +61,7 @@ export function myDayPage(d: MyDayData): Html {
   const jobById = new Map(d.jobs.map((j) => [j.id, j]));
   const live = new Set(d.jobs.filter((j) => j.status === 'live').map((j) => j.id));
   const mon = mondayOf(d.today);
-  const fri = addDays(mon, 4);
+  const fri = addDays(mon, d.saturdays ? 5 : 4);
   const nextMon = addDays(mon, 7);
   const nextFri = addDays(mon, 11);
   const mine = d.steps.filter((s) => live.has(s.job_id) && !s.done_at && s.start_date && isMine(s, d.person));

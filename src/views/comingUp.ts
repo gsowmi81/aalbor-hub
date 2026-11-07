@@ -27,7 +27,7 @@ export interface ComingUpData {
   message?: string;
 }
 
-const DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+const DOW5 = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 
 export function legend(): Html {
   return html`<div class="legend">
@@ -76,10 +76,12 @@ export function comingUp(d: ComingUpData): Html {
   const liveJobs = d.jobs.filter((j) => j.status === 'live' && (d.brand === 'all' || j.brand === d.brand));
   const live = new Set(liveJobs.map((j) => j.id));
   const mon = addDays(mondayOf(d.today), d.week * 7);
-  const fri = addDays(mon, 4);
+  // Saturday is a column when Saturdays are working days (Settings → Capacity).
+  const DOW = d.cal.saturdays ? [...DOW5, 'Sat'] : DOW5;
+  const fri = addDays(mon, DOW.length - 1);
   const sun = addDays(mon, 6);
   const inWeek = d.steps.filter((s) => s.start_date && live.has(s.job_id) && s.start_date <= sun && lastDate(s)! >= mon);
-  const col = (x: Iso) => Math.min(Math.max(daysBetween(mon, x), 0), 4);
+  const col = (x: Iso) => Math.min(Math.max(daysBetween(mon, x), 0), DOW.length - 1);
   const byJob = new Map<number, StepRow[]>();
   for (const s of d.steps) (byJob.get(s.job_id) ?? byJob.set(s.job_id, []).get(s.job_id)!).push(s);
   const undatedRework = d.rework.filter((r) => !r.closed_on && live.has(r.job_id) && !d.steps.some((s) => s.rework_id === r.id && s.start_date));
@@ -112,7 +114,7 @@ export function comingUp(d: ComingUpData): Html {
   let board = html`<div></div>${DOW.map((name, i) => {
     const day = addDays(mon, i);
     return html`<div class="dh${day === d.today ? ' today' : ''}"><b>${day === d.today ? 'Today' : name}</b> ${fmtShort(day).slice(4)}</div>`;
-  })}<div class="daylines" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>`;
+  })}<div class="daylines" aria-hidden="true">${DOW.map(() => html`<i></i>`)}</div>`;
   for (const r of BOARD_ROWS) {
     const items = inWeek.filter((s) => rowOf(s) === r.row).sort((a, b) => a.start_date!.localeCompare(b.start_date!) || Number(a.kind === 'rework') - Number(b.kind === 'rework'));
     const chips = items.map((s) => {
@@ -171,7 +173,7 @@ export function comingUp(d: ComingUpData): Html {
     </div>
     <details class="key"><summary>Key to the colours</summary>${legend()}</details>
     ${guide('board', editor ? "Drag a card sideways to move it to another day. You'll be asked what happens to the rest of the job, then it saves, confirmed. Red cards are rework." : 'Red cards are rework.', 'muted small board-hint')}
-    <div class="board"${editor ? html` data-dragdays` : ''}>${board}</div>
+    <div class="board${d.cal.saturdays ? ' six' : ''}"${editor ? html` data-dragdays` : ''}>${board}</div>
     <div class="agenda">${agenda}</div>
   </section>
 

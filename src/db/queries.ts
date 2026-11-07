@@ -43,7 +43,8 @@ export async function loadBlocked(): Promise<(BlockedDay & { id: number })[]> {
 }
 
 export async function loadCalendar(): Promise<Calendar> {
-  return new Calendar(await loadBlocked());
+  const [blocked, rules] = await Promise.all([loadBlocked(), loadRules()]);
+  return new Calendar(blocked, { saturdays: rules.saturday_working === 1 });
 }
 
 const STEP_COLS = 'id, job_id, kind, rework_id, rework_area, hours, label, start_date, end_date, confirmed, pinned, owner, done_at, note, sort, gaps_adjusted, site_clean, site_finished_at, site_finished_by';
@@ -164,10 +165,10 @@ export async function syncStepSet(db: Db, jobId: number): Promise<void> {
 
 export async function loadCapacity(): Promise<CapacityInput> {
   const [c, a] = await Promise.all([
-    pool.query('select key, label, mon, tue, wed, thu, fri from labour_centres order by sort'),
+    pool.query('select key, label, mon, tue, wed, thu, fri, sat from labour_centres order by sort'),
     pool.query('select id, centre, from_day, to_day, hours, reason from capacity_adjustments order by from_day, id'),
   ]);
-  const num = (r: Record<string, unknown>) => ({ ...r, mon: Number(r.mon), tue: Number(r.tue), wed: Number(r.wed), thu: Number(r.thu), fri: Number(r.fri) });
+  const num = (r: Record<string, unknown>) => ({ ...r, mon: Number(r.mon), tue: Number(r.tue), wed: Number(r.wed), thu: Number(r.thu), fri: Number(r.fri), sat: Number(r.sat ?? 0) });
   return { centres: c.rows.map(num) as LabourCentre[], adjustments: a.rows.map((r) => ({ ...r, hours: Number(r.hours) })) as CapacityAdjustment[] };
 }
 

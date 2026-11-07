@@ -1,6 +1,6 @@
 # Board
 
-The week, one card per step, in rows by area: Drafting for contract, Check measure, Production drawings, Materials, Factory (cut, painting, delivery), Install, Stone, Rework. Day columns are working days; weekends, public holidays and blocked days aren't shown.
+The week, one card per step, in rows by area: Drafting for contract, Check measure, Production drawings, Materials, Factory (cut, painting, delivery), Install, Stone, Rework. Day columns are working days: Monday to Friday, with Saturday when Settings → Capacity says Saturdays are working days. Sundays, public holidays and blocked days aren't shown.
 
 ## Reading it
 

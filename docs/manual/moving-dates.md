@@ -1,6 +1,6 @@
 # Moving dates
 
-Dates depend on each other: check measure → drawings → materials ordered (soft) → materials in → factory → painting → delivery → install → stone measure → stone install. A move that breaks a hard rule needs a decision. Done steps never move. Pinned dates never move.
+Working days are Monday to Friday, and Saturday when the switch under Settings → Capacity is on; never Sundays, public holidays or blocked days. Dates depend on each other: check measure → drawings → materials ordered (soft) → materials in → factory → painting → delivery → install → stone measure → stone install. A move that breaks a hard rule needs a decision. Done steps never move. Pinned dates never move.
 
 ## Three ways to move one date
 

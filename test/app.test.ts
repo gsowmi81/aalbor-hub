@@ -1256,3 +1256,27 @@ describe('the manual (George, 7 Nov 2026)', () => {
     expect((await req('GET', '/more', 'Phil')).text).toContain('href="/help"');
   });
 });
+
+describe('Saturdays as working days (George, 7 Nov 2026)', () => {
+  it('the switch adds a Saturday column to the Board, Load and the TV, Saturday hours to capacity, and takes Saturdays out of Needs a decision', async () => {
+    const satBefore = (await req('GET', '/board', 'George')).text;
+    expect(satBefore).not.toContain('class="board six"');
+    expect((await req('GET', '/settings/capacity', 'George')).text).not.toContain('name="sat"');
+    expect((await req('POST', '/settings/saturday', 'George', { saturday: '1' })).location).toBe('/settings/capacity');
+    expect((await one(`select value from settings where key = 'saturday_working'`)).value).toBe(1);
+    expect((await req('GET', '/board', 'George')).text).toContain('class="board six"');
+    expect((await req('GET', '/load', 'George')).text).toContain('<th>Sat</th>');
+    expect((await req('GET', '/tv', 'George')).text).toContain('repeat(6, 1fr)');
+    const cap = (await req('GET', '/settings/capacity', 'George')).text;
+    expect(cap).toContain('name="sat"');
+    expect(cap).toContain('Saturdays are working days');
+    await req('POST', '/settings/centres/install', 'George', { mon: '8', tue: '8', wed: '8', thu: '8', fri: '8', sat: '4' });
+    expect(Number((await one(`select sat from labour_centres where key = 'install'`)).sat)).toBe(4);
+    // A blocked-day run now includes the Saturday.
+    await req('POST', '/settings/blocked', 'George', { from: '2027-05-01', to: '2027-05-02', scope: 'all', reason: 'Sat test' });
+    expect((await one(`select count(*)::int as n from blocked_days where reason = 'Sat test'`)).n).toBe(1);
+    await req('POST', '/settings/saturday', 'George', { saturday: '0' });
+    expect((await req('GET', '/board', 'George')).text).not.toContain('class="board six"');
+    expect((await req('GET', '/settings/durations', 'George')).text).not.toContain('saturday_working');
+  });
+});

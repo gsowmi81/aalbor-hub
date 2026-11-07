@@ -223,14 +223,14 @@ export function routes(): express.Router {
     const undoId = Number(readCookie(req, 'hub_undo')) || null;
     if (undoId) setCookie(res, 'hub_undo', '', 0);
     const undoStep = undoId ? all.steps.find((s) => s.id === undoId && s.done_at) : undefined;
-    const body = myDayPage({ person: me(req), today: today(), jobs: all.jobs, steps: all.steps, message, types, issues: issues.filter((i) => i.responsible === me(req).id || i.raised_by === me(req).id), files: await loadCurrentFiles(), undo: undoStep });
+    const body = myDayPage({ person: me(req), today: today(), jobs: all.jobs, steps: all.steps, message, types, issues: issues.filter((i) => i.responsible === me(req).id || i.raised_by === me(req).id), files: await loadCurrentFiles(), undo: undoStep, saturdays: (await loadRules()).saturday_working === 1 });
     res.send(page({ title: 'My day', tab: 'me', person: me(req), flash: takeFlash(req, res), body, sub: me(req).name }).value);
   });
 
   r.get('/load', async (req, res) => {
     const b = await board();
     const from = addDays(b.t, -((new Date(`${b.t}T00:00:00Z`).getUTCDay() + 6) % 7));
-    const body = loadPage({ from, today: b.t, rows: loadByDay(b.jobs, b.steps, b.rules, b.cal, b.cap, from, 6), jobs: b.jobs, hoursPerDay: b.rules.hours_per_day });
+    const body = loadPage({ from, today: b.t, rows: loadByDay(b.jobs, b.steps, b.rules, b.cal, b.cap, from, 6), jobs: b.jobs, hoursPerDay: b.rules.hours_per_day, saturdays: b.cal.saturdays });
     res.send(page({ title: 'Load', tab: 'more', person: me(req), flash: takeFlash(req, res), body, attention: attentionCount(b), sub: 'Hours booked against hours available, the next six weeks' }).value);
   });
 
@@ -1073,7 +1073,7 @@ export function routes(): express.Router {
     const extra = suggestionSettings({ email: email.rows[0]?.value ?? '', isOwner: me(req).is_owner, tokens: tokens?.rows ?? [], calls: calls?.rows ?? [], newToken: newTok });
     return { settings: settings.rows, blocked, people: people.rows, today: today(), templates: await loadTemplates(), viewerIsOwner: me(req).is_owner, extra, message: await appSetting('board_message'),
       cap, issueTypes, runs, preview: config.preview, nudgeTo: config.preview ? await appSetting('suggestions_email') : null, tvKey: await appSetting('tv_token'), appUrl: config.appUrl,
-      liveTokens: tokens ? tokens.rows.filter((t) => !t.revoked_at).length : undefined, installers: await loadInstallers() };
+      liveTokens: tokens ? tokens.rows.filter((t) => !t.revoked_at).length : undefined, installers: await loadInstallers(), saturdays: settings.rows.some((s) => s.key === 'saturday_working' && Number(s.value) === 1) };
   }
 
   // Settings as a menu of short pages (George, 7 Nov 2026; redesign C).
@@ -1101,11 +1101,19 @@ export function routes(): express.Router {
     const cap = await loadCapacity();
     const c = cap.centres.find((x) => x.key === key);
     if (!c) throw new UserError('No such area.');
-    const h = (['mon', 'tue', 'wed', 'thu', 'fri'] as const).map((d) => hoursOf2(req.body[d], `${c.label} ${d}`));
-    await withPerson(me(req).id, (db) => db.query('update labour_centres set mon = $2, tue = $3, wed = $4, thu = $5, fri = $6 where key = $1', [key, ...h]));
+    const h = (['mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const).map((d) => hoursOf2(req.body[d] ?? (d === 'sat' ? c.sat : undefined), `${c.label} ${d}`));
+    await withPerson(me(req).id, (db) => db.query('update labour_centres set mon = $2, tue = $3, wed = $4, thu = $5, fri = $6, sat = $7 where key = $1', [key, ...h]));
     flash(res, `${c.label}: ${h.reduce((a, b) => a + b, 0)} hours a week. Warnings use it from now on.`);
     res.redirect('/settings/capacity');
   });
+  // Saturdays as working days (George, 7 Nov 2026): a switch on the Capacity page.
+  r.post('/settings/saturday', editor, async (req, res) => {
+    const on = req.body.saturday === '1';
+    await withPerson(me(req).id, (db) => db.query(`update settings set value = $1 where key = 'saturday_working'`, [on ? 1 : 0]));
+    flash(res, on ? 'Saturdays are working days now: dates can land on them, the Board and the TV show them, and each crew has Saturday hours below.' : 'Saturdays are off again. Dates already on a Saturday show under Needs a decision.');
+    res.redirect('/settings/capacity');
+  });
+
   r.post('/settings/adjustments', editor, async (req, res) => {
     const cap = await loadCapacity();
     const centre = String(req.body.centre ?? '');
@@ -1226,10 +1234,11 @@ export function routes(): express.Router {
     if (!from || !to || to < from) throw new UserError('Check the dates.');
     if (!reason) throw new UserError('Add a reason.');
     let n = 0;
+    const satOn = (await loadRules()).saturday_working === 1;
     await withPerson(me(req).id, async (db) => {
       for (let d = from; d <= to; d = addDays(d, 1)) {
         const dow = new Date(`${d}T00:00:00Z`).getUTCDay();
-        if (dow === 0 || dow === 6) continue;
+        if (dow === 0 || (dow === 6 && !satOn)) continue;
         const r2 = await db.query('insert into blocked_days (day, scope, reason) values ($1, $2, $3) on conflict (day, scope) do nothing', [d, scope, reason]);
         n += r2.rowCount ?? 0;
         if (n > 70) throw new UserError('That is more than 70 working days. Add it in shorter runs.');

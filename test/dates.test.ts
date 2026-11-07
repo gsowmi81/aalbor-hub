@@ -120,3 +120,19 @@ describe('job number', () => {
     expect(siteStartFromJobNumber('260230')).toBeNull();
   });
 });
+
+describe('Saturdays as working days (George, 7 Nov 2026)', () => {
+  it('are off by default and count when switched on; Sundays never do', () => {
+    const off = new Calendar([]);
+    const on = new Calendar([], { saturdays: true });
+    expect(off.isWorkingDay('2027-02-06')).toBe(false); // a Saturday
+    expect(off.whyNotWorking('2027-02-06')).toBe('a Saturday');
+    expect(on.isWorkingDay('2027-02-06')).toBe(true);
+    expect(on.whyNotWorking('2027-02-06')).toBeNull();
+    expect(on.isWorkingDay('2027-02-07')).toBe(false); // the Sunday
+    expect(on.addWorkingDays('2027-02-05', 1)).toBe('2027-02-06');
+    expect(off.addWorkingDays('2027-02-05', 1)).toBe('2027-02-08');
+    expect(on.workingDaysBetween('2027-02-05', '2027-02-08')).toBe(2);
+    expect(off.workingDaysBetween('2027-02-05', '2027-02-08')).toBe(1);
+  });
+});

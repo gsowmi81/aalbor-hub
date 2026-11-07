@@ -6,6 +6,7 @@
 | Confirmed | A date someone set on purpose, or that matches Buildertrend. |
 | Pinned | A promised date. Nothing moves it. |
 | Overdue | The date has passed and nobody ticked the step. |
+| Working day | Monday to Friday, plus Saturday when it's switched on in Settings → Capacity; never a Sunday, a public holiday or a blocked day. |
 | Needs a decision | The dates break a rule and someone has to say what to do. |
 | Done | Ticked, by whoever did it. |
 | Step | One thing on a job with a date: check measure, production drawings, cut, install. |

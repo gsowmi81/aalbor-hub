@@ -306,6 +306,8 @@ export interface LabourCentre {
   wed: number;
   thu: number;
   fri: number;
+  /** Saturday hours (George, 7 Nov 2026); only count when Saturdays are working days. */
+  sat: number;
 }
 
 /** A period with different hours: a shutdown (0), someone on leave, an extra pair of hands. */
@@ -331,7 +333,7 @@ export function centresFromRules(rulesIn: Rules): CapacityInput {
   const r = { ...DEFAULT_RULES, ...rulesIn };
   const spread = (perWeek: number): Omit<LabourCentre, 'key' | 'label'> => {
     const h = Math.round((perWeek * r.hours_per_day) / 5 * 10) / 10;
-    return { mon: h, tue: h, wed: h, thu: h, fri: h };
+    return { mon: h, tue: h, wed: h, thu: h, fri: h, sat: 0 };
   };
   return {
     centres: [
@@ -347,7 +349,7 @@ export function availableHours(c: LabourCentre, adjustments: CapacityAdjustment[
   if (!cal.isWorkingDay(d, KINDS[c.key].scope)) return 0;
   const a = adjustments.find((x) => x.centre === c.key && x.from_day <= d && d <= x.to_day);
   if (a) return a.hours;
-  return [0, c.mon, c.tue, c.wed, c.thu, c.fri, 0][dayOfWeek(d)];
+  return [0, c.mon, c.tue, c.wed, c.thu, c.fri, c.sat ?? 0][dayOfWeek(d)];
 }
 
 export interface DayLoad {
@@ -406,7 +408,7 @@ export function loadByDay(jobs: JobRow[], steps: StepRow[], rulesIn: Rules, cal:
     const booked = bookedHours(c.key, jobs, steps, rulesIn, cal, from, to);
     const days: DayLoad[] = [];
     for (let d = from; d <= to; d = addDays(d, 1)) {
-      if (dayOfWeek(d) === 0 || dayOfWeek(d) === 6) continue;
+      if (dayOfWeek(d) === 0 || (dayOfWeek(d) === 6 && !cal.saturdays)) continue;
       const b = booked.get(d);
       days.push({ day: d, available: availableHours(c, cap.adjustments, d, cal), booked: b?.hours ?? 0, jobIds: [...(b?.jobs ?? [])], closed: cal.whyNotWorking(d, KINDS[c.key].scope) });
     }

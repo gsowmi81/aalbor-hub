@@ -74,19 +74,28 @@ export interface BlockedDay {
 export class Calendar {
   private all = new Map<Iso, string>();
   private factory = new Map<Iso, string>();
+  /** Saturdays are working days (Settings → Capacity; George, 7 Nov 2026). Sundays never are. */
+  readonly saturdays: boolean;
 
-  constructor(blocked: BlockedDay[] = []) {
+  constructor(blocked: BlockedDay[] = [], opts: { saturdays?: boolean } = {}) {
     for (const b of blocked) (b.scope === 'factory' ? this.factory : this.all).set(b.day, b.reason);
+    this.saturdays = !!opts.saturdays;
+  }
+
+  /** A weekend day the hub doesn't work: Sunday, and Saturday unless switched on. */
+  isOff(d: Iso): boolean {
+    const g = dayOfWeek(d);
+    return g === 0 || (g === 6 && !this.saturdays);
   }
 
   isWorkingDay(d: Iso, scope: Scope = 'all'): boolean {
-    if (isWeekend(d) || this.all.has(d)) return false;
+    if (this.isOff(d) || this.all.has(d)) return false;
     return !(scope === 'factory' && this.factory.has(d));
   }
 
   /** Why d is not a working day, or null if it is. */
   whyNotWorking(d: Iso, scope: Scope = 'all'): string | null {
-    if (isWeekend(d)) return dayOfWeek(d) === 6 ? 'a Saturday' : 'a Sunday';
+    if (this.isOff(d)) return dayOfWeek(d) === 6 ? 'a Saturday' : 'a Sunday';
     if (this.all.has(d)) return this.all.get(d)!;
     if (scope === 'factory' && this.factory.has(d)) return `factory blocked (${this.factory.get(d)})`;
     return null;

@@ -125,6 +125,7 @@ export function kindsFor(job: { has_painting: boolean; has_stone: boolean }): St
 export type Rules = Record<string, number>;
 
 export const DEFAULT_RULES: Rules = {
+  saturday_working: 0,
   factory_kitchens_per_week: 2,
   install_kitchens_per_week: 2,
   check_measures_per_day: 3,

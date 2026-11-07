@@ -487,3 +487,7 @@ textarea { min-height: 80px; padding: 10px; resize: vertical; }
 .manual > p, .manual > .note { font-size: 15px; line-height: 1.5; }
 @media (max-width: 760px) { .manual.two { grid-template-columns: 1fr; } .manual-side { position: static; } .manual-side .manual-toc { display: none; } .manual-page { padding: 14px 16px; } }
 @media print { .top, .tabs, .manual-side, .manual-foot, .preview-bar, .guide { display: none !important; } .manual-page { border: 0; padding: 0; page-break-inside: avoid; } }
+/* Saturdays as working days: a sixth Board column. */
+.board.six { grid-template-columns: 150px repeat(6, minmax(0, 1fr)); }
+.board.six .daylines { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.board.six .lc { grid-column: 2 / 8; grid-template-columns: repeat(6, minmax(0, 1fr)); }

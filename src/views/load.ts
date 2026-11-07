@@ -4,9 +4,11 @@ import { html, Html } from '../web/html.js';
 import { addDays, fmtShort, Iso } from '../domain/dates.js';
 import { DayLoad, JobRow, LabourCentre } from '../domain/checks.js';
 
-export function loadPage(d: { from: Iso; today: Iso; rows: { centre: LabourCentre; days: DayLoad[] }[]; jobs: JobRow[]; hoursPerDay: number }): Html {
+export function loadPage(d: { from: Iso; today: Iso; rows: { centre: LabourCentre; days: DayLoad[] }[]; jobs: JobRow[]; hoursPerDay: number; saturdays?: boolean }): Html {
   const names = new Map(d.jobs.map((j) => [j.id, j.client_name]));
-  const weeks = Array.from({ length: Math.ceil((d.rows[0]?.days.length ?? 0) / 5) }, (_, i) => i);
+  const per = d.saturdays ? 6 : 5;
+  const dows = d.saturdays ? ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+  const weeks = Array.from({ length: Math.ceil((d.rows[0]?.days.length ?? 0) / per) }, (_, i) => i);
   const cell = (x: DayLoad) => {
     const over = x.booked > x.available;
     const pct = x.available ? Math.min(100, Math.round((x.booked / x.available) * 100)) : x.booked ? 100 : 0;
@@ -21,9 +23,9 @@ export function loadPage(d: { from: Iso; today: Iso; rows: { centre: LabourCentr
   ${d.rows.map((r) => html`<section class="panel" style="gap:6px">
     <h2>${r.centre.label}</h2>
     <div class="tl-box" tabindex="0"><table class="loadt">
-      <thead><tr><th>Week</th>${['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((n) => html`<th>${n}</th>`)}<th class="num">Week</th></tr></thead>
+      <thead><tr><th>Week</th>${dows.map((n) => html`<th>${n}</th>`)}<th class="num">Week</th></tr></thead>
       <tbody>${weeks.map((w) => {
-        const days = r.days.slice(w * 5, w * 5 + 5);
+        const days = r.days.slice(w * per, w * per + per);
         const booked = Math.round(days.reduce((a, x) => a + x.booked, 0) * 10) / 10;
         const avail = Math.round(days.reduce((a, x) => a + x.available, 0) * 10) / 10;
         return html`<tr><td class="ldwk"><strong>${fmtShort(addDays(d.from, w * 7)).slice(4)}</strong></td>${days.map(cell)}<td class="num ldw${booked > avail ? ' over' : ''}"><strong>${booked}</strong> / ${avail} h</td></tr>`;

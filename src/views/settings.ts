@@ -45,6 +45,8 @@ export interface SettingsData {
   liveTokens?: number;
   /** Installers who sign in only by a job link (George, 7 Nov 2026). */
   installers?: { id: number; name: string; active: boolean; jobs: string[] }[];
+  /** Saturdays are working days (the switch on the Capacity page). */
+  saturdays?: boolean;
 }
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -56,13 +58,13 @@ export function settingsStatus(d: SettingsData): Record<SettingsPage, string> {
   const noAreas = active.filter((p) => p.role !== 'viewer' && !p.areas.length).length;
   const upcoming = d.blocked.filter((b) => b.day >= d.today);
   const nobody = d.issueTypes.filter((t) => t.active && !t.responsible).length;
-  const week = (c: CapacityInput['centres'][number]) => Math.round((c.mon + c.tue + c.wed + c.thu + c.fri) * 10) / 10;
+  const week = (c: CapacityInput['centres'][number]) => Math.round((c.mon + c.tue + c.wed + c.thu + c.fri + (d.saturdays ? c.sat : 0)) * 10) / 10;
   const lastRun = d.runs[0];
   return {
     people: `${active.length} can sign in${noAreas ? ` · ${noAreas} with no areas set` : ''}`,
-    capacity: `${d.cap.centres.map((c) => `${c.label} ${week(c)} h a week`).join(' · ')}${d.cap.adjustments.filter((a) => a.to_day >= d.today).length ? ` · ${d.cap.adjustments.filter((a) => a.to_day >= d.today).length} adjustment(s) ahead` : ''}`,
+    capacity: `${d.saturdays ? 'Saturdays on · ' : ''}${d.cap.centres.map((c) => `${c.label} ${week(c)} h a week`).join(' · ')}${d.cap.adjustments.filter((a) => a.to_day >= d.today).length ? ` · ${d.cap.adjustments.filter((a) => a.to_day >= d.today).length} adjustment(s) ahead` : ''}`,
     'job-types': d.templates.map((t) => t.name).join(' · ') || 'None',
-    durations: `${d.settings.length} rules`,
+    durations: `${d.settings.filter((s) => s.key !== 'saturday_working').length} rules`,
     'blocked-days': `${upcoming.length} days ahead${upcoming[0] ? `, next ${fmtShort(upcoming[0].day)}` : ''}`,
     'flag-types': `${d.issueTypes.filter((t) => t.active).length} kinds${nobody ? ` · ${nobody} with no one responsible` : ''}`,
     emails: lastRun ? `Last run ${fmtShort(lastRun.day)}, ${lastRun.sent} sent` : 'No runs yet',
@@ -98,12 +100,19 @@ const PAGES: Record<SettingsPage, (d: SettingsData) => Html> = {
     </form>
     <span class="muted small">One line everyone sees at the top of My day and the Board. Leave it empty to show nothing.</span></section>`,
 
-  capacity: (d) => html`<section class="panel" id="capacity"><h2>Capacity, in hours a day</h2>
+  capacity: (d) => html`<section class="panel" id="saturday"><h2>Saturdays</h2>
+    <form method="post" action="/settings/saturday" class="inline">
+      <label class="checkline"><input type="checkbox" name="saturday" value="1"${d.saturdays ? html` checked` : ''}> Saturdays are working days</label>
+      <button class="btn small" type="submit">Save</button>
+    </form>
+    <span class="muted small">Off: dates skip Saturdays, and one on a Saturday shows under Needs a decision. On: dates can land on Saturdays, the Board, Factory TV and Load show a Saturday column, and each crew's Saturday hours below count. Sundays are never working days.</span>
+  </section>
+  <section class="panel" id="capacity"><h2>Capacity, in hours a day</h2>
     <p class="muted small">A kitchen's factory or install day counts as the hours set under Durations ("Hours in a factory or install day"); a rework task counts its own hours. The hub warns when a week's bookings pass the hours available, and <a href="/load">Load</a> shows the next six weeks day by day.</p>
     ${d.cap.centres.map((c) => html`<form method="post" action="/settings/centres/${c.key}" class="inline" style="padding-top:8px;border-top:1px solid var(--line)">
       <strong style="flex:1 1 120px">${c.label}</strong>
-      ${(['mon', 'tue', 'wed', 'thu', 'fri'] as const).map((k) => html`<label class="f" style="width:72px">${cap(k)}<input name="${k}" inputmode="decimal" value="${c[k]}" required pattern="[0-9]+([.][0-9])?"></label>`)}
-      <span class="muted small">= ${Math.round((c.mon + c.tue + c.wed + c.thu + c.fri) * 10) / 10} h a week</span>
+      ${(d.saturdays ? ['mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const : ['mon', 'tue', 'wed', 'thu', 'fri'] as const).map((k) => html`<label class="f" style="width:72px">${cap(k)}<input name="${k}" inputmode="decimal" value="${c[k]}" required pattern="[0-9]+([.][0-9])?"></label>`)}
+      <span class="muted small">= ${Math.round((c.mon + c.tue + c.wed + c.thu + c.fri + (d.saturdays ? c.sat : 0)) * 10) / 10} h a week</span>
       <button class="btn small" type="submit">Save</button></form>`)}
   </section>
   <section class="panel"><h2>Leave, shutdowns and extra hands</h2>
@@ -140,7 +149,7 @@ const PAGES: Record<SettingsPage, (d: SettingsData) => Html> = {
 
   durations: (d) => html`<section class="panel"><h2>Durations and limits</h2>
     <form method="post" action="/settings/values" class="stack">
-      <div class="formgrid">${d.settings.map((s) => html`<label class="f">${s.label}<input type="number" name="${s.key}" value="${s.value}" min="0" max="200" required></label>`)}</div>
+      <div class="formgrid">${d.settings.filter((s) => s.key !== 'saturday_working').map((s) => html`<label class="f">${s.label}<input type="number" name="${s.key}" value="${s.value}" min="0" max="200" required></label>`)}</div>
       <div class="acts"><button class="btn primary" type="submit">Save settings</button></div>
       <span class="muted small">Changes apply to new proposals and warnings from now on. Dates already on jobs don't move.</span>
     </form></section>`,
