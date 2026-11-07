@@ -1,3 +1,4 @@
+import { guide } from './guide.js';
 import { html, Html } from '../web/html.js';
 import { addDays, Calendar, daysBetween, fmtShort, Iso, mondayOf, sydneyDate } from '../domain/dates.js';
 import { BOARD_ROWS, BoardRow, KINDS, rowOf } from '../domain/steps.js';
@@ -169,7 +170,7 @@ export function comingUp(d: ComingUpData): Html {
       </div>
     </div>
     <details class="key"><summary>Key to the colours</summary>${legend()}</details>
-    ${editor ? html`<p class="muted small board-hint">Drag a card sideways to move it to another day. You'll be asked what happens to the rest of the job, then it saves, confirmed. Red cards are rework.</p>` : html`<p class="muted small board-hint">Red cards are rework.</p>`}
+    ${guide('board', editor ? "Drag a card sideways to move it to another day. You'll be asked what happens to the rest of the job, then it saves, confirmed. Red cards are rework." : 'Red cards are rework.', 'muted small board-hint')}
     <div class="board"${editor ? html` data-dragdays` : ''}>${board}</div>
     <div class="agenda">${agenda}</div>
   </section>

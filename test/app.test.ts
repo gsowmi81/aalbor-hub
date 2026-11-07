@@ -1068,3 +1068,28 @@ describe('the redesigns (George, 7 Nov 2026)', () => {
     expect((await req('GET', '/settings/people', 'George')).text).toContain('class="cards people"');
   });
 });
+
+describe('redesigns D and E (George, 7 Nov 2026)', () => {
+  it('D: Pipeline, Need and supply and Count carry the phone card markup', async () => {
+    const pipe = (await req('GET', '/pipeline', 'George')).text;
+    expect(pipe).toContain('class="pipe smc"');
+    expect(pipe).toContain('data-l="Factory"');
+    expect(pipe).toContain('class="pj full"');
+    expect((await req('GET', '/stock/count', 'George')).text).toContain('data-l="On the shelf"');
+  });
+  it('E: each screen has one guide line with a key and a "?" button', async () => {
+    for (const [path, key] of [['/board', 'board'], ['/pipeline', 'pipeline'], ['/jobs', 'jobs'], ['/jobs/new', 'new-job'], ['/stock/count', 'count']]) {
+      const t = (await req('GET', path, 'George')).text;
+      expect(t).toContain(`data-guide="${key}"`);
+      expect(t).toContain('class="guide-q"');
+    }
+    // My day's line needs areas set (Phil's are, from the People test above); without them the "areas aren't set" notice shows instead.
+    for (const [path, key] of [['/me', 'me']]) {
+      const t = (await req('GET', path, 'Phil')).text;
+      expect(t).toContain(`data-guide="${key}"`);
+      expect(t).toContain('class="guide-q"');
+    }
+    const job = await one(`select id from jobs where status = 'live' order by id limit 1`);
+    expect((await req('GET', `/jobs/${job.id}`, 'Phil')).text).toContain('data-guide="job-steps"');
+  });
+});

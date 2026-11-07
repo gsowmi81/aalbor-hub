@@ -417,3 +417,38 @@ td.acts-cell form { display: inline; }
 .chip-check { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; font-size: 13px; cursor: pointer; }
 .chip-check:has(input:checked) { background: var(--today-bg); color: var(--today-fg); border-color: transparent; }
 .chip-check input { margin: 0; }
+
+/* Guidance that fades (redesign E): the line shows the first three visits, then folds into the "?". */
+.guide { display: flex; align-items: flex-start; gap: 8px; min-width: 0; }
+.guide .guide-text { flex: 1 1 auto; min-width: 0; }
+.guide-q { flex: 0 0 auto; width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); color: var(--muted); font: 700 13px var(--sans); cursor: pointer; padding: 0; line-height: 1; display: none; align-items: center; justify-content: center; }
+.guide-q:hover, .guide-q:focus-visible { color: var(--fg); border-color: var(--fg); }
+.guide.counted .guide-q { display: inline-flex; }
+.guide.folded .guide-text { display: none; }
+.guide.folded { justify-content: flex-end; }
+.row > .guide.folded { margin-left: auto; }
+@media (max-width: 760px) { .guide.board-hint { display: flex; } .guide.board-hint.folded { display: none; } }
+/* Phone versions of the wide screens (redesign D): a table marked .smc becomes a card list on phones. */
+@media (max-width: 760px) {
+  .tl-box.sm-flow { max-height: none; overflow: visible; }
+  table.smc { min-width: 0; width: 100%; display: block; }
+  table.smc thead { display: none; }
+  table.smc tbody { display: block; }
+  table.smc tr { display: flex; flex-wrap: wrap; gap: 4px 6px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  table.smc tr:last-child { border-bottom: 0; }
+  table.smc td { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border: 1px solid var(--line); border-radius: 6px; font-size: 13px; text-align: left; position: static; background: var(--surface); min-width: 0; max-width: 100%; }
+  table.smc td.full { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%; border: 0; padding: 0 0 4px; font-size: 15px; background: transparent; }
+  table.smc td[data-l]::before { content: attr(data-l); color: var(--muted); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .02em; white-space: nowrap; }
+  table.smc td.sm-hide { display: none; }
+  table.smc tr.grp { padding: 12px 12px 4px; }
+  table.smc tr.grp td { width: 100%; border: 0; padding: 0; background: transparent; font-weight: 700; }
+  table.smc td.num { justify-content: flex-start; }
+  table.smc td a { white-space: normal; }
+  .pipe td.pj.full { max-width: none; min-width: 0; }
+  .pipe td.pj.full .n a { white-space: normal; }
+  .pipe td.pc { outline: 0; }
+  .pipe td.pc.cur { outline: 2px solid var(--fg); outline-offset: -2px; }
+  .pipe td.pc a { padding: 0; }
+  .pipe td.pc .rdy { position: static; }
+  .count td input { width: 80px; }
+}

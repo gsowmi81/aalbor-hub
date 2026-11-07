@@ -1,6 +1,7 @@
 // My day (George, 7 Nov 2026): the steps for the person signed in, this week, with one Done
 // button each. Jobman's agenda screen without the clock. Doers land here.
 // With ?job=, one job's open steps for whoever scanned its job sheet (R12).
+import { guide } from './guide.js';
 import { html, Html } from '../web/html.js';
 import { addDays, fmtRange, fmtShort, Iso, mondayOf } from '../domain/dates.js';
 import { KINDS, PEOPLE_AREAS, rowOf } from '../domain/steps.js';
@@ -75,7 +76,7 @@ export function myDayPage(d: MyDayData): Html {
   return html`<div class="job" style="max-width:640px">
     ${d.message ? html`<div class="me-msg" role="note">${d.message}</div>` : ''}
     ${!d.person.areas.length ? html`<div class="notice">Your areas aren't set yet, so this only shows steps with your name on them. Ask George or Christine to tick your areas in Settings → People.</div>`
-      : html`<p class="muted small">${fmtShort(d.today)} · your areas: ${areas.join(', ')}. Tap Done when a step is finished; it leaves this list and the office sees it straight away.</p>`}
+      : guide('me', `${fmtShort(d.today)} · your areas: ${areas.join(', ')}. Tap Done when a step is finished; it leaves this list and the office sees it straight away.`)}
     ${overdue.length ? section('Overdue', overdue, '', true) : ''}
     ${section('Today', todayList, 'Nothing on today.')}
     ${d.issues.length ? html`<section class="panel" style="gap:4px"><div class="row"><h2>Flags for you</h2><span class="muted small">${d.issues.length}</span></div>${d.issues.slice(0, 3).map((i) => issueItem(i, d.person, '/me'))}${d.issues.length > 3 ? html`<a class="btn small" href="/attention#flags">And ${d.issues.length - 3} more on Attention</a>` : ''}</section>` : ''}

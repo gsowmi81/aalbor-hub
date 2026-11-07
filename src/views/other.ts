@@ -1,3 +1,4 @@
+import { guide } from './guide.js';
 import { html, Html } from '../web/html.js';
 import { fmtLong, fmtRange, fmtShort, Iso, sydneyDate } from '../domain/dates.js';
 import { KINDS, PEOPLE_AREAS, ProposedStep } from '../domain/steps.js';
@@ -32,7 +33,7 @@ export interface Landing {
 
 export function newJobPage(d: NewJobView): Html {
   return html`<div class="job">
-    <p class="muted">Pick the job type and the one date you know. The hub fills every other date from the template, all provisional. You or Christine can change any of them.</p>
+    ${guide('new-job', 'Pick the job type and the one date you know. The hub fills every other date from the template, all provisional. You or Christine can change any of them.', 'muted')}
     ${d.error ? html`<div class="notice bad">${d.error}</div>` : ''}
     <form method="post" action="/jobs/new" class="panel" id="newjob">
       ${jobFields(d.values, { forNew: true, templates: d.templates, anchor: d.anchor, anchorDate: d.anchorDate })}

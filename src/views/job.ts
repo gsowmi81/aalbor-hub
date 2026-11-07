@@ -1,3 +1,4 @@
+import { guide } from './guide.js';
 import { html, Html } from '../web/html.js';
 import { fmtLong, fmtRange, fmtShort, Iso, sydneyDate } from '../domain/dates.js';
 import { BOARD_ROWS, KINDS, StepKind, FLOW, REWORK_AREAS, REWORK_CATEGORIES, REWORK_ORDER, TASK_AREAS, rowOf } from '../domain/steps.js';
@@ -195,7 +196,7 @@ export function jobPage(d: JobPageData): Html {
   <section class="panel" style="gap:2px" id="steps">
     <div class="row"><h2>Steps</h2><span class="muted small">${doneCount} of ${std.length} done · ${stage ? `at ${stepLabel(stage)}` : 'complete'}</span></div>
     <div class="bar" aria-hidden="true"><i style="width:${std.length ? Math.round((doneCount / std.length) * 100) : 0}%"></i></div>
-    <p class="muted small" style="padding-bottom:4px">${can(person, 'doer') ? 'Tick a step when it is done. ' : ''}${editor ? 'Tap a date to move it; the rest of the job can follow. Pin a promised date so nothing moves it.' : 'Faded means provisional.'}</p>
+    ${guide('job-steps', `${can(person, 'doer') ? 'Tick a step when it is done. ' : ''}${editor ? 'Tap a date to move it; the rest of the job can follow. Pin a promised date so nothing moves it.' : 'Faded means provisional.'}`)}
     ${std.map((s) => stepRow(s, d, std))}
     ${editor ? html`<details class="pop" style="margin-top:8px"><summary class="btn small">Edit all dates</summary>
       <form class="popbody" method="post" action="/jobs/${job.id}/dates">

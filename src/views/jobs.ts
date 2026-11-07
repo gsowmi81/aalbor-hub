@@ -1,3 +1,4 @@
+import { guide } from './guide.js';
 import { html, Html, raw } from '../web/html.js';
 import { addDays, daysBetween, fmtShort, Iso, mondayOf } from '../domain/dates.js';
 import { baseKind, KINDS, StepKind } from '../domain/steps.js';
@@ -70,7 +71,7 @@ export function allJobs(d: { jobs: JobRow[]; steps: StepRow[]; decisions: Decisi
     <span><i class="mk over">!</i>Overdue</span><span><i class="mk done">IN</i>Done</span>
   </div>`;
 
-  return html`<div class="row"><div class="muted">Every live job from ${fmtShort(start)} to ${fmtShort(end)}, sorted by install. Tap a job name to open it. Orange means a date has passed and nobody ticked it. Scroll sideways on a phone.${d.canMove ? ' Drag a bar to move it: you\'ll be asked what happens to the rest of the job, then it saves, confirmed. Or tap a bar to pick a date on the Reschedule screen.' : ''}</div>${brandSeg('/jobs', d.brand)}</div>
+  return html`<div class="row">${guide('jobs', `Every live job from ${fmtShort(start)} to ${fmtShort(end)}, sorted by install. Tap a job name to open it. Orange means a date has passed and nobody ticked it. Scroll sideways on a phone.${d.canMove ? ' Drag a bar to move it: you\'ll be asked what happens to the rest of the job, then it saves, confirmed. Or tap a bar to pick a date on the Reschedule screen.' : ''}`, 'muted')}${brandSeg('/jobs', d.brand)}</div>
   ${legend}
   <div class="tl-box" tabindex="0"><div class="tl" data-days="${N}">${head}${rows}</div></div>`;
 }

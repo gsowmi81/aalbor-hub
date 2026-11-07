@@ -1,5 +1,6 @@
 // Pipeline (George, 7 Nov 2026): every live job as a row, the stages as columns, one coloured
 // cell each. Jobman's progress chart. Answers "where is every job" in one look.
+import { guide } from './guide.js';
 import { html, Html } from '../web/html.js';
 import { addDays, fmtShort, Iso, mondayOf } from '../domain/dates.js';
 import { currentStage, jobTitle, JobRow, ReworkRow, STAGES, stageCells, StageState, StepRow } from '../domain/checks.js';
@@ -24,16 +25,16 @@ export function pipelinePage(d: { jobs: JobRow[]; steps: StepRow[]; rework: Rewo
   const atStage = (key: string) => rows.filter((r) => r.current?.key === key).length;
   const undated = rows.filter((r) => r.cells.every((c) => c.state === 'na' || c.state === 'skipped' || !c.step?.start_date)).length;
 
-  return html`<div class="row"><div class="muted">Every live job, one row each, soonest install first. The dark outline is the stage the job is at: the first one not ticked done. Tap a cell to open that step.</div>${brandSeg('/pipeline', d.brand)}</div>
+  return html`<div class="row">${guide('pipeline', 'Every live job, one row each, soonest install first. The dark outline is the stage the job is at: the first one not ticked done. Tap a cell to open that step.', 'muted')}${brandSeg('/pipeline', d.brand)}</div>
   <div class="legend">
     ${(['done', 'now', 'later', 'overdue', 'undated', 'skipped', 'na'] as StageState[]).map((s) => html`<span><i class="pc st-${s}"></i>${STATE_LABEL[s]}</span>`)}
     <span><i class="pc st-later" style="outline:2px solid var(--fg);outline-offset:-2px"></i>Current stage</span>
     <span><i class="pc rdy-short" style="position:relative"><i class="rdy"></i></i>Materials short</span><span><i class="pc rdy-ready" style="position:relative"><i class="rdy"></i></i>Materials ready</span>
   </div>
-  <div class="tl-box" tabindex="0"><table class="pipe">
+  <div class="tl-box sm-flow" tabindex="0"><table class="pipe smc">
     <thead><tr><th class="pj">Job</th>${STAGES.map((st) => html`<th title="${st.label}">${st.short}<span class="muted small" style="display:block;font-weight:400">${atStage(st.key) || ''}</span></th>`)}<th>Rework</th></tr></thead>
     <tbody>${rows.map((r) => html`<tr>
-      <td class="pj"><div class="n"><span class="no">${r.j.job_number ?? '—'}</span><a href="/jobs/${r.j.id}">${r.j.client_name}</a>${r.j.at_risk ? html`<span class="risk">at risk</span>` : ''}</div>
+      <td class="pj full"><div class="n"><span class="no">${r.j.job_number ?? '—'}</span><a href="/jobs/${r.j.id}">${r.j.client_name}</a>${r.j.at_risk ? html`<span class="risk">at risk</span>` : ''}</div>
         <div class="note">${r.j.suburb}${r.current ? ` · ${STAGES.find((s) => s.key === r.current!.key)!.label}` : ' · Complete'}</div></td>
       ${r.cells.map((c) => {
         const cur = r.current?.key === c.key;
@@ -44,9 +45,9 @@ export function pipelinePage(d: { jobs: JobRow[]; steps: StepRow[]; rework: Rewo
         const rdCls = rd && rd.state !== 'none' ? ` rdy-${late ? 'short' : rd.state}` : '';
         const rdTitle = rd && rd.state !== 'none' ? `. Materials ${rd.state === 'ready' ? 'ready' : late ? 'on order for after the factory date' : rd.state === 'waiting' ? 'on order' : 'short'}` : '';
         const inner = html`${when}${c.pinned ? html` <span aria-label="pinned">📌</span>` : ''}${rdCls ? html`<i class="rdy" aria-hidden="true"></i>` : ''}`;
-        return html`<td class="pc st-${c.state}${cur ? ' cur' : ''}${rdCls}" title="${title}${rdTitle}">${c.step ? html`<a href="/jobs/${r.j.id}#s-${c.step.id}" aria-label="${title}${rdTitle}">${inner}</a>` : inner}</td>`;
+        return html`<td class="pc st-${c.state}${cur ? ' cur' : ''}${rdCls}${c.state === 'na' ? ' sm-hide' : ''}" data-l="${STAGES.find((s) => s.key === c.key)!.short}" title="${title}${rdTitle}">${c.step ? html`<a href="/jobs/${r.j.id}#s-${c.step.id}" aria-label="${title}${rdTitle}">${inner}</a>` : inner}</td>`;
       })}
-      <td class="pc ${r.rework ? 'st-overdue' : 'st-na'}">${r.rework ? html`<a href="/jobs/${r.j.id}#rework">${r.rework} open</a>` : ''}</td>
+      <td class="pc ${r.rework ? 'st-overdue' : 'st-na sm-hide'}" data-l="Rework">${r.rework ? html`<a href="/jobs/${r.j.id}#rework">${r.rework} open</a>` : ''}</td>
     </tr>`)}
     ${!rows.length ? html`<tr><td colspan="${STAGES.length + 2}" class="muted">No live jobs.</td></tr>` : ''}</tbody>
   </table></div>

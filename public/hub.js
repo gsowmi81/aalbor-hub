@@ -111,6 +111,18 @@
   function init() {
   // A save message stays long enough to read, then goes.
   document.querySelectorAll('.notice.ok').forEach(function (n) { setTimeout(function () { n.style.transition = 'opacity .6s'; n.style.opacity = '0'; setTimeout(function () { n.remove(); }, 700); }, 7000); });
+  // Guidance that fades (redesign E): a screen's how-it-works line shows the first three visits in this
+  // browser, then folds into a "?" that brings it back. A folded line stays folded; an opened one stays open until the next visit.
+  document.querySelectorAll('.guide[data-guide]').forEach(function (g) {
+    var key = 'hub-guide-' + g.getAttribute('data-guide'), seen = 0;
+    if (g.getAttribute('data-counted')) return;
+    g.setAttribute('data-counted', '1');
+    try { seen = Number(localStorage.getItem(key) || 0) + 1; localStorage.setItem(key, String(seen)); } catch (err) {}
+    g.classList.add('counted');
+    var q = g.querySelector('.guide-q');
+    if (seen > 3) { g.classList.add('folded'); if (q) q.setAttribute('aria-expanded', 'false'); }
+    if (q) q.addEventListener('click', function () { var folded = g.classList.toggle('folded'); q.setAttribute('aria-expanded', folded ? 'false' : 'true'); });
+  });
   // One job as sections (George, 7 Nov 2026; redesign B): the strip under the job head shows one
   // section at a time. A link into an item (#s-12, #i-4, #m-7, #f-3, #rwd-2) opens the section it sits in.
   // Without this file every section is stacked on the page.
