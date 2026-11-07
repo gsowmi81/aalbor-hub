@@ -7,7 +7,7 @@ import { brandSeg } from './comingUp.js';
 
 const STATE_LABEL: Record<StageState, string> = { done: 'Done', overdue: 'Overdue', now: 'This week', later: 'Later', undated: 'No date', skipped: 'Not recorded', na: 'Not on this job' };
 
-export function pipelinePage(d: { jobs: JobRow[]; steps: StepRow[]; rework: ReworkRow[]; today: Iso; brand: string }): Html {
+export function pipelinePage(d: { jobs: JobRow[]; steps: StepRow[]; rework: ReworkRow[]; today: Iso; brand: string; ready?: Map<number, { state: string; expected: string | null; factoryDate: string | null }> }): Html {
   const mon = mondayOf(d.today);
   const sun = addDays(mon, 6);
   const live = d.jobs.filter((j) => j.status === 'live' && (d.brand === 'all' || j.brand === d.brand));
@@ -28,6 +28,7 @@ export function pipelinePage(d: { jobs: JobRow[]; steps: StepRow[]; rework: Rewo
   <div class="legend">
     ${(['done', 'now', 'later', 'overdue', 'undated', 'skipped', 'na'] as StageState[]).map((s) => html`<span><i class="pc st-${s}"></i>${STATE_LABEL[s]}</span>`)}
     <span><i class="pc st-later" style="outline:2px solid var(--fg);outline-offset:-2px"></i>Current stage</span>
+    <span><i class="pc rdy-short" style="position:relative"><i class="rdy"></i></i>Materials short</span><span><i class="pc rdy-ready" style="position:relative"><i class="rdy"></i></i>Materials ready</span>
   </div>
   <div class="tl-box"><table class="pipe">
     <thead><tr><th class="pj">Job</th>${STAGES.map((st) => html`<th title="${st.label}">${st.short}<span class="muted small" style="display:block;font-weight:400">${atStage(st.key) || ''}</span></th>`)}<th>Rework</th></tr></thead>
@@ -38,8 +39,12 @@ export function pipelinePage(d: { jobs: JobRow[]; steps: StepRow[]; rework: Rewo
         const cur = r.current?.key === c.key;
         const when = c.step?.start_date ? fmtShort(c.step.start_date).slice(4) : c.state === 'na' ? '' : c.state === 'done' ? '✓' : c.state === 'skipped' ? '–' : '?';
         const title = `${STAGES.find((s) => s.key === c.key)!.label}: ${STATE_LABEL[c.state]}${c.step?.start_date ? `, ${fmtShort(c.step.start_date)}` : ''}${c.pinned ? ', pinned' : ''}`;
-        const inner = html`${when}${c.pinned ? html` <span aria-label="pinned">📌</span>` : ''}`;
-        return html`<td class="pc st-${c.state}${cur ? ' cur' : ''}" title="${title}">${c.step ? html`<a href="/jobs/${r.j.id}#s-${c.step.id}" aria-label="${title}">${inner}</a>` : inner}</td>`;
+        const rd = c.key === 'materials' ? d.ready?.get(r.j.id) : undefined;
+        const late = rd?.state === 'waiting' && rd.expected && rd.factoryDate && rd.expected > rd.factoryDate;
+        const rdCls = rd && rd.state !== 'none' ? ` rdy-${late ? 'short' : rd.state}` : '';
+        const rdTitle = rd && rd.state !== 'none' ? `. Materials ${rd.state === 'ready' ? 'ready' : late ? 'on order for after the factory date' : rd.state === 'waiting' ? 'on order' : 'short'}` : '';
+        const inner = html`${when}${c.pinned ? html` <span aria-label="pinned">📌</span>` : ''}${rdCls ? html`<i class="rdy" aria-hidden="true"></i>` : ''}`;
+        return html`<td class="pc st-${c.state}${cur ? ' cur' : ''}${rdCls}" title="${title}${rdTitle}">${c.step ? html`<a href="/jobs/${r.j.id}#s-${c.step.id}" aria-label="${title}${rdTitle}">${inner}</a>` : inner}</td>`;
       })}
       <td class="pc ${r.rework ? 'st-overdue' : 'st-na'}">${r.rework ? html`<a href="/jobs/${r.j.id}#rework">${r.rework} open</a>` : ''}</td>
     </tr>`)}

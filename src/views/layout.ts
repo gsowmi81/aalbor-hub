@@ -34,7 +34,7 @@ export function bare(title: string, body: Html): Html {
  * The tabs (George, 7 Nov 2026): Board · Pipeline · My day · Jobs · Attention · More.
  * Rework, Suggestions, New job and Settings live under More. 'job' pages light no tab.
  */
-export type Tab = 'board' | 'pipeline' | 'me' | 'jobs' | 'attention' | 'more' | 'job' | 'rework' | 'suggestions' | 'new' | 'settings'
+export type Tab = 'board' | 'pipeline' | 'me' | 'jobs' | 'attention' | 'more' | 'job' | 'rework' | 'suggestions' | 'new' | 'settings' | 'stock'
   | 'coming-up';
 
 const ROLE_NAME = { editor: 'Editor', doer: 'Doer', viewer: 'Viewer' } as const;
@@ -42,7 +42,7 @@ const ROLE_NAME = { editor: 'Editor', doer: 'Doer', viewer: 'Viewer' } as const;
 export function page(opts: { title: string; tab: Tab; person: Person; flash?: string | null; body: Html; sub?: Html | string; attention?: number }): Html {
   const p = opts.person;
   const waiting = p.pending_suggestions ?? 0;
-  const under = (['rework', 'suggestions', 'new', 'settings'] as Tab[]).includes(opts.tab);
+  const under = (['rework', 'suggestions', 'new', 'settings', 'stock'] as Tab[]).includes(opts.tab);
   const current = opts.tab === 'coming-up' ? 'board' : under ? 'more' : opts.tab;
   const tabs: [Tab, string | Html, string][] = [
     ['board', 'Board', '/board'],

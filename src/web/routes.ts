@@ -19,6 +19,10 @@ import { asksOnDone } from '../views/install.js';
 import { loadStepPhotos, loadCurrentFiles, loadJobFiles } from '../db/queries.js';
 import { FILE_KINDS } from '../views/files.js';
 import { FILE_LIMITS } from './upload.js';
+import { newTvKey } from './tv.js';
+import { readinessByJob, stockRoutes } from './stock.js';
+import { loadItems, loadMaterials, loadOnHand, loadOrders, stockContext } from '../db/stock.js';
+import { allocatedByItem, readiness } from '../domain/stock.js';
 import { weekHours } from '../domain/checks.js';
 import { mondayOf } from '../domain/dates.js';
 import type { Landing } from '../views/other.js';
@@ -113,9 +117,9 @@ async function storedDecisions(): Promise<Map<string, StoredDecision>> {
 }
 
 async function board() {
-  const [all, rules, cal, stored, cap, issues] = await Promise.all([loadEverything(), loadRules(), loadCalendar(), storedDecisions(), loadCapacity(), loadIssues({ open: true })]);
+  const [all, rules, cal, stored, cap, issues, ready] = await Promise.all([loadEverything(), loadRules(), loadCalendar(), storedDecisions(), loadCapacity(), loadIssues({ open: true }), readinessByJob()]);
   const t = today();
-  return { ...all, rules, cal, stored, cap, issues, t, decisions: needsDecision(all.jobs, all.steps, all.rework, rules, cal, t, cap) };
+  return { ...all, rules, cal, stored, cap, issues, ready, t, decisions: needsDecision(all.jobs, all.steps, all.rework, rules, cal, t, cap) };
 }
 
 
@@ -153,6 +157,7 @@ export function routes(): express.Router {
   const r = express.Router();
   const editor = requireRole('editor');
   const doer = requireRole('doer');
+  r.use(stockRoutes());
 
   // ---------- Screens ----------
 
@@ -175,19 +180,24 @@ export function routes(): express.Router {
   r.get('/board', boardPage);
 
   /** Overdue steps plus decisions still open: the count on the Attention tab. */
+  /** Jobs that can't cut (R20): short, or waiting on an order due after the factory date. */
+  function shortJobs(ready: Awaited<ReturnType<typeof readinessByJob>>) {
+    return [...ready].filter(([, r]) => r.state === 'short' || (r.state === 'waiting' && r.expected && r.factoryDate && r.expected > r.factoryDate))
+      .map(([jobId, r]) => ({ jobId, ...r }));
+  }
   function attentionCount(b: Awaited<ReturnType<typeof board>>): number {
-    return overdue(b.jobs, b.steps, b.t).length + b.decisions.filter((x) => b.stored.get(x.key)?.fingerprint !== x.fingerprint).length + b.issues.length;
+    return overdue(b.jobs, b.steps, b.t).length + b.decisions.filter((x) => b.stored.get(x.key)?.fingerprint !== x.fingerprint).length + b.issues.length + shortJobs(b.ready).length;
   }
 
   r.get('/attention', async (req, res) => {
     const b = await board();
-    const body = attentionPage({ person: me(req), today: b.t, jobs: b.jobs, steps: b.steps, overdue: overdue(b.jobs, b.steps, b.t), decisions: b.decisions, stored: b.stored, issues: b.issues });
+    const body = attentionPage({ person: me(req), today: b.t, jobs: b.jobs, steps: b.steps, overdue: overdue(b.jobs, b.steps, b.t), decisions: b.decisions, stored: b.stored, issues: b.issues, short: shortJobs(b.ready) });
     res.send(page({ title: 'Attention', tab: 'attention', person: me(req), flash: takeFlash(req, res), body, attention: attentionCount(b) }).value);
   });
 
   r.get('/pipeline', async (req, res) => {
     const b = await board();
-    const body = pipelinePage({ jobs: b.jobs, steps: b.steps, rework: b.rework, today: b.t, brand: brandOf(req) });
+    const body = pipelinePage({ jobs: b.jobs, steps: b.steps, rework: b.rework, today: b.t, brand: brandOf(req), ready: b.ready });
     res.send(page({ title: 'Pipeline', tab: 'pipeline', person: me(req), flash: takeFlash(req, res), body, attention: attentionCount(b) }).value);
   });
 
@@ -355,8 +365,12 @@ export function routes(): express.Router {
     const [issues, issueTypes] = await Promise.all([loadIssues({ jobId: id }), loadIssueTypes()]);
     const flagId = Number(req.query.flag) || null;
     const fromFlag = flagId ? issues.find((i) => i.id === flagId) : undefined;
+    // Materials (R15 to R20): this job's lines, every live job's allocations (for what is free), open orders, the catalogue.
+    const [materials, allMaterials, orders, stockItems, onHand] = await Promise.all([loadMaterials(id), loadMaterials(), loadOrders({ open: true }), loadItems({ activeOnly: true }), loadOnHand()]);
+    const factoryDate = data.steps.find((s) => s.kind === 'factory' && !s.label)?.start_date ?? null;
     const body = jobPage({ person: me(req), today: b.t, ...data, list, history, decisions, templates, responsible, peopleNames: people.rows.map((p) => p.name), suggestionsPanel,
-      issues, issueTypes, fromFlag: fromFlag ? { id: fromFlag.id, note: fromFlag.note } : null });
+      issues, issueTypes, fromFlag: fromFlag ? { id: fromFlag.id, note: fromFlag.note } : null,
+      materials: { jobId: id, person: me(req), lines: materials, orders, items: stockItems, readiness: readiness(materials, orders, id), factoryDate, onHand, allocated: allocatedByItem(allMaterials) } });
     res.send(page({ title: 'One job', tab: 'job', person: me(req), flash: takeFlash(req, res), body, attention: attentionCount(b) }).value);
   });
 
@@ -1023,7 +1037,7 @@ export function routes(): express.Router {
     const [settings, blocked, people, email, tokens, calls, cap, issueTypes, runs] = await Promise.all([
       pool.query('select key, value, label from settings order by sort'),
       loadBlocked(),
-      pool.query('select id, name, email, role, active, is_owner, areas, email_digest from people order by active desc, role, name'),
+      pool.query('select id, name, email, role, active, is_owner, areas, email_digest, can_stock from people order by active desc, role, name'),
       pool.query(`select value from app_settings where key = 'suggestions_email'`),
       me(req).is_owner ? pool.query(`select t.id, t.name, t.created_at, p.name as created_by_name, t.last_used_at, t.revoked_at from api_tokens t left join people p on p.id = t.created_by order by t.revoked_at nulls first, t.id desc`) : null,
       me(req).is_owner ? pool.query(`select c.at, c.method, c.path, c.status, c.items, t.name as token_name from api_calls c left join api_tokens t on t.id = c.token_id order by c.id desc limit 30`) : null,
@@ -1033,7 +1047,7 @@ export function routes(): express.Router {
     ]);
     const extra = suggestionSettings({ email: email.rows[0]?.value ?? '', isOwner: me(req).is_owner, tokens: tokens?.rows ?? [], calls: calls?.rows ?? [], newToken: newTok });
     return settingsPage({ settings: settings.rows, blocked, people: people.rows, today: today(), templates: await loadTemplates(), viewerIsOwner: me(req).is_owner, extra, message: await appSetting('board_message'),
-      cap, issueTypes, runs, preview: config.preview, nudgeTo: config.preview ? await appSetting('suggestions_email') : null });
+      cap, issueTypes, runs, preview: config.preview, nudgeTo: config.preview ? await appSetting('suggestions_email') : null, tvKey: await appSetting('tv_token'), appUrl: config.appUrl });
   }
 
   r.get('/settings', editor, async (req, res) => {
@@ -1101,6 +1115,13 @@ export function routes(): express.Router {
     const n = await runDaily(today(), true);
     flash(res, `${n ?? 0} ${n === 1 ? 'email' : 'emails'} sent.`);
     res.redirect('/settings#emails');
+  });
+
+  // The factory TV link (George, 7 Nov 2026): a new key stops the old link.
+  r.post('/settings/tv', editor, async (req, res) => {
+    await withPerson(me(req).id, (db) => db.query(`update app_settings set value = $1 where key = 'tv_token'`, [newTvKey()]));
+    flash(res, 'Factory TV link made. Open it on the factory screen; the old link no longer works.');
+    res.redirect('/settings#tv');
   });
 
   r.post('/settings/message', editor, async (req, res) => {
@@ -1216,8 +1237,8 @@ export function routes(): express.Router {
     if (!name) throw new UserError('Add a name.');
     const email = emailOf(req.body.email);
     if ((await pool.query('select 1 from people where email = $1', [email])).rowCount) throw new UserError(`${email} is already on the list.`);
-    await withPerson(me(req).id, (db) => db.query('insert into people (name, email, role, is_owner, areas, email_digest) values ($1, $2, $3, $4, $5, $6)',
-      [name, email, roleOf(req.body.role), me(req).is_owner && req.body.is_owner === '1', areasOf(req.body.areas), req.body.email_digest !== '0']));
+    await withPerson(me(req).id, (db) => db.query('insert into people (name, email, role, is_owner, areas, email_digest, can_stock) values ($1, $2, $3, $4, $5, $6, $7)',
+      [name, email, roleOf(req.body.role), me(req).is_owner && req.body.is_owner === '1', areasOf(req.body.areas), req.body.email_digest !== '0', req.body.can_stock === '1']));
     flash(res, `${name} added. They can sign in at ${req.protocol}://${req.get('host')} with ${email}.`);
     res.redirect('/settings');
   });
@@ -1232,8 +1253,8 @@ export function routes(): express.Router {
     // Only owners see or change the Owner tick; for anyone else it stays as it was.
     const isOwner = me(req).is_owner ? req.body.is_owner === '1' : current.is_owner;
     if (id === me(req).id && me(req).is_owner && !isOwner) throw new UserError("You can't take away your own Owner access. Ask the other owner.");
-    await withPerson(me(req).id, (db) => db.query('update people set name = $2, email = $3, role = $4, active = $5, is_owner = $6, areas = $7, email_digest = $8 where id = $1',
-      [id, String(req.body.name ?? '').trim(), emailOf(req.body.email), role, active, isOwner, areasOf(req.body.areas), req.body.email_digest === '1']));
+    await withPerson(me(req).id, (db) => db.query('update people set name = $2, email = $3, role = $4, active = $5, is_owner = $6, areas = $7, email_digest = $8, can_stock = $9 where id = $1',
+      [id, String(req.body.name ?? '').trim(), emailOf(req.body.email), role, active, isOwner, areasOf(req.body.areas), req.body.email_digest === '1', req.body.can_stock === '1']));
     flash(res, 'Saved.');
     res.redirect('/settings');
   });

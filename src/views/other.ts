@@ -137,6 +137,8 @@ export function morePage(d: { person: Person; waiting: number }): Html {
   return html`<div class="tiles more">
     ${link('/rework', 'Rework', 'Raise it, date it, the monthly tally')}
     ${link('/load', 'Load', 'Hours booked against hours available, six weeks')}
+    ${link('/stock', 'Stock', 'What is on hand, what jobs need, what to order')}
+    ${editor ? link('/tv', 'Factory TV', 'The factory\'s week for a screen on the wall') : ''}
     ${link('/suggestions', 'Suggestions', 'What the Buildertrend bot found', d.waiting)}
     ${editor ? link('/jobs/new', 'New job', 'One date, every other date proposed') : ''}
     ${editor ? link('/settings', 'Settings', 'Capacities, job types, blocked days, people') : ''}
@@ -159,7 +161,10 @@ export function findPage(d: { q: string; jobs: { id: number; job_number: string 
 export function settingsPage(d: {
   settings: { key: string; value: number; label: string }[];
   blocked: { id: number; day: Iso; scope: string; reason: string }[];
-  people: { id: number; name: string; email: string; role: string; active: boolean; is_owner: boolean; areas: string[]; email_digest: boolean }[];
+  people: { id: number; name: string; email: string; role: string; active: boolean; is_owner: boolean; areas: string[]; email_digest: boolean; can_stock: boolean }[];
+  /** The factory TV link key ('' until one is made) and the address to show. */
+  tvKey: string;
+  appUrl: string;
   today: Iso;
   templates: Template[];
   viewerIsOwner: boolean;
@@ -260,19 +265,26 @@ export function settingsPage(d: {
         <td><form method="post" action="/settings/blocked/${b.id}/delete"><button class="btn small danger" type="submit">Remove</button></form></td></tr>`)}
     </tbody></table></div></section>
 
+  <section class="panel" id="tv"><h2>Factory TV</h2>
+    <p class="muted small">The factory's week in big type for a screen on the wall: materials in, the factory (cut, painting, delivery) and installs, this week and next, refreshing every two minutes. It opens with a link instead of a sign-in, so keep the link to the factory. Making a new link stops the old one.</p>
+    ${d.tvKey ? html`<p><a href="/tv?k=${d.tvKey}" target="_blank" rel="noopener"><code>${d.appUrl}/tv?k=${d.tvKey}</code></a></p>` : html`<p class="muted">No link yet.</p>`}
+    <form method="post" action="/settings/tv" class="acts"><button class="btn${d.tvKey ? '' : ' primary'}" type="submit">${d.tvKey ? 'Make a new link' : 'Make the link'}</button><a class="btn" href="/tv" target="_blank" rel="noopener">See it (signed in)</a></form>
+  </section>
+
   <section class="panel"><h2>People</h2>
     <p class="muted small">Only these addresses can sign in. Editors change anything; Doers tick steps and raise rework; Viewers look. Switch someone off rather than deleting them, so the history keeps their name.${d.viewerIsOwner ? ' Owners (you see this column because you are one) also see who was responsible for each rework; only an owner can make someone an owner.' : ''} Areas are the board rows a person works in: their steps make up My day.</p>
-    <div class="tbl"><table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Can sign in</th>${d.viewerIsOwner ? html`<th>Owner</th>` : ''}<th>Emails</th><th></th></tr></thead><tbody>
+    <div class="tbl"><table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Can sign in</th>${d.viewerIsOwner ? html`<th>Owner</th>` : ''}<th>Emails</th><th title="May change stock: items, counts, the order list">Stock</th><th></th></tr></thead><tbody>
       ${d.people.map((p) => {
         const locked = p.is_owner && !d.viewerIsOwner;
-        const cols = d.viewerIsOwner ? 'minmax(120px,1fr) minmax(180px,1.5fr) 120px 110px 90px 90px auto' : 'minmax(120px,1fr) minmax(180px,1.5fr) 120px 110px 90px auto';
+        const cols = d.viewerIsOwner ? 'minmax(120px,1fr) minmax(180px,1.5fr) 120px 110px 90px 90px 80px auto' : 'minmax(120px,1fr) minmax(180px,1.5fr) 120px 110px 90px 80px auto';
         const dis = locked ? html` disabled` : '';
-        return html`<tr><td colspan="${d.viewerIsOwner ? 7 : 6}" style="padding:0;border:0"><form method="post" action="/settings/people/${p.id}" style="display:grid;grid-template-columns:${cols};gap:8px;padding:8px 10px;border-bottom:1px solid var(--line);align-items:center;min-width:${d.viewerIsOwner ? 830 : 730}px">
+        return html`<tr><td colspan="${d.viewerIsOwner ? 8 : 7}" style="padding:0;border:0"><form method="post" action="/settings/people/${p.id}" style="display:grid;grid-template-columns:${cols};gap:8px;padding:8px 10px;border-bottom:1px solid var(--line);align-items:center;min-width:${d.viewerIsOwner ? 910 : 810}px">
         <input name="name" value="${p.name}" required aria-label="Name"${dis}><input name="email" type="email" value="${p.email}" required aria-label="Email"${dis}>
         <select name="role" aria-label="Role"${dis}>${['editor', 'doer', 'viewer'].map((r) => html`<option value="${r}"${p.role === r ? html` selected` : ''}>${cap(r)}</option>`)}</select>
         <label class="checkline" style="font-weight:400"><input type="checkbox" name="active" value="1"${p.active ? html` checked` : ''}${dis}> Yes</label>
         ${d.viewerIsOwner ? html`<label class="checkline" style="font-weight:400" title="Owners see who was responsible for each rework"><input type="checkbox" name="is_owner" value="1"${p.is_owner ? html` checked` : ''}> Yes</label>` : ''}
         <label class="checkline" style="font-weight:400" title="Nudges and flags by email"><input type="checkbox" name="email_digest" value="1"${p.email_digest ? html` checked` : ''}${dis}> Yes</label>
+        <label class="checkline" style="font-weight:400" title="May change stock: items, counts, the order list, whatever their role"><input type="checkbox" name="can_stock" value="1"${p.can_stock ? html` checked` : ''}${dis}> Yes</label>
         ${locked ? html`<span class="muted small">Only an owner can change this person.</span>` : html`<button class="btn small" type="submit">Save</button>`}
         <div class="areas" style="grid-column:1 / -1"><span class="muted small">Areas:</span>${PEOPLE_AREAS.map((a) => html`<label class="checkline small" style="min-height:28px;font-weight:400"><input type="checkbox" name="areas" value="${a.area}"${p.areas.includes(a.area) ? html` checked` : ''}${dis}> ${a.label}</label>`)}</div></form></td></tr>`;
       })}
@@ -282,6 +294,7 @@ export function settingsPage(d: {
       <label class="f">Email<input name="email" type="email" required></label>
       <label class="f">Role<select name="role"><option value="viewer">Viewer</option><option value="doer">Doer</option><option value="editor">Editor</option></select></label>
       ${d.viewerIsOwner ? html`<label class="checkline"><input type="checkbox" name="is_owner" value="1"> Owner</label>` : ''}
+      <label class="checkline" title="May change stock whatever their role"><input type="checkbox" name="can_stock" value="1"> Stock</label>
       <div class="areas" style="grid-column:1 / -1"><span class="muted small">Areas:</span>${PEOPLE_AREAS.map((a) => html`<label class="checkline small" style="min-height:28px;font-weight:400"><input type="checkbox" name="areas" value="${a.area}"> ${a.label}</label>`)}</div>
       <button class="btn primary" type="submit" style="align-self:end">Add person</button>
     </form></section>

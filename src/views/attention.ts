@@ -17,6 +17,8 @@ export interface AttentionData {
   decisions: Decision[];
   stored: Map<string, StoredDecision>;
   issues: IssueRow[];
+  /** Jobs that can't cut: short, or waiting on an order due after the factory date (R20). */
+  short: { jobId: number; state: string; expected: string | null; factoryDate: string | null; short: string[] }[];
 }
 
 export function attentionPage(d: AttentionData): Html {
@@ -33,7 +35,7 @@ export function attentionPage(d: AttentionData): Html {
   for (const x of pending) if (x.jobId) groupFor(x.jobId).decisions.push(x);
   const general = pending.filter((x) => !x.jobId);
   const ordered = [...groups.values()].sort((a, b) => installOf(a.job.id).localeCompare(installOf(b.job.id)) || a.job.client_name.localeCompare(b.job.client_name));
-  const total = d.overdue.length + pending.length + d.issues.length;
+  const total = d.overdue.length + pending.length + d.issues.length + d.short.length;
 
   const summary = (g: { job: JobRow; overdue: StepRow[]; decisions: Decision[] }) => {
     const parts = [g.overdue.length ? `${g.overdue.length} overdue` : '', g.decisions.length ? `${g.decisions.length} to decide` : ''].filter(Boolean).join(' · ');
@@ -45,10 +47,13 @@ export function attentionPage(d: AttentionData): Html {
   return html`
   <div class="tiles">
     <a class="tile${d.issues.length ? ' over' : ''}" href="#flags"><b>${d.issues.length}</b><span>Flagged</span><small>Problems from the floor</small></a>
+    ${d.short.length ? html`<a class="tile over" href="#short"><b>${d.short.length}</b><span>Short</span><small>Materials not in for the factory</small></a>` : ''}
     <a class="tile over" href="#jobs"><b>${d.overdue.length}</b><span>Overdue</span><small>Date passed, not ticked</small></a>
     <a class="tile warn" href="#jobs"><b>${pending.length}</b><span>To decide</span><small>${general.length ? `${general.length} about capacity` : 'Dates and clashes'}</small></a>
     <a class="tile" href="#decided"><b>${decided.length}</b><span>Decided</span><small>OK'd as is</small></a>
   </div>
+  ${d.short.length ? html`<section class="panel" id="short" style="gap:4px"><div class="row"><h2>Short for the factory</h2><span class="muted small">Materials the job needs that are not on hand, or on order for after its factory date.</span></div>
+    ${d.short.sort((a, b) => (a.factoryDate ?? '9999').localeCompare(b.factoryDate ?? '9999')).map((s) => { const j = jobById.get(s.jobId); return j ? html`<div class="item"><div class="what"><div><a href="/jobs/${j.id}#materials" style="color:inherit">${jobTitle(j)}</a> · factory ${s.factoryDate ? fmtShort(s.factoryDate) : 'not dated'}</div><div class="muted small">${s.short.join(' · ')}</div></div><a class="btn small" href="/jobs/${j.id}#materials">Open</a></div>` : ''; })}</section>` : ''}
   ${d.issues.length ? html`<section class="panel" id="flags" style="gap:4px"><div class="row"><h2>Flagged problems</h2><span class="muted small">Newest first. Fixed ones drop off.</span></div>${d.issues.map((i) => issueItem(i, d.person, '/attention#flags'))}</section>` : ''}
   <section class="panel" id="jobs">
     <div class="row"><h2>${total ? `${ordered.length} ${ordered.length === 1 ? 'job needs' : 'jobs need'} a look` : 'Nothing needs a look'}</h2><span class="muted small">Soonest install first. Tap a job to see its items.</span></div>

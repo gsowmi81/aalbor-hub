@@ -8,6 +8,7 @@ import type { FullJob, IssueRow, IssueType, JobFile, LogEntry, ReworkFull, Respo
 import { flagForm, issuesPanel } from './issues.js';
 import { asksOnDone, installDoneForm, installSummary } from './install.js';
 import { currentFiles, fileKindLabel, fileLink, filesPanel } from './files.js';
+import { materialsPanel, MaterialsView, readinessPill } from './materials.js';
 import { ANCHORS, AnchorKind, Template } from '../domain/schedule.js';
 import { decisionFields } from './items.js';
 
@@ -41,6 +42,8 @@ export interface JobPageData {
   stepPhotos: Map<number, number[]>;
   /** Files on the job, every version (George, 7 Nov 2026). */
   files: JobFile[];
+  /** Materials and where they stand (George, 7 Nov 2026). */
+  materials: MaterialsView;
 }
 
 const STATUS = { live: 'Live', on_hold: 'On hold', complete: 'Complete', cancelled: 'Cancelled' } as Record<string, string>;
@@ -162,7 +165,7 @@ export function jobPage(d: JobPageData): Html {
     <div class="eyebrow">Job ${job.job_number ?? '(no number)'} · site start ${job.site_start ? fmtLong(job.site_start) : 'not set'}</div>
     <h2 style="font-size:24px">${jobTitle(job)}</h2>
     ${job.scope ? html`<p class="muted">${job.scope}</p>` : ''}
-    <div class="pills">${pills}${currentFiles(d.files).map((f) => fileLink(f, 'pill link'))}${job.drawings_url ? html`<a class="pill link" href="${job.drawings_url}" target="_blank" rel="noopener">Drawings folder ↗</a>` : ''}<a class="pill link" href="/jobs/${job.id}/sheet" target="_blank" rel="noopener" title="One page for the trolley, with a QR code that opens this job on a phone">Job sheet ↗</a></div>
+    <div class="pills">${pills}${d.materials.readiness.state !== 'none' ? html`<a class="pill link" href="#materials">${readinessPill(d.materials.readiness, d.materials.factoryDate)}</a>` : ''}${currentFiles(d.files).map((f) => fileLink(f, 'pill link'))}${job.drawings_url ? html`<a class="pill link" href="${job.drawings_url}" target="_blank" rel="noopener">Drawings folder ↗</a>` : ''}<a class="pill link" href="/jobs/${job.id}/sheet" target="_blank" rel="noopener" title="One page for the trolley, with a QR code that opens this job on a phone">Job sheet ↗</a></div>
   </div>
 
   <div class="next"><span class="eyebrow">Next up</span><b>${next ? stepLabel(next) : 'No dates set'}</b><span>${next ? `${fmtRange(next.start_date, next.end_date)} · ${next.owner || KINDS[next.kind].owner}` : 'Add dates below'}</span></div>
@@ -199,6 +202,7 @@ export function jobPage(d: JobPageData): Html {
       </div></details>` : ''}
   </section>
 
+  ${materialsPanel(d.materials)}
   ${filesPanel({ jobId: job.id, files: d.files, person, back: `/jobs/${job.id}#files` })}
   ${issuesPanel({ jobId: job.id, issues: d.issues, person, types: d.issueTypes, back: `/jobs/${job.id}#flags` })}
   ${editor ? tasksPanel(d, std.filter((s) => s.label)) : ''}

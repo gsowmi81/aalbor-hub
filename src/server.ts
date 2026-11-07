@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import { config } from './config.js';
 import { pool, isPermissionError } from './db/pool.js';
 import { authRoutes, loadPerson, requireSignIn, sameOrigin } from './web/auth.js';
+import { tvRoutes } from './web/tv.js';
 import { backTo, flash, routes, UserError } from './web/routes.js';
 import { bare } from './views/layout.js';
 import { apiRoutes } from './web/api.js';
@@ -36,6 +37,8 @@ export function createApp(): express.Express {
   app.use(loadPerson);
   app.use(sameOrigin);
   app.use(authRoutes());
+  // The factory TV: a link key instead of a sign-in (George, 7 Nov 2026).
+  app.use(tvRoutes());
   app.use(requireSignIn);
   app.use(routes());
 

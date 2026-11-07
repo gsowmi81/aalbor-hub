@@ -347,3 +347,26 @@ fieldset.yn label { display: inline-flex; gap: 6px; align-items: center; font-si
 .file-old { padding-left: 10px; }
 .file-none { padding-left: 10px; }
 .me-files { display: flex; flex-wrap: wrap; gap: 4px 10px; }
+
+/* Stock (George, 7 Nov 2026). */
+.subtabs { margin-bottom: 4px; }
+table.demand td.num, table.items td.num, table.orders td.num, table.count td.num, table.mats td.num { text-align: right; white-space: nowrap; }
+th.num { text-align: right; }
+tr.gap td { background: var(--over-bg); }
+tr.low td { background: var(--warn-bg); }
+tr.grp td { background: var(--bg); font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); padding: 6px 10px; }
+tr.off td { opacity: .55; }
+tr.check td { background: var(--warn-bg); }
+tr.late td { background: var(--over-bg); }
+tr.ordered td { background: var(--ok-bg); }
+h3.supplier { margin: 12px 0 6px; font-size: 16px; }
+td.acts-cell { white-space: nowrap; }
+td.acts-cell details.pop { display: inline-block; position: relative; }
+td.acts-cell details.pop .popbody { position: absolute; right: 0; top: 100%; z-index: 6; width: 260px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.18); }
+td.acts-cell form { display: inline; }
+.mono { font-family: var(--mono); }
+.pc { position: relative; }
+.pc .rdy { position: absolute; right: 3px; top: 3px; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+.pc.rdy-ready .rdy { background: var(--ok); }
+.pc.rdy-short .rdy { background: var(--over); }
+.pc.rdy-waiting .rdy { background: var(--warn-fg); }

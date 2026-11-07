@@ -1,0 +1,184 @@
+item,code,category,unit,supplier,on_hand,min_level,reorder_qty,location,standing,status,notes,last_counted
+Basin mixer,BL162,Bathroom / PC items,pcs,,3,,,,no,Active,,2026-07-07
+Floor waste 115x115x90 tile insert,,Bathroom / PC items,pcs,,1,,,,no,Active,,2026-07-07
+Trinity toilet,OS-2,Bathroom / PC items,pcs,,1,,,,no,Active,,2026-07-07
+Vanity,QL400 + TB865,Bathroom / PC items,pcs,,1,,,,no,Active,,2026-07-07
+Vanity – 750,QL750-36,Bathroom / PC items,pcs,,1,,,,no,Active,,2026-07-07
+Alabaster Matte,,Boards – full sheets,Sheet,Polytec,,,,,no,Verify,"Added 13 Sep 2026. Hannah Gutmann kitchen uppers. Edging 'Alabaster Sheen' exists — confirm Matte edging needed.",
+Antique White,,Boards – full sheets,Sheet,Polytec,3,,,,no,Active,,2026-07-07
+Blossom White Matte,,Boards – full sheets,Sheet,Polytec,,,,,no,Verify,No count in source – count at walk-through,
+Bottega Oak Woodmatt,,Boards – full sheets,Sheet,Polytec,,,,,no,Verify,Added 13 Sep 2026 for demand tracking — count on hand at next Friday walk. Anton Bergheim doors.,
+Carcass texture particle board,1038 - 1621412 DS,Boards – full sheets,Sheet,,,,,,yes,Verify,"No count in source – core carcass board, count and set min at walk-through",
+Classic White Matte,2415mm,Boards – full sheets,Sheet,Polytec,34,,,,yes,Active,White buffer stock – candidate for min level,2026-07-07
+Classic White Sheen,2415mm,Boards – full sheets,Sheet,Polytec,38,,,,yes,Active,White buffer stock – candidate for min level,2026-07-07
+Florentine Walnut Woodmatt,,Boards – full sheets,Sheet,Polytec,,,,,no,Verify,"Added 13 Sep 2026. Hannah Gutmann (lowers/tall/laundry/vanity), Nathalia Yamamoto (uppers/laundry/vanities). Recurring colour — candidate for a min level.",
+Formica brushed silver,,Boards – full sheets,Sheet,Trademaster,6,,,,no,Active,,2026-07-07
+Plantation Ash,,Boards – full sheets,Sheet,Polytec,,,,,no,Verify,Added 13 Sep 2026. Peter Jones kitchen.,
+Polar White Matte,,Boards – full sheets,Sheet,Polytec,1,,,,no,Active,,2026-07-07
+Polar White Sheen,,Boards – full sheets,Sheet,Polytec,,,,,no,Verify,No count in source – count at walk-through,
+"Polytec Woodmatt – oak/alpine range (Boston Oak, Prime Oak, Natural Oak, Alpine)",2415mm,Boards – full sheets,Sheet,Polytec,14,,,,no,Verify,14 sheets total across the colours listed – split by colour at walk-through (Prime Oak listed twice in source),2026-07-07
+Prime Oak Woodmatt,,Boards – full sheets,Sheet,Polytec,,,,,no,Verify,"Added 13 Sep 2026. Was lumped in 'Polytec Woodmatt – oak/alpine range' (14 sheets, unsplit) — split the count at next walk. Wissam kitchen + laundry doors.",
+Raw MDF 18mm,,Boards – full sheets,Sheet,Polytec,,,,,no,Verify,"Added 13 Sep 2026. 2-pac door substrate (Tesoriero, Patch, Sharpe) + raw bulkheads. Calandra used ~9 sheets.",
+Satin White,,Boards – full sheets,Sheet,,,,,,no,Verify,"Added 13 Sep 2026. NOT the same as Classic White (Sheen/Matte) — George 13 Sep. Brand to confirm. Sean McGing kitchen + laundry: check qty on hand covers the job before 18 Sep check measure. Elaine Jackson was sold as Satin White but her BOM was entered as White sheen — confirm which was cut.",
+Stone Grey Matte,,Boards – full sheets,Sheet,Polytec,1,,,,no,Active,,2026-07-07
+Tasmanian Oak Woodmatt,,Boards – full sheets,Sheet,Polytec,,,,,no,Verify,"Added 13 Sep 2026 (board; edging line already exists). Charley Meyer, Nicole Delaat.",
+Verdelho Smooth,,Boards – full sheets,Sheet,Polytec,,,,,no,Verify,Added 13 Sep 2026. Nicola Parry vanities. Edging line exists as 'Verdalo Smooth' (spelling).,
+2/10 separating agent (edgebander),LCM,Consumables,Unit,Trademaster,1,,,,yes,Active,Edgebander consumable – never run out,2026-07-07
+Black corflute,,Consumables,Sheet,,2,,,,no,Active,Unopened,2026-07-07
+Clear floor protectors – 1 metre,,Consumables,pcs,,5,,,,no,Active,Unopened,2026-07-07
+Dust extraction flexible hose 80mm x 100m,DUSTEFH80MM,Consumables,Roll,,3,,,,no,Active,,2026-07-07
+Fullertak contact glue – 20L pail,SC1000,Consumables,Pail,Fuller,1,,,,yes,Active,Open/part-used – never run out,2026-07-07
+LC 2.30 purifying agent (edgebander),LCM,Consumables,Unit,Trademaster,1,,,,yes,Active,Edgebander consumable – never run out,2026-07-07
+Melamine cleaner,,Consumables,Unit,,1,,,,yes,Active,Open/part-used,2026-07-07
+POLY01 / POLY02 dust bags,POLY02/75,Consumables,pcs,Eurofit,2,,,,yes,Active,Extraction consumable – never run out,2026-07-07
+Power Wash A1 Evolution – 20L,,Consumables,Pail,,1,,,,no,Active,,2026-07-07
+Super Clear sprayable contact,,Consumables,Unit,Bostik,1,,,,yes,Active,Open/part-used,2026-07-07
+Turps – 4 litre,,Consumables,Bottle,Diggers,3,,,,yes,Active,,2026-07-07
+Drill bits 160mm x 5.5mm,,Cutting – bits & blades,pcs,,3,,,,yes,Active,,2026-07-07
+Drill bits 160mm x 6.5mm,,Cutting – bits & blades,pcs,,16,,,,yes,Active,,2026-07-07
+Drill bits 160mm x 6mm,,Cutting – bits & blades,pcs,,5,,,,yes,Active,,2026-07-07
+Drill bits 350mm x 12mm,,Cutting – bits & blades,pcs,,2,,,,yes,Active,,2026-07-07
+Router bits,,Cutting – bits & blades,pcs,,3,,,,yes,Active,Itemise types at walk-through,2026-07-07
+Alabaster Sheen,,Edging,Roll,Polytec,0.5,,,,no,Active,,2026-07-07
+Amaro Matt,,Edging,Roll,Polytec,0.25,,,,no,Active,,2026-07-07
+Antique White,,Edging,Roll,Polytec,1,,,,no,Active,,2026-07-07
+Artisan Oak Matte,,Edging,Roll,Polytec,0.25,,,,no,Active,,2026-07-07
+Avion Grey Venette,,Edging,Roll,Polytec,0.25,,,,no,Active,,2026-07-07
+Avon Sheen,,Edging,Roll,Polytec,0.25,,,,no,Active,,2026-07-07
+Black Wood Matt,,Edging,Roll,,0.5,,,,no,Active,,2026-07-07
+Bottega Oak Woodmatt,,Edging,Roll,Polytec,0.5,,,,no,Active,,2026-07-07
+Café Crème Sheen,,Edging,Roll,Polytec,1.25,,,,no,Active,,2026-07-07
+Camembert Sheen,,Edging,Roll,,1,,,,no,Active,,2026-07-07
+Caraway,,Edging,Roll,,0.25,,,,no,Active,,2026-07-07
+Classic White Sheen ABS,,Edging,Roll,,1,,,,yes,Active,Matches white board range – candidate for min level,2026-07-07
+Euro Beech,,Edging,Roll,Trademaster,0.25,,,,no,Active,,2026-07-07
+European Walnut Matt,,Edging,Roll,,1,,,,no,Active,,2026-07-07
+Exotic Wood Matt,,Edging,Roll,Polytec,0.25,,,,no,Active,,2026-07-07
+Marina Grey,,Edging,Roll,Polytec,1,,,,no,Active,,2026-07-07
+Mountain Pepper Matte,,Edging,Roll,,1.25,,,,no,Active,,2026-07-07
+Mountain Pepper Sheen,,Edging,Roll,,0.25,,,,no,Active,,2026-07-07
+Oyster Grey Matte,,Edging,Roll,Polytec,1,,,,no,Active,,2026-07-07
+Oyster Grey Sheen,,Edging,Roll,Polytec,0.5,,,,no,Active,,2026-07-07
+Pannacotta Matt,,Edging,Roll,,0.5,,,,no,Active,Name normalised from 'pannecotte matt',2026-07-07
+Polar White Matte ABS,,Edging,Roll,,2,,,,yes,Active,Matches white board range – candidate for min level,2026-07-07
+Porcelain Matte,,Edging,Roll,,0.5,,,,no,Active,Name normalised from 'Porclain matte',2026-07-07
+Snowdrift Gloss,,Edging,Roll,Trademaster,3,,,,no,Active,,2026-07-07
+Stone Grey,,Edging,Roll,Polytec,0.25,,,,no,Active,,2026-07-07
+Tasmanian Oak Woodmatt,,Edging,Roll,Polytec,0.5,,,,no,Active,,2026-07-07
+Verdalo Smooth,,Edging,Roll,Polytec,0.5,,,,no,Active,,2026-07-07
+White Mist Matte,,Edging,Roll,Polytec,0.25,,,,no,Active,,2026-07-07
+BIN WB,,Hardware – misc,pcs,Eurofit,10,,,,no,Active,,2026-07-07
+Ceiling bathroom fan 20W – ducted,20w19,Hardware – misc,pcs,,1,,,,no,Active,,2026-07-07
+Ceiling exhaust fan – bathrooms,,Hardware – misc,pcs,,4,,,,no,Active,,2026-07-07
+Ceiling mounted oyster lights – 3 temp,,Hardware – misc,pcs,,10,,,,no,Active,,2026-07-07
+Chrome 20mm fitting bracket,,Hardware – misc,pcs,,125,,,,no,Active,,2026-07-07
+Chrome pillar centre,,Hardware – misc,pcs,,24,,,,no,Active,,2026-07-07
+Cupboard L brackets,,Hardware – misc,Pack,,1,,,,no,Active,,2026-07-07
+Door handles – 460mm,,Hardware – misc,pcs,,16,,,,no,Active,,2026-07-07
+Door hinges,,Hardware – misc,pcs,,5,,,,no,Active,,2026-07-07
+Feet,2645-835-001,Hardware – misc,pcs,Titus,16,,,,yes,Active,,2026-07-07
+Folding door top track – 2500mm,RB-04T,Hardware – misc,Length,Eurofit,2,,,,no,Active,,2026-07-07
+Laminate 3.6m,,Hardware – misc,Sheet,Trademaster,1,,,,no,Active,,2026-07-07
+LED strip,3528-W-60RW,Hardware – misc,Reel,OzLED,10,,,,no,Active,,2026-07-07
+Legs – size 100,2699-835-001,Hardware – misc,pcs,Titus,1,,,,no,Active,,2026-07-07
+Legs – size 140,2672-835-001,Hardware – misc,pcs,Titus,1,,,,no,Active,,2026-07-07
+Light strip maintenance box – misc items,,Hardware – misc,Box,,1,,,,no,Active,Mixed contents – itemise only if it matters,2026-07-07
+Mixed bag of legs,,Hardware – misc,Bag,,1,,,,no,Active,Sort or bin at walk-through,2026-07-07
+Oval rail supports – chrome,ES0-02,Hardware – misc,pcs,Eurofit,50,,,,no,Active,,2026-07-07
+Push catch,915.7188.350.00,Hardware – misc,pcs,Titus,61,,,,yes,Active,,2026-07-07
+Rode fitting brackets (round),,Hardware – misc,pcs,,20,,,,no,Active,,2026-07-07
+Silver pillar centre,,Hardware – misc,pcs,,35,,,,no,Active,,2026-07-07
+Slimline front bar for internal drawer,655-5214-51-100,Hardware – misc,pcs,Tekform,13,,,,no,Active,,2026-07-07
+Slimline front basic panels,6558189-511-00,Hardware – misc,pcs,Tekform,21,,,,no,Active,,2026-07-07
+Tapered bow handle,H001-96,Hardware – misc,pcs,Eurofit,30,,,,no,Active,,2026-07-07
+Transformer for downlight 12V,,Hardware – misc,pcs,,20,,,,no,Active,,2026-07-07
+Vinyl wrap,,Hardware – misc,Roll,,6,,,,no,Active,,2026-07-07
+Wardrobe rod fittings,,Hardware – misc,Packet,,1,,,,no,Active,,2026-07-07
+110 degree hinges,,Hinges & plates,pcs,Titus,1264,,,,yes,Verify,Unusually high count – recount at walk-through,2026-07-07
+165 degree hinge,,Hinges & plates,pcs,,61,,,,no,Active,,2026-07-07
+Bi-fold hinge,,Hinges & plates,pcs,,200,,,,no,Active,,2026-07-07
+Blind corner,,Hinges & plates,pcs,Bella,400,,,,no,Verify,High count – recount at walk-through,2026-07-07
+Blind corner hinge,,Hinges & plates,pcs,Titus,183,,,,no,Active,,2026-07-07
+Cover plates – standard hinges,,Hinges & plates,pcs,Titus,150,,,,yes,Active,,2026-07-07
+Hinge mounting plate,,Hinges & plates,pcs,Bella,1782,,,,yes,Verify,Unusually high count – recount at walk-through,2026-07-07
+Hinges,700-OK02-054-00,Hinges & plates,pcs,Titus,150,,,,yes,Active,,2026-07-07
+Hinges 175,,Hinges & plates,pcs,Titus,50,,,,no,Active,,2026-07-07
+Hinges – bi-fold,,Hinges & plates,pcs,Titus,141,,,,no,Active,Second bi-fold line (141) also appears under Obsolete – confirm which is which at walk-through,2026-07-07
+LAMA hinges,,Hinges & plates,pcs,Titus,243,,,,no,Active,,2026-07-07
+Mounting hinge plates,,Hinges & plates,pcs,Titus,2954,,,,yes,Verify,Unusually high count – recount at walk-through,2026-07-07
+Push catches – door dampener plastic grey,,Hinges & plates,pcs,Bella Group,2,,,,no,Active,,2026-07-07
+Soft close hinges,T90D8,Hinges & plates,pcs,Bella,100,,,,yes,Active,,2026-07-07
+Soft close hinges,OPK4-650-00,Hinges & plates,Carton,Titus,4,,,,yes,Active,,2026-07-07
+Capri profile C section 3600 / Foggy Silver,608.8U08.360.001,Kicks & profiles,Length,,25,,,,no,Active,,2026-07-07
+Capri profile J section 3600 / Foggy Silver,608.8U10.360.001,Kicks & profiles,Length,,29,,,,no,Active,,2026-07-07
+Grey kick – full length,,Kicks & profiles,Length,,1,,,,no,Active,,2026-07-07
+Kickboard plinth strip 2400mm,,Kicks & profiles,Length,Trademaster,1,,,,no,Active,,2026-07-07
+Mirror kicks – 3030 x 270,,Kicks & profiles,Length,,1,,,,no,Active,,2026-07-07
+Aiphone intercom,DA-1MD,Misc,pcs,Aiphone,,,,,no,Verify,No count in source,
+Banner artwork BIG,,Misc,pcs,Mesh Direct,1,,,,no,Active,,2026-07-07
+Banner artwork SMALL,,Misc,pcs,Mesh Direct,5,,,,no,Active,,2026-07-07
+Cutlery trays s/steel organiser,,Misc,pcs,Bella Group,4,,,,no,Active,,2026-07-07
+Google review tap plates,,Misc,pcs,,3,,,,no,Active,,2026-07-07
+Riggamate gloves XL,,Misc,pcs,Signet,24,,,,yes,Active,2 boxes of 12,2026-07-07
+Hinges,248-OT13-050-ST,Obsolete – use-down,pcs,Titus,600,,,,no,Obsolete – use-down,Available for legacy-spec jobs – not on weekly walk-check,2026-07-07
+Hinges (not incl. plate),244-0259-050-00,Obsolete – use-down,Carton,Titus,11,,,,no,Obsolete – use-down,Available for legacy-spec jobs – not on weekly walk-check,2026-07-07
+Hinges – bi-fold,,Obsolete – use-down,pcs,Titus,141,,,,no,Obsolete – use-down,Available for legacy-spec jobs – not on weekly walk-check,2026-07-07
+BIN-400 S1W,BIN-400 S1W,Runners – Bella,Box,Bella,3,,,,yes,Active,Unopened,2026-07-07
+BIN-400 S2W,BIN-400 S2W,Runners – Bella,Box,Bella,6,,,,yes,Active,Unopened,2026-07-07
+BIN-400 S3W,BIN-400 S3W,Runners – Bella,Box,Bella,7,,,,yes,Active,Unopened,2026-07-07
+BIN-450 S2W,BIN-450 S2W,Runners – Bella,Box,Bella,1,,,,yes,Active,Unopened,2026-07-07
+BIN-500 S1W,BIN-500 S1W,Runners – Bella,Box,Bella,7,,,,yes,Active,Unopened,2026-07-07
+BIN-550 S1W,BIN-550 S1W,Runners – Bella,Box,Bella,12,,,,yes,Active,Unopened,2026-07-07
+BIN-550 S2W,BIN-550 S2W,Runners – Bella,Box,Bella,6,,,,yes,Verify,"Listed twice in source (2 + 4) – merged, verify at walk-through",2026-07-07
+BIN-550 S3W,BIN-550 S3W,Runners – Bella,Box,Bella,4,,,,yes,Active,Unopened,2026-07-07
+655 8T27 150,655 8T27 150,Runners – Titus,Carton,Titus,9,,,,yes,Active,,2026-07-07
+655 8T35 150,655 8T35 150,Runners – Titus,Carton,Titus,4,,,,yes,Active,,2026-07-07
+655 8T40 150,655 8T40 150,Runners – Titus,Carton,Titus,6,,,,yes,Verify,"Listed twice in source (3 + 3) – merged, verify",2026-07-07
+655 8U35 150,655 8U35 150,Runners – Titus,Carton,Titus,1,,,,yes,Active,,2026-07-07
+655 8U40 150,655 8U40 150,Runners – Titus,Carton,Titus,2,,,,yes,Active,,2026-07-07
+655 8U45 150,655 8U45 150,Runners – Titus,Carton,Titus,4,,,,yes,Active,,2026-07-07
+655 8V27 150,655 8V27 150,Runners – Titus,Carton,Titus,1,,,,yes,Active,,2026-07-07
+655 8V35 150,655 8V35 150,Runners – Titus,Carton,Titus,5,,,,yes,Active,,2026-07-07
+655 8V40 150,655 8V40 150,Runners – Titus,Carton,Titus,1,,,,yes,Active,,2026-07-07
+655 8Z27 150,655 8Z27 150,Runners – Titus,Carton,Titus,5,,,,yes,Active,,2026-07-07
+655 8Z40 150,655 8Z40 150,Runners – Titus,Carton,Titus,7,,,,yes,Active,,2026-07-07
+655 8Z40 185,655 8Z40 185,Runners – Titus,Carton,Titus,1,,,,yes,Active,,2026-07-07
+656 8T45 150,656 8T45 150,Runners – Titus,Carton,Titus,5,,,,yes,Active,,2026-07-07
+656 8T50 150,656 8T50 150,Runners – Titus,Carton,Titus,7,,,,yes,Active,,2026-07-07
+656 8U27 150,656 8U27 150,Runners – Titus,Carton,Titus,3,,,,yes,Active,,2026-07-07
+656 8U35 150,656 8U35 150,Runners – Titus,Carton,Titus,1,,,,yes,Active,,2026-07-07
+656 8U45 185,656 8U45 185,Runners – Titus,Carton,Titus,5,,,,yes,Active,,2026-07-07
+656 8U50 150,656 8U50 150,Runners – Titus,Carton,Titus,3,,,,yes,Active,,2026-07-07
+656 8V35 150,656 8V35 150,Runners – Titus,Carton,Titus,4,,,,yes,Active,,2026-07-07
+656 8V45 150,656 8V45 150,Runners – Titus,Carton,Titus,2,,,,yes,Active,,2026-07-07
+656 8V50 150,656 8V50 150,Runners – Titus,Carton,Titus,4,,,,yes,Active,,2026-07-07
+656 8Z35 150,656 8Z35 150,Runners – Titus,Carton,Titus,4,,,,yes,Active,1 ctn = 4 drawers,2026-07-07
+656 8Z45 150,656 8Z45 150,Runners – Titus,Carton,Titus,6,,,,yes,Active,,2026-07-07
+656 8Z45 185,656 8Z45 185,Runners – Titus,Carton,Titus,4,,,,yes,Active,,2026-07-07
+656 8Z50 150,656 8Z50 150,Runners – Titus,Carton,Titus,4,,,,yes,Active,,2026-07-07
+Bench top bolts,,Screws & fixings,Packet,,3,,,,yes,Active,,2026-07-07
+Chipfast 4.0 x 65mm,,Screws & fixings,Box,,2,,,,yes,Active,Open boxes,2026-07-07
+Gyprock screws,,Screws & fixings,Packet,,1,,,,yes,Active,,2026-07-07
+Packers mixed – 75mm,,Screws & fixings,Box,,1,,,,yes,Active,Open box,2026-07-07
+Screws #10 x 100,,Screws & fixings,Box,Eurofit,1,,,,yes,Active,Open box,2026-07-07
+Screws #10 x 65,,Screws & fixings,Box,Eurofit,2,,,,yes,Active,Open boxes,2026-07-07
+Screws #10 x 75,,Screws & fixings,Box,Eurofit,2,,,,yes,Active,,2026-07-07
+"Screws #6 – 5/8""",,Screws & fixings,Box,,5,,,,yes,Active,,2026-07-07
+Screws #6.3-2.2 x 10,,Screws & fixings,Box,,12,,,,yes,Active,,2026-07-07
+Screws #8 x 28,,Screws & fixings,Carton,,6,,,,yes,Active,+1 open box,2026-07-07
+"Screws #8 x 5/8""",,Screws & fixings,Box,,4,,,,yes,Active,,2026-07-07
+Screws #8 x 65,,Screws & fixings,Box,Eurofit,4,,,,yes,Active,,2026-07-07
+Screws 8 x 40,,Screws & fixings,Box,,2,,,,yes,Active,,2026-07-07
+Screws 8 x 50,,Screws & fixings,Box,,9,,,,yes,Active,,2026-07-07
+Screws Titus 4 x 25mm,,Screws & fixings,Box,Titus,1,,,,yes,Active,Open box,2026-07-07
+Screws Wurth 4 x 50/30mm,,Screws & fixings,Carton,Wurth,7,,,,yes,Active,+1 open box,2026-07-07
+Shelf pins,,Screws & fixings,Packet,,2,,,,yes,Active,,2026-07-07
+"Spot nails 1-3/4"" – 45mm",,Screws & fixings,Box,Eurofit,1,,,,yes,Active,,2026-07-07
+"Spot nails 16GA 1-3/4"" – 44mm",,Screws & fixings,Box,Eurofit,3,,,,yes,Active,,2026-07-07
+"Spot nails – 16 gauge (1-3/4"")",,Screws & fixings,Carton,Eurofit,3,,,,yes,Active,,2026-07-07
+Strong hold brackets (white),,Screws & fixings,pcs,Eurofit,3,,,,no,Active,,2026-07-07
+Wall plugs (blue) 14-16G screw,,Screws & fixings,Box,,1,,,,yes,Active,Open box,2026-07-07
+Wall plugs (green) 6.5 x 50,,Screws & fixings,Box,,7,,,,yes,Active,,2026-07-07
+Wall plugs (green) 7mm x 35mm,,Screws & fixings,Packet,,1,,,,yes,Active,,2026-07-07
+Wall plugs (orange) 6mm x 50mm,,Screws & fixings,Packet,,1,,,,yes,Active,,2026-07-07
+Wall plugs (orange) plug set in container,,Screws & fixings,Set,,320,,,,no,Active,320 pcs,2026-07-07

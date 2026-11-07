@@ -7,7 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 const { appDatabaseUrl } = await import('./db-setup.js');
 process.env.DATABASE_URL = await appDatabaseUrl();
 process.env.RESEND_API_KEY = '';
-const { pool, withSystem } = await import('../src/db/pool.js');
+const { pool, withSystem, withPerson } = await import('../src/db/pool.js');
 const { migrate } = await import('../src/db/migrate.js');
 const { importNotion } = await import('../scripts/import-notion.js');
 const { createApp } = await import('../src/server.js');
@@ -857,6 +857,145 @@ describe('files on a job (George, 7 Nov 2026)', () => {
     expect(page).toContain('Production plans v1 ↗'); // v1 is current again
     expect(page).toContain('File removed, Production plans v2: plans-revC.pdf');
     expect((await req('GET', `/jobs/${job.id}/files/${f.id}`, 'Christine')).status).toBe(404);
+  });
+});
+
+describe('stock and the factory TV (George, 7 Nov 2026)', () => {
+  const csvUpload = (path: string, who: string, fields: Record<string, string>, name: string, text: string) => {
+    const boundary = 'hubstock';
+    const part = (n: string, v: string) => `--${boundary}\r\nContent-Disposition: form-data; name="${n}"\r\n\r\n${v}\r\n`;
+    const body = Buffer.concat([Buffer.from(Object.entries(fields).map(([k, v]) => part(k, v)).join('')),
+      Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${name}"\r\nContent-Type: text/csv\r\n\r\n`), Buffer.from(text), Buffer.from(`\r\n--${boundary}--\r\n`)]);
+    return fetch(base + path, { method: 'POST', headers: { Origin: base, Cookie: `hub_session=${tokens[who]}`, 'Content-Type': `multipart/form-data; boundary=${boundary}` }, body, redirect: 'manual' });
+  };
+  const itemId = async (name: string) => (await one('select id from stock_items where name = $1', [name])).id as number;
+
+  it('loads the Notion catalogue with its opening balances, and the Stock tick lets a Viewer change it', async () => {
+    expect(Number((await one('select count(*) from stock_items')).count)).toBe(183);
+    const page = (await req('GET', '/stock/items', 'Angela')).text;
+    expect(page).toContain('Classic White Sheen');
+    const cws = await itemId('Classic White Sheen');
+    expect((await req('GET', `/stock/items/${cws}`, 'Angela')).text).toContain('Opening balance');
+    expect(Number((await one('select sum(qty) from stock_moves where item_id = $1', [cws])).sum)).toBe(38);
+    const edit = { name: 'Classic White Sheen', code: 'CWS-2415', kind: 'board', category: 'Boards – full sheets', unit: 'sheet', supplier: 'Polytec', lead_days: '5', minimum: '10', reorder_qty: '20', bin: 'B1', standing: '1', active: '1' };
+    expect((await req('POST', `/stock/items/${cws}`, 'Angela', edit)).status).toBe(403);
+    await req('POST', `/settings/people/${ids.Angela}`, 'George', { name: 'Angela', email: 'angela@test.au', role: 'viewer', active: '1', email_digest: '1', can_stock: '1' });
+    expect((await req('POST', `/stock/items/${cws}`, 'Angela', edit)).status).toBe(302);
+    const row = await one('select code, minimum, reorder_qty, bin, standing from stock_items where id = $1', [cws]);
+    expect(row).toEqual({ code: 'CWS-2415', minimum: 10, reorder_qty: 20, bin: 'B1', standing: true });
+    // Phil (Doer) can't touch the catalogue, on the page or in the database.
+    expect((await req('POST', `/stock/items/${cws}`, 'Phil', edit)).status).toBe(403);
+    await expect(withPerson(ids.Phil, (db) => db.query('update stock_items set bin = $2 where id = $1', [cws, 'X']))).rejects.toThrow(/Doers/);
+  });
+
+  it('the Friday count logs differences as moves, and the ledger is never edited', async () => {
+    const cws = await itemId('Classic White Sheen');
+    const r = await req('POST', '/stock/count', 'Phil', { [`c_${cws}`]: '36' });
+    expect(r.status).toBe(302);
+    const mv = await one(`select kind, qty, moved_by from stock_moves where item_id = $1 and kind = 'counted'`, [cws]);
+    expect(mv).toEqual({ kind: 'counted', qty: -2, moved_by: ids.Phil });
+    expect(Number((await one('select sum(qty) from stock_moves where item_id = $1', [cws])).sum)).toBe(36);
+    await expect(withPerson(ids.George, (db) => db.query('update stock_moves set qty = 0 where item_id = $1', [cws]))).rejects.toThrow(/never changed/);
+    expect((await req('GET', '/stock/count', 'Phil')).text).toContain('Classic White Sheen');
+  });
+
+  it('loads a cut list: known codes go straight in, unknown ones are matched once and remembered', async () => {
+    const job = await one(`select id from jobs where client_name = 'Greg Steven'`);
+    const csv = 'Code,Description,Qty\nT90D8,Soft close hinges,24\nCWS-NEW,Classic White Sheen 2415,6\n';
+    const r = await csvUpload(`/jobs/${job.id}/materials/upload`, 'Christine', { nested: '1' }, 'greg-cutlist.csv', csv);
+    expect(r.status).toBe(200);
+    const html = await r.text();
+    expect(html).toContain("1 code the hub doesn't know");
+    expect(html).toContain('CWS-NEW');
+    expect(Number((await one('select count(*) from job_materials where job_id = $1', [job.id])).count)).toBe(1);
+    const m = await req('POST', `/jobs/${job.id}/materials/match`, 'Christine', { nested: '1', code_0: 'CWS-NEW', qty_0: '6', item_0: 'Classic White Sheen [CWS-2415]' });
+    expect(m.status).toBe(302);
+    expect((await one(`select item_id from code_aliases where alias = 'CWS-NEW'`)).item_id).toBe(await itemId('Classic White Sheen'));
+    const lines = (await pool.query('select i.name, m.qty, m.nested from job_materials m join stock_items i on i.id = m.item_id where m.job_id = $1 order by i.name', [job.id])).rows;
+    expect(lines).toEqual([{ name: 'Classic White Sheen', qty: 6, nested: true }, { name: 'Soft close hinges', qty: 24, nested: true }]);
+    // Same file again: the alias is known now, so no matching page.
+    expect((await csvUpload(`/jobs/${job.id}/materials/upload`, 'Christine', { nested: '1' }, 'greg-cutlist.csv', csv)).status).toBe(302);
+    expect((await req('GET', `/jobs/${job.id}`, 'Angela')).text).toContain('from the nested file');
+  });
+
+  it('sources stock first and lists the rest; ordered, then in, makes the job ready; picking takes it off the shelf', async () => {
+    const job = await one(`select id from jobs where client_name = 'Greg Steven'`);
+    await req('POST', `/jobs/${job.id}/materials`, 'Christine', { item: 'Satin White', qty: '4', back: `/jobs/${job.id}#materials` });
+    const r = await req('POST', `/jobs/${job.id}/materials/source`, 'Christine', { hold: '1', back: `/jobs/${job.id}#materials` });
+    expect(r.status).toBe(302);
+    const lines = (await pool.query('select i.name, m.qty, m.allocated from job_materials m join stock_items i on i.id = m.item_id where m.job_id = $1 order by i.name', [job.id])).rows;
+    expect(lines).toEqual([{ name: 'Classic White Sheen', qty: 6, allocated: 6 }, { name: 'Satin White', qty: 4, allocated: 0 }, { name: 'Soft close hinges', qty: 24, allocated: 24 }]);
+    const o = await one(`select o.id, o.qty, o.reason, o.status, o.order_by from orders o join stock_items i on i.id = o.item_id where o.job_id = $1 and i.name = 'Satin White'`, [job.id]);
+    expect(o).toMatchObject({ qty: 4, reason: 'shortfall', status: 'listed' });
+    expect(o.order_by).not.toBeNull();
+    let page = (await req('GET', `/jobs/${job.id}`, 'Angela')).text;
+    expect(page).toContain('On order');
+    expect((await req('GET', '/stock/orders', 'Angela')).text).toContain('Satin White');
+    // Angela (Stock tick) marks it ordered; the factory receives it; the job is ready.
+    expect((await req('POST', `/stock/orders/${o.id}/ordered`, 'Phil', { expected: '2026-11-20' })).status).toBe(403);
+    expect((await req('POST', `/stock/orders/${o.id}/ordered`, 'Angela', { expected: '2026-11-20' })).status).toBe(302);
+    expect((await one('select status, expected from orders where id = $1', [o.id])).status).toBe('ordered');
+    expect((await req('POST', `/stock/orders/${o.id}/received`, 'Phil', { qty: '4', back: '/stock/orders' })).status).toBe(302);
+    expect(await one('select status, received_qty from orders where id = $1', [o.id])).toEqual({ status: 'received', received_qty: 4 });
+    const sw = await itemId('Satin White');
+    expect(await one(`select kind, qty, job_id, moved_by from stock_moves where item_id = $1 and kind = 'received'`, [sw])).toEqual({ kind: 'received', qty: 4, job_id: job.id, moved_by: ids.Phil });
+    page = (await req('GET', `/jobs/${job.id}`, 'Angela')).text;
+    expect(page).toContain('Ready to cut');
+    // Phil picks everything: the moves are negative and the lines show picked.
+    const mids = (await pool.query('select id from job_materials where job_id = $1', [job.id])).rows.map((x) => String(x.id));
+    const body = new URLSearchParams(mids.map((id) => ['pick', id]));
+    body.set('back', `/jobs/${job.id}#materials`);
+    const pick = await fetch(base + `/jobs/${job.id}/materials/pick`, { method: 'POST', headers: { Origin: base, Cookie: `hub_session=${tokens.Phil}`, 'Content-Type': 'application/x-www-form-urlencoded' }, body: body.toString(), redirect: 'manual' });
+    expect(pick.status).toBe(302);
+    expect(Number((await one(`select sum(qty) from stock_moves where kind = 'picked' and job_id = $1`, [job.id])).sum)).toBe(-34);
+    expect(Number((await one('select sum(qty) from stock_moves where item_id = $1', [sw])).sum)).toBe(0);
+    expect((await pool.query('select qty, picked from job_materials where job_id = $1', [job.id])).rows.every((x) => x.qty === x.picked)).toBe(true);
+  });
+
+  it('need and supply shows the gap and puts it on the order list; a bin flags running low once', async () => {
+    const jenny = await one(`select id from jobs where client_name = 'Jenny Vassiniotis'`);
+    await req('POST', `/jobs/${jenny.id}/materials`, 'Christine', { item: 'Satin White', qty: '5' });
+    const home = (await req('GET', '/stock', 'Angela')).text;
+    expect(home).toContain('Satin White');
+    expect(home).toContain('Put the 1 gap on the order list');
+    expect((await req('POST', '/stock/orders/from-gaps', 'Angela', {})).status).toBe(302);
+    const sw = await itemId('Satin White');
+    expect(await one(`select qty, reason, job_id from orders where item_id = $1 and status = 'listed'`, [sw])).toEqual({ qty: 5, reason: 'shortfall', job_id: null });
+    // Jenny's line is still short: a stock order doesn't cover a job until the job is sourced from it.
+    let att = (await req('GET', '/attention', 'Christine')).text;
+    expect(att).toContain('Short for the factory');
+    expect(att).toContain('Jenny Vassiniotis');
+    expect((await req('GET', '/pipeline', 'Christine')).text).toContain('rdy-short');
+    await req('POST', `/jobs/${jenny.id}/materials/source`, 'Christine', { hold: '1' });
+    const split = await one(`select qty, job_id, reason, status from orders where item_id = $1 and job_id = $2 and status = 'listed'`, [sw, jenny.id]);
+    expect(split).toEqual({ qty: 5, job_id: jenny.id, reason: 'job', status: 'listed' });
+    att = (await req('GET', '/attention', 'Christine')).text;
+    expect(att).not.toContain('Short for the factory');
+    // The bin QR: Phil flags Classic White Sheen (36 on hand, 6 picked... free 30 > min 10, but a flag is a flag) once.
+    const cws = await itemId('Classic White Sheen');
+    expect((await req('GET', `/stock/bin/${cws}`, 'Phil')).text).toContain('Running low');
+    expect((await req('POST', `/stock/bin/${cws}/low`, 'Phil', {})).status).toBe(302);
+    expect((await req('POST', `/stock/bin/${cws}/low`, 'Phil', {})).status).toBe(302);
+    expect(Number((await one(`select count(*) from orders where item_id = $1 and reason = 'low'`, [cws])).count)).toBe(1);
+    expect((await one(`select qty, note from orders where item_id = $1 and reason = 'low'`, [cws])).qty).toBe(20);
+    expect((await req('GET', '/stock/labels', 'Phil')).text).toContain('<svg');
+    // An offcut, logged by the floor
+    expect((await req('POST', '/stock/offcuts', 'Phil', { item_id: String(sw), length_mm: '1800', width_mm: '900', location: 'Rack 2' })).status).toBe(302);
+    expect((await req('GET', '/stock/offcuts', 'Angela')).text).toContain('1800 × 900');
+  });
+
+  it('the factory TV opens with the link key from Settings, and with nothing else', async () => {
+    expect((await req('GET', '/tv')).status).toBe(403);
+    expect((await req('POST', '/settings/tv', 'George', {})).status).toBe(302);
+    const key = (await one(`select value from app_settings where key = 'tv_token'`)).value;
+    expect(key.length).toBeGreaterThan(10);
+    const tv = await req('GET', `/tv?k=${key}`);
+    expect(tv.status).toBe(200);
+    expect(tv.text).toContain('Factory · week of');
+    expect(tv.text).toContain('http-equiv="refresh"');
+    expect((await req('GET', '/tv?k=wrong')).status).toBe(403);
+    expect((await req('GET', '/tv', 'Phil')).status).toBe(200);
+    expect((await req('GET', '/settings', 'George')).text).toContain(`/tv?k=${key}`);
   });
 });
 
