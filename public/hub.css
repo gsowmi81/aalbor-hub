@@ -459,3 +459,5 @@ td.acts-cell form { display: inline; }
 .wrap.site .top h1 { font-size: 22px; }
 textarea { min-height: 80px; padding: 10px; resize: vertical; }
 .notice.undo { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.panel.owners { max-width: 100%; }
+.tbl { max-width: 100%; }
