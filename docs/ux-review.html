@@ -1,0 +1,251 @@
+<title>Hub UX Review</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+  /* Layout: one reading column, the hub's own type, findings as tables with a severity stripe. */
+  :root { --bg:#F3F3F1; --surface:#FFFFFF; --fg:#16181D; --muted:#5B6069; --line:#E1E2E0; --accent:#1D4ED8; --crit:#B93A0A; --crit-bg:#FFF1E6; --mod:#7A4206; --mod-bg:#FFF8E1; --minor:#2F5E2B; --minor-bg:#EAF4E4; --done:#166534; --done-bg:#E7F6EC; --sans:'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif; --mono:'IBM Plex Mono', ui-monospace, Menlo, monospace; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#121419; --surface:#1B1E25; --fg:#E8EAED; --muted:#A3A8B3; --line:#2D323C; --accent:#8AB4FF; --crit:#FF9A66; --crit-bg:#3A2116; --mod:#F4C46A; --mod-bg:#33290F; --minor:#A7D99A; --minor-bg:#1E2E1A; --done:#86EFAC; --done-bg:#12291A; color-scheme: dark } }
+  :root[data-theme="dark"] { --bg:#121419; --surface:#1B1E25; --fg:#E8EAED; --muted:#A3A8B3; --line:#2D323C; --accent:#8AB4FF; --crit:#FF9A66; --crit-bg:#3A2116; --mod:#F4C46A; --mod-bg:#33290F; --minor:#A7D99A; --minor-bg:#1E2E1A; --done:#86EFAC; --done-bg:#12291A; color-scheme: dark }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.5 var(--sans); }
+  .wrap { max-width: 860px; margin: 0 auto; padding-block: 28px 64px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 28px; }
+  h1 { font-size: 34px; line-height: 1.1; margin: 0; letter-spacing: -.01em; text-wrap: balance; }
+  h2 { font-size: 22px; margin: 0; text-wrap: balance; }
+  h3 { font-size: 17px; margin: 0; }
+  p { margin: 0; max-width: 68ch; }
+  .eyebrow { font-size: 12px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+  .lead { font-size: 18px; color: var(--muted); max-width: 64ch; }
+  section { display: flex; flex-direction: column; gap: 12px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+  .stat { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+  .stat b { display: block; font-size: 28px; line-height: 1; font-variant-numeric: tabular-nums; }
+  .stat span { font-size: 13px; color: var(--muted); }
+  .tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+  tr:last-child td { border-bottom: 0; }
+  td.sev { white-space: nowrap; width: 1%; }
+  .pill { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; }
+  .crit { background: var(--crit-bg); color: var(--crit); } .mod { background: var(--mod-bg); color: var(--mod); } .minor { background: var(--minor-bg); color: var(--minor); } .done { background: var(--done-bg); color: var(--done); }
+  ul, ol { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; max-width: 70ch; }
+  code { font: 500 13px var(--mono); background: var(--bg); padding: 1px 5px; border-radius: 4px; }
+  .plan { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr)); gap: 12px; }
+  .plan .card h3 { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+  .plan .card small { color: var(--muted); font-weight: 500; }
+  .toc { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 14px; }
+  a { color: var(--accent); }
+  .good { border-left: 4px solid var(--done); padding-left: 12px; }
+  @media (max-width: 600px) { h1 { font-size: 28px; } .lead { font-size: 16px; } }
+</style>
+<div class="wrap">
+  <header style="display:flex;flex-direction:column;gap:8px">
+    <div class="eyebrow">Aalbor Hub · preview branch · 7 Nov 2026</div>
+    <h1>Hub UX review</h1>
+    <p class="lead">Every screen tested as every role, on a desktop and a phone, with and without script. What broke was fixed. Then a design and accessibility pass with the changes I'd make, from quick wins done today to three larger redesigns for you to decide on.</p>
+    <nav class="toc" aria-label="Sections"><a href="#tested">What was tested</a><a href="#impression">Impression</a><a href="#findings">Findings by screen</a><a href="#redesigns">The redesigns</a><a href="#words">Words</a><a href="#access">Accessibility</a><a href="#decide">For you to decide</a></nav>
+  </header>
+
+  <section id="tested">
+    <h2>What was tested, and what it found</h2>
+    <div class="stats">
+      <div class="stat"><b>2,324</b><span>page loads crawled as 7 roles, desktop, phone and script off</span></div>
+      <div class="stat"><b>50</b><span>scripted workflows driven in a real browser, all passing</span></div>
+      <div class="stat"><b>173</b><span>automated tests on a real database, all passing</span></div>
+      <div class="stat"><b>27</b><span>abuse cases: bad input, cross-site posts, oversize uploads, hostile text</span></div>
+      <div class="stat"><b>0</b><span>crashes, broken links or script errors left</span></div>
+    </div>
+    <div class="card">
+      <h3>Bugs found and fixed today</h3>
+      <ol>
+        <li><strong>The "added" or "deleted" message vanished</strong> after a save that moved to another screen (adding a job, deleting one). The in-place save followed the redirect and ate the message. Now the new screen is swapped in with its message, and Back still works.</li>
+        <li><strong>The move box stayed open</strong> after choosing "Move everything after it" on the job page.</li>
+        <li><strong>Deleting a job with stock picked for it was refused</strong> by the ledger's never-edit rule, because clearing the job link counted as an edit. Migration 014.</li>
+        <li><strong>The Rework page scrolled sideways on a phone</strong> (the owners-only table pushed its column wide).</li>
+        <li><strong>A quantity over a million</strong> on a stock line crashed with a database error instead of a message.</li>
+        <li><strong>A form sent after the sign-in ran out</strong> showed a bare "Sign in first." Now it goes to the sign-in page with a plain message and returns to where you were.</li>
+        <li>Smaller: the step tick reported an empty state to screen readers; "Show proposed dates" rewrote the whole page instead of refreshing the proposal.</li>
+      </ol>
+      <p class="good">Everything else held: roles are enforced by the database (a Doer's or Viewer's attempt is refused even when the form is forged), cross-site posts are refused, hostile text is escaped everywhere, oversized files get a message, double submits don't double-count, and every popover works by keyboard with a visible focus ring, Enter to open and Escape to close.</p>
+    </div>
+  </section>
+
+  <section id="impression">
+    <h2>First impression</h2>
+    <p>On a desktop the hub reads well. The Board is the strongest screen: one glance says what the week is, colour says which trade, orange says what's late. The Pipeline and the job timeline are clear and the copy is plain. The look is consistent and calm, which suits a tool people open forty times a day.</p>
+    <p>On a phone, before today, the story was different. The header (notice bar, company line, title, search, name, two rows of tabs) took the first 40% of the screen on every page, so Phil's first step was always below the fold. Three screens are very long: One job (about 14,000 pixels on a phone with a busy job), Settings (20,000), and Attention when flags pile up. Those three are where the real redesign effort should go. The phone header is fixed as of today: a short block and the tabs along the bottom, where thumbs are.</p>
+    <p>The hub's biggest UX risk is not any one screen. It is that an Editor's screens and a Doer's screens are the same screens with buttons removed. Phil doesn't need Pipeline, Jobs or the Board; he needs My day, the job in front of him, Flag and the bin QR. Christine needs the opposite. Redesign A below is about that.</p>
+  </section>
+
+  <section id="findings">
+    <h2>Findings by screen</h2>
+    <p class="lead" style="font-size:15px">Severity: critical blocks or misleads someone; moderate costs time or trust; minor is polish. "Done" means changed today on the preview.</p>
+
+    <div class="card">
+      <h3>Phone header and navigation</h3>
+      <div class="tbl"><table>
+        <tr><th>Finding</th><th>Severity</th><th>Recommendation</th></tr>
+        <tr><td>Header took 40% of the first screen on a phone; tabs wrapped to two rows.</td><td class="sev"><span class="pill done">Done</span></td><td>Short header, tabs as a fixed bar along the bottom with the badges. Keep it; it is the single biggest gain for the floor.</td></tr>
+        <tr><td>The name and role line wraps on narrow phones ("George Sowmi · Editor / Sign out").</td><td class="sev"><span class="pill minor">Minor</span></td><td>Show the first name only on phones; move Sign out under More.</td></tr>
+        <tr><td>Six tabs for everyone. A Doer never uses three of them.</td><td class="sev"><span class="pill mod">Moderate</span></td><td>Redesign A: tabs by role. Doer: My day · This job · Stock · More. Editor: Board · Pipeline · Attention · Jobs · More.</td></tr>
+        <tr><td>The Attention badge shows the whole count (58 in test data). A big red number on every page reads as alarm, not information.</td><td class="sev"><span class="pill mod">Moderate</span></td><td>Badge only what is new since the person last looked, or cap at "9+". Keep the full count on the Attention screen itself.</td></tr>
+      </table></div>
+    </div>
+
+    <div class="card">
+      <h3>Board</h3>
+      <div class="tbl"><table>
+        <tr><th>Finding</th><th>Severity</th><th>Recommendation</th></tr>
+        <tr><td>On a phone the colour key (ten items), the brand and week switches and the undated rework all came before today's list.</td><td class="sev"><span class="pill done">Done</span></td><td>Key folds away on phones; undated rework now follows the days.</td></tr>
+        <tr><td>The "This week" tile's five mini counts were truncated to "Me…", "Fa…" on a phone.</td><td class="sev"><span class="pill done">Done</span></td><td>The tile spans the width on phones.</td></tr>
+        <tr><td>"5 of 4 days" on the Factory row read as a typo.</td><td class="sev"><span class="pill done">Done</span></td><td>"5 booked of 4 days", linking to Load.</td></tr>
+        <tr><td>The "To decide" tile's subtitle is a truncated list of client names.</td><td class="sev"><span class="pill minor">Minor</span></td><td>Say what kind: "2 clashes, 1 capacity, 10 dates" instead of names.</td></tr>
+        <tr><td>Dragging a card is the only way to move it on a desktop without opening the job; nothing on the card says it can be dragged.</td><td class="sev"><span class="pill mod">Moderate</span></td><td>A grab handle (six dots) on the left edge of movable cards, and a "Move…" item in a long-press or right-click menu. The hint line above the board helps but hint lines are not read.</td></tr>
+        <tr><td>Done cards were faded to the point of failing contrast.</td><td class="sev"><span class="pill done">Done</span></td><td>Done cards keep readable text and rely on the strike-through and "Done" label.</td></tr>
+      </table></div>
+    </div>
+
+    <div class="card">
+      <h3>My day (the Doer's home)</h3>
+      <div class="tbl"><table>
+        <tr><th>Finding</th><th>Severity</th><th>Recommendation</th></tr>
+        <tr><td>"Flags for you" came first and had no limit; six open flags pushed Today off the screen.</td><td class="sev"><span class="pill done">Done</span></td><td>Overdue and Today first; at most three flags with a link to the rest.</td></tr>
+        <tr><td>Each row has two stacked buttons (Done, Flag) on the right, which makes rows tall and the Flag button as prominent as Done.</td><td class="sev"><span class="pill mod">Moderate</span></td><td>One big Done per row; Flag as a small link under the dates. Done is the 95% action.</td></tr>
+        <tr><td>Done is immediate with no way back on this screen (the row leaves the list).</td><td class="sev"><span class="pill mod">Moderate</span></td><td>After a tick, show a one-line "Ticked Cut, edge and assemble for Peter Jones. Undo" at the bottom for ten seconds. The undo already exists on the job page.</td></tr>
+        <tr><td>The intro line ("your areas: Factory. Tap Done when…") shows every time.</td><td class="sev"><span class="pill minor">Minor</span></td><td>Show it the first three visits, then a small "?" that brings it back.</td></tr>
+        <tr><td>A Doer with no areas set gets a good notice, but the fix sits with an Editor and nothing tells the Editor.</td><td class="sev"><span class="pill minor">Minor</span></td><td>On Settings → People, mark people with no areas; on Attention for Editors, "2 people have no areas set".</td></tr>
+      </table></div>
+    </div>
+
+    <div class="card">
+      <h3>One job</h3>
+      <div class="tbl"><table>
+        <tr><th>Finding</th><th>Severity</th><th>Recommendation</th></tr>
+        <tr><td>Eight panels in a row: decisions, steps, materials, files, flags, tasks, rework, details, history. On a phone with a busy job that is 14,000 pixels, and the panel someone wants is never where they left it.</td><td class="sev"><span class="pill crit">Critical</span></td><td>Redesign B: a sticky strip of section tabs under the job's name (Steps · Materials · Files · Flags · Rework · More), each a count. Open on Steps. The address keeps the section so links from Attention land on the right one.</td></tr>
+        <tr><td>Empty panels take as much room as full ones ("Tasks for this job only: None" is a paragraph, a button and a form).</td><td class="sev"><span class="pill mod">Moderate</span></td><td>An empty panel is one line with its Add button. The explanation moves behind a "?".</td></tr>
+        <tr><td>The date is the tap target for moving a step, shown as an underlined date. Nothing says "tap to move".</td><td class="sev"><span class="pill mod">Moderate</span></td><td>A small calendar icon after the date, or a "Move" word on the row for Editors. Keep the tap on the date too.</td></tr>
+        <tr><td>Pin, Flag, Unpin are 13px links next to pills: hard to hit on a phone, and Pin is an Editor concept that confuses Doers.</td><td class="sev"><span class="pill mod">Moderate</span></td><td>Move Pin into the move box ("Pin this date" tick). Make Flag a proper small button for Doers.</td></tr>
+        <tr><td>The pills row at the top mixes facts (Melamine, Stone) with actions (Contract plans v1, Job sheet, On order).</td><td class="sev"><span class="pill minor">Minor</span></td><td>Facts stay as grey pills; actions become a row of small buttons under them.</td></tr>
+        <tr><td>"Needs a decision" items on the job repeat the same two buttons each; a job with six rework clashes shows six near-identical blocks.</td><td class="sev"><span class="pill minor">Minor</span></td><td>Group by kind with one "OK all as is".</td></tr>
+        <tr><td>Install done asks two yes/no questions with radio buttons inside a popover; fine on desktop, fiddly on a phone.</td><td class="sev"><span class="pill minor">Minor</span></td><td>Two big toggle buttons (Yes / No) and a camera button, full width on phones.</td></tr>
+      </table></div>
+    </div>
+
+    <div class="card">
+      <h3>Attention</h3>
+      <div class="tbl"><table>
+        <tr><th>Finding</th><th>Severity</th><th>Recommendation</th></tr>
+        <tr><td>Flags are a flat list above the jobs, unbounded. With the test data it was twelve cards before the first job.</td><td class="sev"><span class="pill mod">Moderate</span></td><td>Fold flags into each job's group (they already carry the job), with a count on the job line. Keep a "Flags" tile that jumps to the first.</td></tr>
+        <tr><td>Each decision item has "OK as is" and "Change dates"; the capacity ones have a paragraph of names. Reading them all is work.</td><td class="sev"><span class="pill mod">Moderate</span></td><td>One sentence per item with the single most likely action as the primary button, the other behind "…". The sentence pattern the hub already uses elsewhere: "Stone measure can't start before Mon 02 Nov."</td></tr>
+        <tr><td>The four tiles double as links to anchors, but tapping "Overdue" lands on the first job group, not on anything labelled Overdue.</td><td class="sev"><span class="pill minor">Minor</span></td><td>Tiles filter the list (show only overdue items) instead of jumping.</td></tr>
+      </table></div>
+    </div>
+
+    <div class="card">
+      <h3>Pipeline and All jobs</h3>
+      <div class="tbl"><table>
+        <tr><th>Finding</th><th>Severity</th><th>Recommendation</th></tr>
+        <tr><td>On a phone the grid shows one and a half columns; the rest needs sideways scrolling in a box. It works, but it isn't a phone screen.</td><td class="sev"><span class="pill mod">Moderate</span></td><td>On phones show one card per job: the current stage, its date, the next stage, and the materials dot. The grid stays for desktops and the Monday meeting.</td></tr>
+        <tr><td>The legend has ten entries and comes before the grid on every visit.</td><td class="sev"><span class="pill minor">Minor</span></td><td>Fold it behind "Key" as the Board now does.</td></tr>
+        <tr><td>All jobs (the Gantt) bars are abbreviations (CD, CM, DR…) that need the key to read.</td><td class="sev"><span class="pill minor">Minor</span></td><td>Full names on bars wider than 80px; abbreviations only when the bar is a day.</td></tr>
+      </table></div>
+    </div>
+
+    <div class="card">
+      <h3>Settings</h3>
+      <div class="tbl"><table>
+        <tr><th>Finding</th><th>Severity</th><th>Recommendation</th></tr>
+        <tr><td>One page holds eleven unrelated things: message, capacity, flag types, emails, durations, job types, blocked days, TV, people, bot email, API tokens. Twenty thousand pixels on a phone; finding "add a person" means scrolling past the holiday list.</td><td class="sev"><span class="pill crit">Critical</span></td><td>Redesign C: Settings becomes a menu of pages (People · Capacity · Job types · Blocked days · Flag types · Emails · Factory TV · Bot), each short. The menu shows one line of status per page ("7 people, 2 without areas").</td></tr>
+        <tr><td>The People table is an 800px-wide grid inside a scroll box, with eight checkboxes per row.</td><td class="sev"><span class="pill mod">Moderate</span></td><td>One card per person: name, role, the switches as labelled toggles, areas as chips. Edit opens a form.</td></tr>
+        <tr><td>"Default durations and limits" is a wall of fourteen number fields with long labels.</td><td class="sev"><span class="pill minor">Minor</span></td><td>Group them: Drafting, Measure and drawings, Materials, Factory, Stone, Rework. Show units in the field ("3 days").</td></tr>
+      </table></div>
+    </div>
+
+    <div class="card">
+      <h3>Stock</h3>
+      <div class="tbl"><table>
+        <tr><th>Finding</th><th>Severity</th><th>Recommendation</th></tr>
+        <tr><td>The Need and supply table has thirteen columns; on a phone the week columns are the first thing cut off, which is the point of the table.</td><td class="sev"><span class="pill mod">Moderate</span></td><td>On phones: one card per short item, "Satin White: short 4 by Tue 27 Oct, 2 free, 4 needed w/c 02 Nov". The table stays on desktop.</td></tr>
+        <tr><td>Nothing flags low until a minimum is set, and the Items list doesn't make it obvious which standing lines lack one.</td><td class="sev"><span class="pill mod">Moderate</span></td><td>A tile on the stock home: "84 standing lines, 84 without a minimum. Set them." and a filter on Items for "standing, no minimum".</td></tr>
+        <tr><td>"Source: stock first, then on order, else list it" is a sentence on a button.</td><td class="sev"><span class="pill minor">Minor</span></td><td>Button "Source materials"; the sentence as the help line under it.</td></tr>
+        <tr><td>Count screen: the number box is at the far right of a wide row; on a phone it is off-screen until scrolled.</td><td class="sev"><span class="pill mod">Moderate</span></td><td>On phones, a card per line with the box full width under the name, and a big "Save the count" bar that stays put (it already sticks).</td></tr>
+        <tr><td>The bin page is a good single-purpose screen. The order list's Ordered and In buttons open a popover that is easy to miss on a phone.</td><td class="sev"><span class="pill minor">Minor</span></td><td>On phones, the popover becomes a bottom sheet.</td></tr>
+      </table></div>
+    </div>
+
+    <div class="card">
+      <h3>New job and the Reschedule screen</h3>
+      <div class="tbl"><table>
+        <tr><th>Finding</th><th>Severity</th><th>Recommendation</th></tr>
+        <tr><td>Sixteen fields on one form; the proposed dates and "where it lands" sit below the fold until Show proposed dates.</td><td class="sev"><span class="pill mod">Moderate</span></td><td>Two steps: the five that matter (type, job number or date, client, suburb, brand) then "Next: check the dates", with the rest under "More details". The proposal appears on step two beside the dates.</td></tr>
+        <tr><td>The form's date field says "mm/dd/yyyy" on some browsers (the browser's own placeholder).</td><td class="sev"><span class="pill minor">Minor</span></td><td>A short hint under date fields: "Day Month Year". Nothing else can be done about the browser's picker.</td></tr>
+        <tr><td>Reschedule's three modes (shift, squeeze, only) are the right model, and the explanation is good.</td><td class="sev"><span class="pill minor">Minor</span></td><td>No change. Keep "Move anyway" red.</td></tr>
+      </table></div>
+    </div>
+  </section>
+
+  <section id="redesigns">
+    <h2>The redesigns, in the order I'd do them</h2>
+    <div class="plan">
+      <div class="card"><h3>A · Home by role <small>about 3 days</small></h3>
+        <p>The tabs and the home screen depend on who is signed in. A Doer sees My day · This job · Stock · More, and "This job" is whatever they last opened or scanned. An Editor keeps Board · Pipeline · Attention · Jobs · More. Viewers get Board · Pipeline · Jobs. The bottom bar done today is the first half of this.</p>
+        <p>Why first: it is the difference between Phil opening the hub on his own and Phil being told to.</p></div>
+      <div class="card"><h3>B · One job as sections <small>about 2 days</small></h3>
+        <p>A sticky strip of section tabs with counts under the job name. Steps opens by default; Materials, Files, Flags, Rework, Details and History are a tap away and the page never exceeds one or two screens. Links from Attention, the sheet and My day open the right section.</p>
+        <p>Why second: it is the screen everyone lands on, from every other screen.</p></div>
+      <div class="card"><h3>C · Settings as pages <small>about 1 day</small></h3>
+        <p>A menu with one line of status per page, and the People page as cards. Only Editors go here, but they go here to fix the things that make the other screens wrong (areas, minimums, flag types), so it has to be quick.</p></div>
+      <div class="card"><h3>D · Phone versions of the wide screens <small>about 2 days</small></h3>
+        <p>Pipeline, Need and supply and Count become card lists on phones. Same data, no sideways scrolling. The desktop tables stay.</p></div>
+      <div class="card"><h3>E · Guidance that fades <small>about 1 day</small></h3>
+        <p>Each screen gets one short "How this works" card the first three times a person sees it, then a "?" in the corner. The hub has good explanatory lines today; they just show every time, so people stop reading them.</p></div>
+      <div class="card"><h3>F · Undo and feedback <small>about 1 day</small></h3>
+        <p>Every tick, move and source shows a one-line confirmation at the bottom of the screen with Undo for ten seconds. The save message now sticks at the top on phones; a bottom bar with Undo is the finished version.</p></div>
+    </div>
+    <p>Together that is about ten days of build. A, B and C would be my first round; D, E and F the second, after a week of the team using the first. None of them changes the data or the rules, so the preview can keep running meanwhile.</p>
+  </section>
+
+  <section id="words">
+    <h2>Words that will trip someone</h2>
+    <p>Most of the copy is good: short, in the team's own names. These are the terms a new Viewer or a Doer will not know, with what I'd write instead.</p>
+    <div class="tbl"><table>
+      <tr><th>Today</th><th>Where</th><th>Suggest</th></tr>
+      <tr><td>Provisional / Confirmed</td><td>Every date</td><td>Keep, but the key should say what they mean once: "Provisional: the hub's guess. Confirmed: someone set it."</td></tr>
+      <tr><td>Spoken for · Free</td><td>Stock</td><td>Good plain words. Add the sum once: "Free = on hand − spoken for" as the column tooltip.</td></tr>
+      <tr><td>Standing</td><td>Stock items</td><td>"Always stocked".</td></tr>
+      <tr><td>Need and supply</td><td>Stock tab</td><td>"What to order".</td></tr>
+      <tr><td>Shift / Squeeze / Only this one</td><td>Reschedule</td><td>Keep. The three sentences under them are the clearest copy in the hub.</td></tr>
+      <tr><td>OK as is</td><td>Attention</td><td>"Leave it".</td></tr>
+      <tr><td>Supersede</td><td>Suggestions</td><td>"Clear the queue".</td></tr>
+      <tr><td>Doer / Viewer</td><td>People</td><td>"Ticks steps" / "Looks only". Role names are the hub's, not the team's.</td></tr>
+      <tr><td>At risk</td><td>Job details</td><td>Say what it does: "Show a warning on the job and the Pipeline".</td></tr>
+    </table></div>
+  </section>
+
+  <section id="access">
+    <h2>Accessibility</h2>
+    <p>An automated scan (axe-core, WCAG 2.1 AA) of eighteen screens on desktop and phone, plus a keyboard walk and a contrast check by hand.</p>
+    <div class="tbl"><table>
+      <tr><th>Issue</th><th>Criterion</th><th>State</th></tr>
+      <tr><td>No main landmark; the preview bar outside any landmark.</td><td>1.3.1 Info and relationships</td><td><span class="pill done">Fixed</span></td></tr>
+      <tr><td>Action columns had empty headers.</td><td>1.3.1</td><td><span class="pill done">Fixed</span> (hidden "Actions" label)</td></tr>
+      <tr><td>Scrolling tables could not be reached by keyboard.</td><td>2.1.1 Keyboard</td><td><span class="pill done">Fixed</span></td></tr>
+      <tr><td>Provisional and done cards: text at 3.7:1 to 3.9:1.</td><td>1.4.3 Contrast</td><td><span class="pill done">Fixed</span> (text is full colour; the dashed edge and strike-through carry the state)</td></tr>
+      <tr><td>The step tick announced an empty pressed state.</td><td>4.1.2 Name, role, value</td><td><span class="pill done">Fixed</span></td></tr>
+      <tr><td>Pin, Flag, Move… and job-name links are 13px text links under 24px tall on phones.</td><td>2.5.8 Target size</td><td><span class="pill mod">Open</span>: part of redesign B.</td></tr>
+      <tr><td>Colour alone tells the board rows apart for someone colour-blind; the step name on each card repeats it, so this passes, barely.</td><td>1.4.1 Use of colour</td><td><span class="pill minor">Watch</span></td></tr>
+      <tr><td>Focus rings, Enter and Escape on popovers, logical tab order on the job page.</td><td>2.4.7, 2.1.1</td><td><span class="pill done">Pass</span></td></tr>
+      <tr><td>Zoom to 200%: the Board switches to the day list and nothing clips.</td><td>1.4.4 Resize text</td><td><span class="pill done">Pass</span></td></tr>
+    </table></div>
+  </section>
+
+  <section id="decide">
+    <h2>For you to decide</h2>
+    <ol>
+      <li><strong>Keep the bottom tab bar on phones?</strong> It is live on the preview now. Try it on your phone for a day. If it feels wrong, it is one CSS block to remove.</li>
+      <li><strong>Role-shaped tabs (A).</strong> It means Phil cannot reach the Board from his phone without going through More. I think that is right; you may want the Board one tap away for Gus.</li>
+      <li><strong>What the Attention badge counts.</strong> Everything (today), only overdue, or only new since last look.</li>
+      <li><strong>The order of the rounds.</strong> A, B, C first is my recommendation; if the Monday meeting is the pain point, D (phone Pipeline) could move up.</li>
+    </ol>
+  </section>
+</div>

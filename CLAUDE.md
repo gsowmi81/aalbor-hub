@@ -8,6 +8,7 @@ Production planning (Phase 1, live) and stock control (Phase 2, not built yet) f
 - Setting it up on Render, email, domain and backups: `docs/setup.md`
 - The preview copy (a second Render service on the working branch, George, 7 Nov 2026): `docs/preview.md`
 - Jobman teardown and step-change recommendations, 6 Nov 2026: `docs/jobman-review.html` (phone copy https://claude.ai/artifact/8QDv1FFbmtRwQtWSAGfubV)
+- QA round and UX review, 7 Nov 2026: `docs/ux-review.html` (phone copy https://claude.ai/artifact/5X83SfoiA26qkBDMeir27y); the browser QA scripts are in `scripts/qa/`
 
 ## Never put these in the hub
 
