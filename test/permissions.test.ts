@@ -54,6 +54,15 @@ describe('roles are enforced by the database', () => {
     expect(row.done_by).toBe(doer);
   });
 
+  it('lets a Doer add install photos and answers with the tick, and nobody else', async () => {
+    await withPerson(doer, (db) => db.query(`update steps set gaps_adjusted = true, site_clean = false where id = $1`, [stepId]));
+    await withPerson(doer, (db) => db.query(`insert into step_photos (step_id, content_type, bytes, size) values ($1, 'image/png', '\\x00', 1)`, [stepId]));
+    const ph = (await pool.query('select added_by from step_photos where step_id = $1', [stepId])).rows[0];
+    expect(ph.added_by).toBe(doer);
+    expect(await refused(withPerson(viewer, (db) => db.query(`insert into step_photos (step_id, content_type, bytes, size) values ($1, 'image/png', '\\x00', 1)`, [stepId])))).toMatch(/Viewers/);
+    expect(await refused(withPerson(doer, (db) => db.query(`delete from step_photos where step_id = $1`, [stepId])))).toMatch(/Doers/);
+  });
+
   it('refuses a Doer changing dates, jobs or settings', async () => {
     expect(await refused(withPerson(doer, (db) => db.query(`update steps set start_date = '2026-11-04' where id = $1`, [stepId])))).toMatch(/Doers/);
     expect(await refused(withPerson(doer, (db) => db.query(`update jobs set client_name = 'Smith' where id = $1`, [jobId])))).toMatch(/Doers/);

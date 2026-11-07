@@ -19,7 +19,15 @@ export interface NewJobView {
   proposal: ProposedStep[] | null;
   siteStartWorkedOut: string | null;
   clashes: CapacityWarning[];
+  landing?: Landing | null;
   error?: string;
+}
+
+/** The factory and install weeks a proposed job lands in, with the load before and after it (R7). */
+export interface Landing {
+  weeks: { kind: 'factory' | 'install'; label: string; monday: Iso; before: number; after: number; available: number }[];
+  /** The first later anchor date whose weeks have room, or null when none in the next twelve. */
+  nextWithRoom: { date: Iso; weeks: Landing['weeks'] } | null;
 }
 
 export function newJobPage(d: NewJobView): Html {
@@ -33,15 +41,21 @@ export function newJobPage(d: NewJobView): Html {
         <button class="btn primary" type="submit" name="action" value="save">Add the job</button>
       </div>
     </form>
-    <section class="panel" id="proposal" aria-live="polite">${proposalBlock(d.proposal, d.clashes, d.siteStartWorkedOut)}</section>
+    <section class="panel" id="proposal" aria-live="polite">${proposalBlock(d.proposal, d.clashes, d.siteStartWorkedOut, d.landing ?? null)}</section>
   </div>`;
 }
 
-export function proposalBlock(proposal: ProposedStep[] | null, clashes: CapacityWarning[], siteStartWorkedOut: string | null = null): Html {
+export function proposalBlock(proposal: ProposedStep[] | null, clashes: CapacityWarning[], siteStartWorkedOut: string | null = null, landing: Landing | null = null): Html {
   if (!proposal) return html`<h2>Proposed dates</h2><p class="muted">Fill in the site start, or pick another date to work from and fill that in, then tap Show proposed dates.</p>`;
+  const weekLine = (w: Landing['weeks'][number]) => html`<div class="kv"><span>${w.label} week of ${fmtShort(w.monday).slice(4)}</span><strong class="${w.after > w.available ? 'nodate' : ''}">${w.before} h booked → ${w.after} h with this job, of ${w.available} h</strong></div>`;
   return html`<h2>Proposed dates</h2>
     ${siteStartWorkedOut ? html`<p class="small">Site start worked out as <strong>${fmtShort(siteStartWorkedOut)}</strong>. Type the real one if you know it.</p>` : ''}
     ${clashes.length ? html`<div class="notice bad">${clashes.map((c) => html`<div>${c.decision.title}: ${c.decision.fact}</div>`)}</div>` : html`<p class="muted small">No capacity clashes with jobs already booked.</p>`}
+    ${landing ? html`<div class="landing"><div class="eyebrow">Where it lands</div>${landing.weeks.map(weekLine)}
+      ${clashes.length ? landing.nextWithRoom
+        ? html`<div class="acts" style="align-items:center"><button class="btn" type="submit" form="newjob" name="use_week" value="${landing.nextWithRoom.date}">Use the next week with room: ${fmtShort(landing.nextWithRoom.date)}</button>
+            <span class="muted small">${landing.nextWithRoom.weeks.map((w) => `${w.label} ${w.after} of ${w.available} h`).join(' · ')}</span></div>`
+        : html`<p class="muted small">No week with room in the next twelve. Add it anyway and sort it out on Attention, or add hours under Settings → Capacity.</p>` : ''}</div>` : ''}
     <div>${proposal.map((p) => html`<div class="kv"><span>${KINDS[p.kind].label}</span><strong>${fmtRange(p.start_date, p.end_date)}</strong></div>`)}</div>`;
 }
 

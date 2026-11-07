@@ -13,7 +13,13 @@ import { comingUp } from '../views/comingUp.js';
 import type { StoredDecision } from '../views/items.js';
 import { attentionPage } from '../views/attention.js';
 import { pipelinePage } from '../views/pipeline.js';
-import { myDayPage } from '../views/me.js';
+import { jobDayPage, myDayPage } from '../views/me.js';
+import { jobSheet } from '../views/sheet.js';
+import { asksOnDone } from '../views/install.js';
+import { loadStepPhotos } from '../db/queries.js';
+import { weekHours } from '../domain/checks.js';
+import { mondayOf } from '../domain/dates.js';
+import type { Landing } from '../views/other.js';
 import { morePage, findPage } from '../views/other.js';
 import { appSetting, findJobs, loadCapacity, loadIssue, loadIssues, loadIssueTypes } from '../db/queries.js';
 import { loadByDay } from '../domain/checks.js';
@@ -185,6 +191,14 @@ export function routes(): express.Router {
 
   r.get('/me', async (req, res) => {
     const [all, message, types, issues] = await Promise.all([loadEverything(), appSetting('board_message'), loadIssueTypes(), loadIssues({ open: true })]);
+    const jobId = Number(req.query.job) || null;
+    const job = jobId ? all.jobs.find((j) => j.id === jobId) : undefined;
+    if (jobId && !job) throw new UserError("That job isn't in the hub.");
+    if (job) {
+      // From the job sheet's QR code (George, 7 Nov 2026): this job's open steps, whoever's they are.
+      const body = jobDayPage({ person: me(req), today: today(), jobs: all.jobs, steps: all.steps, message, types, issues: issues.filter((i) => i.job_id === job.id), stepPhotos: await loadStepPhotos(job.id) }, job);
+      return res.send(page({ title: 'My day', tab: 'me', person: me(req), flash: takeFlash(req, res), body, sub: me(req).name }).value);
+    }
     const body = myDayPage({ person: me(req), today: today(), jobs: all.jobs, steps: all.steps, message, types, issues: issues.filter((i) => i.responsible === me(req).id || i.raised_by === me(req).id) });
     res.send(page({ title: 'My day', tab: 'me', person: me(req), flash: takeFlash(req, res), body, sub: me(req).name }).value);
   });
@@ -251,14 +265,36 @@ export function routes(): express.Router {
     const ghost = { id: -1, job_number: values.job_number, brand: values.brand, client_name: values.client_name || 'This job', suburb: values.suburb, door_finish: values.door_finish, has_painting: values.has_painting, has_stone: values.has_stone, site_start: values.site_start, factory_days: values.factory_days, install_days: values.install_days, status: 'live', at_risk: false };
     const ghostSteps: StepRow[] = proposal.map((p, i) => ({ id: -1 - i, job_id: -1, kind: p.kind, rework_id: null, label: '', start_date: p.start_date, end_date: p.end_date, confirmed: false, owner: '', done_at: null }));
     const clashes = capacity([...all.jobs, ghost], [...all.steps, ...ghostSteps], rules, cal, today(), cap).filter((c) => c.jobIds.includes(-1));
-    return { proposal, clashes, site_start: planned.site_start, workedOut: !givenSite || planned.site_start !== givenSite };
+    // Where it lands (R7): the factory and install weeks with their load before and after this job,
+    // and, when it clashes, the first later start whose weeks have room.
+    const weeksFor = (steps: StepRow[]): Landing['weeks'] => (['factory', 'install'] as const).flatMap((kind) => {
+      const s = steps.find((x) => x.kind === kind && x.start_date);
+      if (!s) return [];
+      const monday = mondayOf(s.start_date!);
+      const before = weekHours(kind, all.jobs, all.steps, rules, cal, cap, monday);
+      const after = weekHours(kind, [...all.jobs, ghost], [...all.steps, ...steps], rules, cal, cap, monday);
+      return [{ kind, label: cap.centres.find((c) => c.key === kind)?.label ?? KINDS[kind].label, monday, before: before.booked, after: after.booked, available: after.available }];
+    });
+    const landing: Landing = { weeks: weeksFor(ghostSteps), nextWithRoom: null };
+    if (clashes.length) {
+      for (let k = 1; k <= 12 && !landing.nextWithRoom; k++) {
+        const date = addDays(anchorDate, 7 * k);
+        const alt = proposeFromAnchor({ ...values, site_start: anchor === 'site_start' ? date : null, added_on: today(), install_weeks: t.install_weeks }, anchor, date, rules, cal);
+        const altSteps: StepRow[] = alt.steps.map((p, i) => ({ id: -1 - i, job_id: -1, kind: p.kind, rework_id: null, label: '', start_date: p.start_date, end_date: p.end_date, confirmed: false, owner: '', done_at: null }));
+        const altGhost = { ...ghost, site_start: alt.site_start };
+        const altClash = capacity([...all.jobs, altGhost], [...all.steps, ...altSteps], rules, cal, today(), cap).some((c) => c.jobIds.includes(-1));
+        const weeks = weeksFor(altSteps);
+        if (!altClash && weeks.every((w) => w.after <= w.available)) landing.nextWithRoom = { date, weeks };
+      }
+    }
+    return { proposal, clashes, site_start: planned.site_start, workedOut: !givenSite || planned.site_start !== givenSite, landing };
   }
 
   r.post('/jobs/preview', editor, async (req, res) => {
     try {
       const values = parseJobForm(req.body);
-      const { proposal, clashes, site_start, workedOut } = await proposalFor(values);
-      res.send(proposalBlock(proposal, clashes, workedOut ? site_start : null).value);
+      const { proposal, clashes, site_start, workedOut, landing } = await proposalFor(values);
+      res.send(proposalBlock(proposal, clashes, workedOut ? site_start : null, landing ?? null).value);
     } catch (err) {
       if (err instanceof UserError) return res.send(`<h2>Proposed dates</h2><p class="nodate">${err.message}</p>`);
       throw err;
@@ -269,16 +305,22 @@ export function routes(): express.Router {
     let values: ReturnType<typeof parseJobForm> | undefined;
     const templates = await loadTemplates();
     const render = async (error?: string) => {
-      const p = values ? await proposalFor(values) : { proposal: null, clashes: [], site_start: null, workedOut: false };
+      const p = values ? await proposalFor(values) : { proposal: null, clashes: [], site_start: null, workedOut: false, landing: null };
       res.send(page({ title: 'New job', tab: 'new', person: me(req), body: newJobPage({
         values: (values ?? req.body) as Partial<FullJob>, templates, anchor: values?.anchor ?? 'site_start', anchorDate: values?.anchor_date ?? null,
-        proposal: p.proposal, siteStartWorkedOut: p.workedOut ? p.site_start : null, clashes: p.clashes, error }) }).value);
+        proposal: p.proposal, siteStartWorkedOut: p.workedOut ? p.site_start : null, clashes: p.clashes, landing: p.landing ?? null, error }) }).value);
     };
     try {
       values = parseJobForm(req.body);
     } catch (err) {
       if (err instanceof UserError) return render(err.message);
       throw err;
+    }
+    // "Use the next week with room" (R7): move the date worked from, and show the new proposal.
+    const useWeek = date(req.body.use_week, 'The week to use');
+    if (useWeek) {
+      if (values.anchor === 'site_start' || !values.anchor_date) values.site_start = useWeek; else values.anchor_date = useWeek;
+      return render();
     }
     if (req.body.action !== 'save') return render();
     if (!values.client_name) return render('Add the client name.');
@@ -314,6 +356,23 @@ export function routes(): express.Router {
     const body = jobPage({ person: me(req), today: b.t, ...data, list, history, decisions, templates, responsible, peopleNames: people.rows.map((p) => p.name), suggestionsPanel,
       issues, issueTypes, fromFlag: fromFlag ? { id: fromFlag.id, note: fromFlag.note } : null });
     res.send(page({ title: 'One job', tab: 'job', person: me(req), flash: takeFlash(req, res), body, attention: attentionCount(b) }).value);
+  });
+
+  // The job sheet (George, 7 Nov 2026; R12): one printable page with a QR code that opens the job on My day.
+  r.get('/jobs/:id/sheet', async (req, res) => {
+    const id = idParam(req);
+    const data = await loadJob(id);
+    if (!data) throw new UserError("That job isn't in the hub.");
+    res.send(jobSheet(data.job, data.steps, `${config.appUrl}/me?job=${id}`, me(req).name, today()).value);
+  });
+
+  r.get('/steps/:id/photos/:pid', async (req, res) => {
+    const ph = (await pool.query('select content_type, bytes from step_photos where id = $1 and step_id = $2', [Number(req.params.pid), idParam(req)])).rows[0];
+    if (!ph) return res.status(404).send('No such photo.');
+    res.setHeader('Content-Type', ph.content_type);
+    res.setHeader('Cache-Control', 'private, max-age=86400');
+    res.setHeader('Content-Disposition', 'inline');
+    res.send(ph.bytes);
   });
 
   // ---------- Flag a problem (Doers and Editors; George, 7 Nov 2026) ----------
@@ -552,11 +611,23 @@ export function routes(): express.Router {
 
   r.post('/steps/:id/done', doer, async (req, res) => {
     const id = idParam(req);
-    const done = req.body.done === '1';
+    const { fields, files } = req.is('multipart/form-data') ? await readMultipart(req) : { fields: req.body as Record<string, string>, files: [] };
+    if (req.is('multipart/form-data')) req.body = fields;
+    const done = fields.done === '1';
     const s = (await pool.query(`select s.id, s.job_id, s.kind, s.rework_id, s.rework_area, s.label, s.start_date, s.end_date, s.confirmed, s.owner, s.done_at, s.pinned, s.hours,
       j.client_name, j.suburb from steps s join jobs j on j.id = s.job_id where s.id = $1`, [id])).rows[0];
     if (!s) throw new UserError('That step has gone.');
-    await withPerson(me(req).id, (db) => setStepDone(db, id, done));
+    // Install cabinets (George, 7 Nov 2026; R13): gaps adjusted? site left clean? and up to three photos.
+    const yn = (v: unknown) => (v === '1' ? true : v === '0' ? false : null);
+    const answers = asksOnDone(s) ? { gaps_adjusted: yn(fields.gaps), site_clean: yn(fields.clean) } : undefined;
+    await withPerson(me(req).id, async (db) => {
+      await setStepDone(db, id, done, answers);
+      if (done && answers) {
+        for (const f of files.slice(0, 3)) {
+          await db.query('insert into step_photos (step_id, content_type, bytes, size) values ($1, $2, $3, $4)', [id, f.contentType, f.bytes, f.bytes.length]);
+        }
+      }
+    });
     // Materials in, ticked: the factory hears straight away (George, 7 Nov 2026).
     if (done && !s.done_at && s.kind === 'materials_in' && !s.label) {
       await deliverAll(await materialsInNudges(s, { id: s.job_id, client_name: s.client_name, suburb: s.suburb }));

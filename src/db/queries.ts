@@ -46,7 +46,7 @@ export async function loadCalendar(): Promise<Calendar> {
   return new Calendar(await loadBlocked());
 }
 
-const STEP_COLS = 'id, job_id, kind, rework_id, rework_area, hours, label, start_date, end_date, confirmed, pinned, owner, done_at, note, sort';
+const STEP_COLS = 'id, job_id, kind, rework_id, rework_area, hours, label, start_date, end_date, confirmed, pinned, owner, done_at, note, sort, gaps_adjusted, site_clean';
 
 /** Job-number order, oldest first (George, 6 Nov 2026): YYMMDD numbers by value, then any others, then none. */
 export const JOB_NUMBER_ORDER = `coalesce(job_number ~ '^[0-9]+$', false) desc, case when job_number ~ '^[0-9]{1,15}$' then job_number::bigint end, job_number nulls last, client_name`;
@@ -66,7 +66,25 @@ export async function loadJob(id: number) {
   const steps = (await pool.query(`select ${STEP_COLS} from steps where job_id = $1 order by sort, id`, [id])).rows as (StepRow & { note: string })[];
   const rework = (await pool.query(
     `select r.*, p.name as raised_by_name from rework r left join people p on p.id = r.raised_by where r.job_id = $1 order by r.raised_at`, [id])).rows as ReworkFull[];
-  return { job, steps, rework };
+  return { job, steps, rework, stepPhotos: await loadStepPhotos(id) };
+}
+
+/** Install photos on a job's steps: step id → photo ids (George, 7 Nov 2026). */
+export async function loadStepPhotos(jobId: number): Promise<Map<number, number[]>> {
+  const rows = (await pool.query('select p.id, p.step_id from step_photos p join steps s on s.id = p.step_id where s.job_id = $1 order by p.id', [jobId])).rows as { id: number; step_id: number }[];
+  const out = new Map<number, number[]>();
+  for (const r of rows) out.set(r.step_id, [...(out.get(r.step_id) ?? []), r.id]);
+  return out;
+}
+
+/** Standard install steps ticked done in a date range, with their answers and photo counts (the Monday email). */
+export async function installsDone(from: string, to: string): Promise<{ id: number; job_id: number; client_name: string; suburb: string; done_at: string; done_by_name: string | null; gaps_adjusted: boolean | null; site_clean: boolean | null; photos: number }[]> {
+  return (await pool.query(`select s.id, s.job_id, j.client_name, j.suburb, s.done_at, p.name as done_by_name, s.gaps_adjusted, s.site_clean,
+      (select count(*)::int from step_photos ph where ph.step_id = s.id) as photos
+    from steps s join jobs j on j.id = s.job_id left join people p on p.id = s.done_by
+    where s.kind = 'install' and s.label = '' and s.done_at is not null
+      and (s.done_at at time zone 'Australia/Sydney')::date between $1 and $2
+    order by s.done_at`, [from, to])).rows;
 }
 
 export async function loadJobList(): Promise<{ id: number; job_number: string | null; client_name: string; suburb: string; status: string }[]> {

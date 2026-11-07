@@ -6,6 +6,7 @@ import { canSqueeze } from './reschedule.js';
 import { can, Person } from '../web/auth.js';
 import type { FullJob, IssueRow, IssueType, LogEntry, ReworkFull, Responsible } from '../db/queries.js';
 import { flagForm, issuesPanel } from './issues.js';
+import { asksOnDone, installDoneForm, installSummary } from './install.js';
 import { ANCHORS, AnchorKind, Template } from '../domain/schedule.js';
 import { decisionFields } from './items.js';
 
@@ -35,6 +36,8 @@ export interface JobPageData {
   issueTypes: IssueType[];
   /** "Raise rework for this" from a flag: opens the raise form with the note filled in. */
   fromFlag: { id: number; note: string } | null;
+  /** Install photos by step (George, 7 Nov 2026). */
+  stepPhotos: Map<number, number[]>;
 }
 
 const STATUS = { live: 'Live', on_hold: 'On hold', complete: 'Complete', cancelled: 'Cancelled' } as Record<string, string>;
@@ -87,7 +90,9 @@ function stepRow(s: Step, d: JobPageData, std: Step[]): Html {
   const cls = ['step', on ? 'done' : '', over ? 'over' : '', !on && s.start_date && !s.confirmed ? 'prov' : '', s.pinned ? 'pinned' : ''].filter(Boolean).join(' ');
   const box = html`<span class="box" aria-hidden="true">${on ? '✓' : ''}</span>`;
   const tickBtn = can(person, 'doer')
-    ? html`<form method="post" action="/steps/${s.id}/done" id="c-${s.id}"><input type="hidden" name="done" value="${on ? '0' : '1'}"><input type="hidden" name="back" value="${back}">
+    ? !on && asksOnDone(s)
+      ? html`<div id="c-${s.id}" style="display:contents">${installDoneForm(s, back, box)}</div>`
+      : html`<form method="post" action="/steps/${s.id}/done" id="c-${s.id}"><input type="hidden" name="done" value="${on ? '0' : '1'}"><input type="hidden" name="back" value="${back}">
         <button class="check" type="submit" aria-pressed="${on}" aria-label="${stepLabel(s)}: ${on ? 'done, tap to untick' : 'tap when done'}">${box}</button></form>`
     : html`<span class="check" id="c-${s.id}">${box}</span>`;
   const when = s.start_date ? fmtRange(s.start_date, s.end_date) : on ? 'Done, date not recorded' : 'No date yet';
@@ -109,7 +114,7 @@ function stepRow(s: Step, d: JobPageData, std: Step[]): Html {
     : openFlags ? html`<a class="small" href="#flags">${openFlags} flagged</a>` : '';
   return html`<div class="${cls}" id="s-${s.id}">${tickBtn}
     <div class="st-main"><div class="st-top"><strong>${stepLabel(s)}</strong><span class="muted small">${s.owner || KINDS[s.kind].owner}</span></div>
-      <div class="st-when">${dateEl}${pills}${pin}${flag}</div></div>
+      <div class="st-when">${dateEl}${pills}${pin}${flag}</div>${installSummary(s, d.stepPhotos.get(s.id) ?? [])}</div>
   </div>`;
 }
 
@@ -154,7 +159,7 @@ export function jobPage(d: JobPageData): Html {
     <div class="eyebrow">Job ${job.job_number ?? '(no number)'} · site start ${job.site_start ? fmtLong(job.site_start) : 'not set'}</div>
     <h2 style="font-size:24px">${jobTitle(job)}</h2>
     ${job.scope ? html`<p class="muted">${job.scope}</p>` : ''}
-    <div class="pills">${pills}${job.drawings_url ? html`<a class="pill link" href="${job.drawings_url}" target="_blank" rel="noopener">Drawings ↗</a>` : ''}</div>
+    <div class="pills">${pills}${job.drawings_url ? html`<a class="pill link" href="${job.drawings_url}" target="_blank" rel="noopener">Drawings ↗</a>` : ''}<a class="pill link" href="/jobs/${job.id}/sheet" target="_blank" rel="noopener" title="One page for the trolley, with a QR code that opens this job on a phone">Job sheet ↗</a></div>
   </div>
 
   <div class="next"><span class="eyebrow">Next up</span><b>${next ? stepLabel(next) : 'No dates set'}</b><span>${next ? `${fmtRange(next.start_date, next.end_date)} · ${next.owner || KINDS[next.kind].owner}` : 'Add dates below'}</span></div>
@@ -389,10 +394,11 @@ const FIELD_NAMES: Record<string, string> = {
   start_date: 'from', end_date: 'to', confirmed: 'confirmed', done_at: 'done', owner: 'owner', note: 'note', label: 'name',
   job_number: 'job number', template: 'job type', client_name: 'client', suburb: 'suburb', scope: 'scope', door_finish: 'door finish', has_painting: 'painting', has_stone: 'stone',
   site_start: 'site start', factory_days: 'factory days', install_days: 'install days', status: 'status', at_risk: 'at risk',
-  rework_area: 'row', hours: 'hours',
+  rework_area: 'row', hours: 'hours', gaps_adjusted: 'gaps adjusted', site_clean: 'site left clean',
   notes: 'notes', brand: 'brand', cause: 'cause', closed_on: 'closed', extra_hours: 'extra hours', extra_material_cost: 'extra material $',
 };
 const SKIP = new Set(['id', 'job_id', 'created_at', 'done_by', 'sort', 'raised_by', 'raised_at', 'rework_id', 'added_on', 'kind']);
+const INSTALL_ANSWERS = new Set(['gaps_adjusted', 'site_clean']);
 
 function show(v: unknown): string {
   if (v === null || v === undefined || v === '') return 'blank';
@@ -409,8 +415,10 @@ export function describe(e: LogEntry, stepName: (id: string) => string): string 
   if (e.action === 'delete') return `${what} removed`;
   const b = e.before ?? {};
   const a = e.after ?? {};
-  if (e.table_name === 'steps' && b.done_at !== a.done_at && Object.keys(a).filter((k) => !SKIP.has(k) && a[k] !== b[k]).length === 1) {
-    return a.done_at ? `${what} ticked done` : `${what} unticked`;
+  if (e.table_name === 'steps' && b.done_at !== a.done_at && Object.keys(a).filter((k) => !SKIP.has(k) && !INSTALL_ANSWERS.has(k) && a[k] !== b[k]).length === 1) {
+    if (!a.done_at) return `${what} unticked`;
+    const answers = [...INSTALL_ANSWERS].filter((k) => a[k] !== null && a[k] !== undefined).map((k) => `${FIELD_NAMES[k]} ${show(a[k])}`);
+    return `${what} ticked done${answers.length ? ` (${answers.join(', ')})` : ''}`;
   }
   const order = Object.keys(FIELD_NAMES);
   const parts = Object.keys(a).filter((k) => !SKIP.has(k) && JSON.stringify(a[k]) !== JSON.stringify(b[k]))

@@ -5,7 +5,7 @@
 // address (George) instead, with a line saying who it would have gone to.
 import { config } from '../config.js';
 import { pool, withSystem } from '../db/pool.js';
-import { appSetting, loadEverything, IssueRow } from '../db/queries.js';
+import { appSetting, installsDone, loadEverything, IssueRow } from '../db/queries.js';
 import { addDays, dayOfWeek, fmtRange, fmtShort, Iso, mondayOf, todaySydney } from '../domain/dates.js';
 import { jobTitle, lastDate, StepRow, stepLabel } from '../domain/checks.js';
 import { rowOf } from '../domain/steps.js';
@@ -57,16 +57,22 @@ export async function weekNudges(today: Iso): Promise<Nudge[]> {
   const live = new Map(all.jobs.filter((j) => j.status === 'live').map((j) => [j.id, j]));
   const mon = mondayOf(today);
   const fri = addDays(mon, 4);
+  // Installs finished last week, with the two answers and the photo count (George, 7 Nov 2026): Editors see them.
+  const finished = (await installsDone(addDays(mon, -7), addDays(mon, -1))).map((i) => {
+    const bits = [i.gaps_adjusted == null ? '' : `gaps adjusted ${i.gaps_adjusted ? 'yes' : 'no'}`, i.site_clean == null ? '' : `site clean ${i.site_clean ? 'yes' : 'no'}`, i.photos ? `${i.photos} ${i.photos === 1 ? 'photo' : 'photos'}` : 'no photos'].filter(Boolean);
+    return `Installed: ${jobTitle(i)} by ${i.done_by_name ?? 'unknown'} (${bits.join(', ')}) ${config.appUrl}/jobs/${i.job_id}#s-${i.id}`;
+  });
   const out: Nudge[] = [];
   for (const p of people.filter((x) => x.email_digest)) {
     const mine = all.steps.filter((s) => live.has(s.job_id) && !s.done_at && s.start_date && isMine(s, p) && s.start_date <= fri && (lastDate(s)! >= mon || lastDate(s)! < today));
-    if (!mine.length) continue;
+    const installs = p.role === 'editor' ? finished : [];
+    if (!mine.length && !installs.length) continue;
     const late = mine.filter((s) => lastDate(s)! < today).sort((a, b) => lastDate(a)!.localeCompare(lastDate(b)!));
     const week = mine.filter((s) => lastDate(s)! >= today).sort((a, b) => a.start_date!.localeCompare(b.start_date!));
     out.push({
       kind: 'week', to: p,
       subject: `Hub: your week from ${fmtShort(mon)}${late.length ? ` (${late.length} overdue)` : ''}`,
-      lines: [...late.map((s) => `Overdue, ${stepLine(s, jobTitle(live.get(s.job_id)!))}`), ...week.map((s) => stepLine(s, jobTitle(live.get(s.job_id)!)))],
+      lines: [...late.map((s) => `Overdue, ${stepLine(s, jobTitle(live.get(s.job_id)!))}`), ...week.map((s) => stepLine(s, jobTitle(live.get(s.job_id)!))), ...(installs.length ? ['', 'Installs finished last week:', ...installs] : [])],
       link: `${config.appUrl}/me`, linkText: 'Open My day',
     });
   }

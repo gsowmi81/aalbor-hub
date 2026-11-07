@@ -28,8 +28,12 @@ export async function setStepConfirmed(db: Db, stepId: number, confirmed: boolea
   await db.query('update steps set confirmed = ($2 and start_date is not null) where id = $1', [stepId, confirmed]);
 }
 
-export async function setStepDone(db: Db, stepId: number, done: boolean): Promise<void> {
-  await db.query(`update steps set done_at = ${done ? 'coalesce(done_at, now())' : 'null'} where id = $1`, [stepId]);
+export async function setStepDone(db: Db, stepId: number, done: boolean, answers?: { gaps_adjusted: boolean | null; site_clean: boolean | null }): Promise<void> {
+  if (answers) {
+    await db.query(`update steps set done_at = ${done ? 'coalesce(done_at, now())' : 'null'}, gaps_adjusted = $2, site_clean = $3 where id = $1`, [stepId, done ? answers.gaps_adjusted : null, done ? answers.site_clean : null]);
+    return;
+  }
+  await db.query(`update steps set done_at = ${done ? 'coalesce(done_at, now())' : 'null'}${done ? '' : ', gaps_adjusted = null, site_clean = null'} where id = $1`, [stepId]);
 }
 
 export async function setJobStatus(db: Db, jobId: number, status: string): Promise<void> {

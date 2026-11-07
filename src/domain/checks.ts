@@ -37,6 +37,9 @@ export interface StepRow {
   /** Rework tasks: the standard step it stands for (its board row), and hours needed. */
   rework_area?: StepKind | null;
   hours?: number | null;
+  /** Install cabinets, ticked done: the two answers (George, 7 Nov 2026). */
+  gaps_adjusted?: boolean | null;
+  site_clean?: boolean | null;
 }
 
 export interface ReworkRow {
@@ -378,6 +381,19 @@ export function bookedHours(kind: 'factory' | 'install', jobs: JobRow[], steps: 
     }
   }
   return out;
+}
+
+/** One area's week: hours booked against hours available, Monday to Sunday (the first week with room, R7). */
+export function weekHours(kind: 'factory' | 'install', jobs: JobRow[], steps: StepRow[], rulesIn: Rules, cal: Calendar, cap: CapacityInput, monday: Iso): { booked: number; available: number } {
+  const c = cap.centres.find((x) => x.key === kind) ?? centresFromRules(rulesIn).centres.find((x) => x.key === kind)!;
+  const sunday = addDays(monday, 6);
+  const booked = bookedHours(kind, jobs, steps, rulesIn, cal, monday, sunday);
+  let b = 0, a = 0;
+  for (let d = monday; d <= sunday; d = addDays(d, 1)) {
+    b += booked.get(d)?.hours ?? 0;
+    a += availableHours(c, cap.adjustments, d, cal);
+  }
+  return { booked: Math.round(b * 10) / 10, available: Math.round(a * 10) / 10 };
 }
 
 /** The load chart: each centre, each working day from a Monday for n weeks. */

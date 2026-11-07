@@ -722,6 +722,86 @@ describe('round two of the preview (George, 7 Nov 2026)', () => {
   });
 });
 
+describe('round three of the preview (George, 7 Nov 2026)', () => {
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64');
+  const multipart = (fields: Record<string, string>, photos = 0) => {
+    const boundary = 'hubtest3';
+    const part = (name: string, value: string) => `--${boundary}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`;
+    const parts = [Buffer.from(Object.entries(fields).map(([k, v]) => part(k, v)).join(''))];
+    for (let i = 0; i < photos; i++) parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="photo"; filename="p${i}.png"\r\nContent-Type: image/png\r\n\r\n`), png, Buffer.from('\r\n'));
+    parts.push(Buffer.from(`--${boundary}--\r\n`));
+    return { body: Buffer.concat(parts), type: `multipart/form-data; boundary=${boundary}` };
+  };
+  const post = async (path: string, who: string, m: { body: Buffer; type: string }) =>
+    fetch(base + path, { method: 'POST', headers: { Origin: base, Cookie: `hub_session=${tokens[who]}`, 'Content-Type': m.type }, body: m.body, redirect: 'manual' });
+
+  it('ticking Install cabinets asks about gaps and the site and keeps the photos on the job and in History', async () => {
+    const job = await one(`select id from jobs where client_name = 'Greg Steven'`);
+    const s = await one(`select id from steps where job_id = $1 and kind = 'install' and label = ''`, [job.id]);
+    const r = await post(`/steps/${s.id}/done`, 'Phil', multipart({ done: '1', gaps: '1', clean: '0', back: `/jobs/${job.id}` }, 4));
+    expect(r.status).toBe(302);
+    const row = await one('select done_at, done_by, gaps_adjusted, site_clean from steps where id = $1', [s.id]);
+    expect(row.done_by).toBe(ids.Phil);
+    expect(row.gaps_adjusted).toBe(true);
+    expect(row.site_clean).toBe(false);
+    const photos = (await pool.query('select id, added_by from step_photos where step_id = $1 order by id', [s.id])).rows;
+    expect(photos).toHaveLength(3); // up to three
+    expect(photos[0].added_by).toBe(ids.Phil);
+    expect((await req('GET', `/steps/${s.id}/photos/${photos[0].id}`, 'Angela')).type).toBe('image/png');
+    const page = (await req('GET', `/jobs/${job.id}`, 'Angela')).text;
+    expect(page).toContain('Gaps adjusted: yes');
+    expect(page).toContain('Site clean: no');
+    expect(page).toContain(`/steps/${s.id}/photos/${photos[0].id}`);
+    expect(page).toContain('ticked done (gaps adjusted yes, site left clean no)');
+    expect(page).toContain(`/jobs/${job.id}/sheet`);
+    // The Monday email lists it for Editors.
+    const { installsDone } = await import('../src/db/queries.js');
+    const today = todaySydney();
+    expect((await installsDone(today, today)).map((i) => [i.id, i.photos, i.done_by_name])).toEqual([[s.id, 3, 'Phil']]);
+    // Untick: the answers go too, the photos stay with the step.
+    await req('POST', `/steps/${s.id}/done`, 'Christine', { done: '0', back: '/board' });
+    expect(await one('select done_at, gaps_adjusted, site_clean from steps where id = $1', [s.id])).toEqual({ done_at: null, gaps_adjusted: null, site_clean: null });
+  });
+
+  it('prints a job sheet with a QR code that opens the job on My day', async () => {
+    const job = await one(`select id, job_number from jobs where job_number is not null and status = 'live' order by job_number limit 1`);
+    const sheet = await req('GET', `/jobs/${job.id}/sheet`, 'Phil');
+    expect(sheet.status).toBe(200);
+    expect(sheet.text).toContain('<svg');
+    expect(sheet.text).toContain(`/me?job=${job.id}`);
+    expect(sheet.text).toContain(job.job_number);
+    expect(sheet.text).toContain('Scan to tick steps');
+    const day = await req('GET', `/me?job=${job.id}`, 'Phil');
+    expect(day.status).toBe(200);
+    expect(day.text).toContain('from the job sheet');
+    expect(day.text).toContain('Back to My day');
+    expect(day.text).toContain('Install cabinets');
+    expect((day.text.match(/action="\/steps\/\d+\/done"/g) ?? []).length).toBeGreaterThan(1);
+    expect((await req('GET', '/me?job=999999', 'Phil')).status).toBe(400);
+  });
+
+  it('shows a new job the weeks it lands in and offers the next week with room when they are full', async () => {
+    // Shut the factory for March 2027, then propose a job whose factory week lands in it.
+    await req('POST', '/settings/adjustments', 'George', { centre: 'factory', from: '2027-03-01', to: '2027-03-31', hours: '0', reason: 'Test shutdown' });
+    const values = { client_name: 'Room Test', suburb: 'Botany', template: 'melamine', door_finish: 'melamine', has_stone: '1', factory_days: '2', install_days: '3', anchor: 'install', anchor_date: '2027-03-22' };
+    const preview = await req('POST', '/jobs/preview', 'George', values);
+    expect(preview.text).toContain('Where it lands');
+    expect(preview.text).toMatch(/Factory week of \d\d Mar/);
+    expect(preview.text).toContain('Use the next week with room');
+    const m = preview.text.match(/name="use_week" value="(\d{4}-\d{2}-\d{2})"/);
+    expect(m).not.toBeNull();
+    expect(m![1] > '2027-03-31').toBe(true);
+    // Tapping it re-proposes from that week; nothing is saved.
+    const page = await req('POST', '/jobs/new', 'George', { ...values, use_week: m![1], action: 'save' });
+    expect(page.status).toBe(200);
+    expect(page.text).toContain(`value="${m![1]}"`);
+    expect(page.text).not.toContain('Use the next week with room');
+    expect(await one(`select 1 from jobs where client_name = 'Room Test'`)).toBeUndefined();
+    const a = await one(`select id from capacity_adjustments where reason = 'Test shutdown'`);
+    await req('POST', `/settings/adjustments/${a.id}/delete`, 'George', {});
+  });
+});
+
 describe('export', () => {
   it('downloads a spreadsheet', async () => {
     const r = await fetch(`${base}/export.xlsx`, { headers: { Cookie: `hub_session=${tokens.Angela}` } });
