@@ -40,6 +40,9 @@ export interface StepRow {
   /** Install cabinets, ticked done: the two answers (George, 7 Nov 2026). */
   gaps_adjusted?: boolean | null;
   site_clean?: boolean | null;
+  /** The installer said the install is finished (George, 7 Nov 2026); the site manager's tick is the sign-off. */
+  site_finished_at?: string | null;
+  site_finished_by?: number | null;
 }
 
 export interface ReworkRow {

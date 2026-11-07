@@ -10,6 +10,7 @@ import { flagForm, issuesPanel } from './issues.js';
 import { asksOnDone, installDoneForm, installSummary } from './install.js';
 import { currentFiles, fileKindLabel, fileLink, filesPanel } from './files.js';
 import { materialsPanel, MaterialsView, readinessText } from './materials.js';
+import { siteSection } from './site.js';
 import { ANCHORS, AnchorKind, Template } from '../domain/schedule.js';
 import { decisionFields } from './items.js';
 
@@ -43,6 +44,8 @@ export interface JobPageData {
   stepPhotos: Map<number, number[]>;
   /** Files on the job, every version (George, 7 Nov 2026). */
   files: JobFile[];
+  /** The site log and installer links (George, 7 Nov 2026). */
+  site: Parameters<typeof siteSection>[0];
   /** Materials and where they stand (George, 7 Nov 2026). */
   materials: MaterialsView;
 }
@@ -107,6 +110,7 @@ function stepRow(s: Step, d: JobPageData, std: Step[]): Html {
   if (on) pills.push(html`<span class="spill done">Done</span>`);
   else if (over) pills.push(html`<span class="spill over">Overdue</span>`);
   if (!on && s.start_date) pills.push(s.confirmed ? html`<span class="spill">Confirmed</span>` : html`<span class="spill prov">Provisional</span>`);
+  if (!on && s.site_finished_at) pills.push(html`<a class="spill warn" href="#site" title="The installer says it's finished; inspect and tick it off">Installer finished ${fmtShort(sydneyDate(s.site_finished_at))} · needs sign-off</a>`);
   if (s.pinned) pills.push(html`<span class="spill pin" title="Pinned: nothing moves it">📌 Pinned</span>`);
   const movable = editor && !on;
   const dateEl = movable
@@ -128,7 +132,7 @@ function stepRow(s: Step, d: JobPageData, std: Step[]): Html {
 /** The data the move box needs: the same as a board card's. */
 function dragAttrs(s: Step, job: FullJob, std: Step[]): Html {
   const squeeze = canSqueeze(planRow(s), std.map(planRow));
-  return html`data-step="${s.id}" data-job="${job.id}" data-label="${stepLabel(s)}"${squeeze ? html` data-squeeze="1"` : ''}`;
+  return html`data-step="${s.id}" data-job="${job.id}" data-label="${stepLabel(s)}" data-was="${s.start_date ?? ''}"${squeeze ? html` data-squeeze="1"` : ''}`;
 }
 
 export function jobPage(d: JobPageData): Html {
@@ -175,6 +179,7 @@ export function jobPage(d: JobPageData): Html {
       ['materials', 'Materials', d.materials.lines.length ? String(d.materials.lines.length) : ''],
       ['files', 'Files', d.files.length ? String(currentFiles(d.files).length) : ''],
       ['flags', 'Flags', d.issues.filter((i) => i.status !== 'fixed').length ? String(d.issues.filter((i) => i.status !== 'fixed').length) : ''],
+      ['site', 'Site', d.site.logs.length ? String(d.site.logs.length) : ''],
       ...(editor ? [['tasks', 'Tasks', std.filter((s) => s.label).length ? String(std.filter((s) => s.label).length) : '']] : []),
       ['rework', 'Rework', d.rework.filter((r) => !r.closed_on).length ? String(d.rework.filter((r) => !r.closed_on).length) : ''],
       ['details', editor ? 'Details' : 'Notes', ''],
@@ -219,6 +224,7 @@ export function jobPage(d: JobPageData): Html {
   ${materialsPanel(d.materials)}
   ${filesPanel({ jobId: job.id, files: d.files, person, back: `/jobs/${job.id}#files` })}
   ${issuesPanel({ jobId: job.id, issues: d.issues, person, types: d.issueTypes, back: `/jobs/${job.id}#flags` })}
+  ${siteSection(d.site)}
   ${editor ? tasksPanel(d, std.filter((s) => s.label)) : ''}
   ${reworkPanel(d, rw)}
   ${editor ? detailsPanel(job, d.templates) : html`<section class="panel" id="details"><h2>Notes</h2><p>${job.notes || 'No notes.'}</p></section>`}

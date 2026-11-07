@@ -1093,3 +1093,146 @@ describe('redesigns D and E (George, 7 Nov 2026)', () => {
     expect((await req('GET', `/jobs/${job.id}`, 'Phil')).text).toContain('data-guide="job-steps"');
   });
 });
+
+describe('the site link and the site log (George, 7 Nov 2026)', () => {
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64');
+  const multipart = (fields: Record<string, string>, photos = 0) => {
+    const boundary = 'hubsite';
+    const part = (name: string, value: string) => `--${boundary}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`;
+    const parts = [Buffer.from(Object.entries(fields).map(([k, v]) => part(k, v)).join(''))];
+    for (let i = 0; i < photos; i++) parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="photo"; filename="p${i}.png"\r\nContent-Type: image/png\r\n\r\n`), png, Buffer.from('\r\n'));
+    parts.push(Buffer.from(`--${boundary}--\r\n`));
+    return { body: Buffer.concat(parts), type: `multipart/form-data; boundary=${boundary}` };
+  };
+  let jobId = 0; let link = ''; let cookie = '';
+  const asInstaller = (method: string, path: string, m?: { body: Buffer; type: string }) =>
+    fetch(base + path, { method, headers: { Origin: base, Cookie: cookie, ...(m ? { 'Content-Type': m.type } : {}) }, body: m?.body, redirect: 'manual' });
+
+  it('an Editor makes a link for a named installer; the installer record can never sign in by email', async () => {
+    jobId = (await one(`select id from jobs where status = 'live' and exists (select 1 from steps s where s.job_id = jobs.id and s.kind = 'install' and s.label = '' and s.done_at is null) order by id limit 1`)).id;
+    const r = await req('POST', `/jobs/${jobId}/site-links`, 'George', { name: 'Mick (ABC Installs)' });
+    expect(r.status).toBe(302);
+    const l = await one('select l.token, p.email, p.role, p.areas, p.link_only from site_links l join people p on p.id = l.person_id where l.job_id = $1 and l.revoked_at is null', [jobId]);
+    expect(l.link_only).toBe(true);
+    expect(l.role).toBe('doer');
+    expect(l.areas).toEqual(['install']);
+    link = `/site/go/${l.token}`;
+    const login = await req('POST', '/login', undefined, { email: l.email });
+    expect((await one('select count(*)::int as n from sign_in_links where person_id = (select person_id from site_links where token = $1)', [l.token])).n).toBe(0);
+    expect(login.status).toBe(200);
+    // Doers can't make links.
+    expect((await req('POST', `/jobs/${jobId}/site-links`, 'Phil', { name: 'Someone' })).status).toBe(403);
+    // The same name on another job reuses the installer.
+    const other = (await one(`select id from jobs where id <> $1 and status = 'live' order by id limit 1`, [jobId])).id;
+    await req('POST', `/jobs/${other}/site-links`, 'George', { name: 'mick (abc installs)' });
+    expect((await one(`select count(*)::int as n from people where link_only`)).n).toBe(1);
+    expect((await req('GET', '/settings/people', 'George')).text).toContain('Mick (ABC Installs)');
+  });
+
+  it('the link opens one job and nothing else', async () => {
+    const r = await fetch(base + link, { redirect: 'manual' });
+    expect(r.status).toBe(302);
+    expect(r.headers.get('location')).toBe('/site');
+    cookie = (r.headers.get('set-cookie') ?? '').split(';')[0];
+    expect(cookie.startsWith('hub_session=')).toBe(true);
+    const site = await asInstaller('GET', '/site');
+    expect(site.status).toBe(200);
+    const t = await site.text();
+    expect(t).toContain('action="/site/log"');
+    expect(t).toContain('Finished from our side');
+    expect(t).not.toContain('class="tabs"');
+    for (const p of ['/board', '/me', `/jobs/${jobId}`, '/stock', '/settings', '/jobs/last']) {
+      const x = await asInstaller('GET', p);
+      expect([p, x.status, x.headers.get('location')]).toEqual([p, 302, '/site']);
+    }
+    expect((await asInstaller('POST', `/steps/1/done`, multipart({ done: '1' }))).headers.get('location')).toBe('/site');
+    expect((await fetch(base + '/site/go/not-a-real-token', { redirect: 'manual' })).status).toBe(404);
+  });
+
+  it('a daily log with photos, something missing as a flag to Gus, and finished from their side', async () => {
+    const log = await asInstaller('POST', '/site/log', multipart({ note: 'Base cabinets in' }, 2));
+    expect(log.headers.get('location')).toBe('/site#log');
+    const l = await one(`select l.id, l.kind, l.person_id, (select count(*)::int from site_log_photos p where p.log_id = l.id) as photos from site_logs l where l.job_id = $1 order by l.id desc limit 1`, [jobId]);
+    expect(l.kind).toBe('log');
+    expect(l.photos).toBe(2);
+    // The photo is served to the installer, and to staff, and the scope can't reach another job's.
+    const pid = (await one('select id from site_log_photos where log_id = $1 limit 1', [l.id])).id;
+    expect((await asInstaller('GET', `/site/logs/${l.id}/photos/${pid}`)).status).toBe(200);
+    expect((await req('GET', `/site/logs/${l.id}/photos/${pid}`, 'Christine')).status).toBe(200);
+
+    const miss = await asInstaller('POST', '/site/missing', multipart({ note: 'No handles for the pantry' }, 1));
+    expect(miss.status).toBe(302);
+    const issue = await one(`select i.type_key, i.status, i.raised_by, t.responsible, (select count(*)::int from issue_photos p where p.issue_id = i.id) as photos from issues i join issue_types t on t.key = i.type_key where i.job_id = $1 order by i.id desc limit 1`, [jobId]);
+    expect(issue.type_key).toBe('missing_on_site');
+    expect(issue.photos).toBe(1);
+    expect(issue.raised_by).toBe(l.person_id);
+    expect((await one(`select issue_id from site_logs where job_id = $1 and kind = 'missing' order by id desc limit 1`, [jobId])).issue_id).not.toBeNull();
+    expect((await req('GET', `/jobs/${jobId}`, 'George')).text).toContain('Missing on site');
+
+    const fin = await asInstaller('POST', '/site/finished', multipart({ note: 'All done' }, 1));
+    expect(fin.headers.get('location')).toBe('/site');
+    const s = await one(`select site_finished_at, site_finished_by, done_at from steps where job_id = $1 and kind = 'install' and label = ''`, [jobId]);
+    expect(s.site_finished_at).not.toBeNull();
+    expect(s.site_finished_by).toBe(l.person_id);
+    expect(s.done_at).toBeNull();
+    expect(await asInstaller('GET', '/site').then((r) => r.text())).toContain('Waiting on the site manager');
+  });
+
+  it('a site manager sees it under Needs your sign-off and signs off with the install tick; the installer sees Signed off', async () => {
+    await req('POST', `/settings/people/${ids.Gus}`, 'George', { name: 'Gus', email: 'gus@test.au', role: 'doer', active: '1', areas: 'install', is_owner: '1', email_digest: '1' });
+    const me = (await req('GET', '/me', 'Gus')).text;
+    expect(me).toContain('Needs your sign-off');
+    expect((await req('GET', `/jobs/${jobId}`, 'Gus')).text).toContain('needs sign-off');
+    const s = await one(`select id from steps where job_id = $1 and kind = 'install' and label = ''`, [jobId]);
+    const r = await fetch(base + `/steps/${s.id}/done`, { method: 'POST', headers: { Origin: base, Cookie: `hub_session=${tokens.Gus}`, 'Content-Type': multipart({}).type }, body: multipart({ done: '1', gaps: '1', clean: '1', back: '/me' }, 1).body, redirect: 'manual' });
+    expect(r.status).toBe(302);
+    expect((await one('select done_at, done_by from steps where id = $1', [s.id])).done_by).toBe(ids.Gus);
+    expect((await req('GET', '/me', 'Gus')).text).not.toContain('Needs your sign-off');
+    expect(await asInstaller('GET', '/site').then((x) => x.text())).toContain('Install signed off');
+  });
+
+  it('stopping the link signs the phone out, and switching the installer off stops every link', async () => {
+    const lid = (await one('select id from site_links where job_id = $1 and revoked_at is null', [jobId])).id;
+    await req('POST', `/site-links/${lid}/revoke`, 'Christine', {});
+    expect((await asInstaller('GET', '/site')).headers.get('location')).toContain('/login');
+    expect((await fetch(base + link, { redirect: 'manual' })).status).toBe(404);
+    const installer = await one('select id from people where link_only');
+    await req('POST', `/settings/installers/${installer.id}`, 'George', { active: '0' });
+    expect((await one('select active from people where id = $1', [installer.id])).active).toBe(false);
+    expect((await one('select count(*)::int as n from site_links l join people p on p.id = l.person_id where p.active and l.revoked_at is null')).n).toBe(0);
+  });
+});
+
+describe('fixes 2 and 4 (George, 7 Nov 2026)', () => {
+  it('2: a move drawn with a date the step no longer has is refused', async () => {
+    const s = await one(`select s.id, s.job_id, s.start_date from steps s join jobs j on j.id = s.job_id where j.status = 'live' and s.kind = 'production_drawings' and s.label = '' and s.done_at is null and s.start_date is not null order by s.id limit 1`);
+    const stale = await fetch(base + `/jobs/${s.job_id}/reschedule/quick`, { method: 'POST', headers: { Origin: base, Cookie: `hub_session=${tokens.George}`, 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ step: String(s.id), start: '2027-02-01', mode: 'only', was: '2020-01-01' }).toString(), redirect: 'manual' });
+    expect(stale.status).toBe(302);
+    expect(decodeURIComponent(stale.headers.get('set-cookie') ?? '')).toContain('has moved since you opened this page');
+    expect((await one('select start_date from steps where id = $1', [s.id])).start_date).toBe(s.start_date);
+    const fresh = await req('POST', `/jobs/${s.job_id}/reschedule/quick`, 'George', { step: String(s.id), start: '2027-02-01', mode: 'only', was: s.start_date });
+    expect(fresh.status).toBe(302);
+    expect((await one('select start_date from steps where id = $1', [s.id])).start_date).toBe('2027-02-01');
+    expect((await req('GET', `/jobs/${s.job_id}`, 'George')).text).toContain(`data-was="2027-02-01"`);
+    expect((await req('GET', `/jobs/${s.job_id}/reschedule?step=${s.id}`, 'George')).text).toContain('name="was" value="2027-02-01"');
+  });
+  it('4: Done from My day leaves an Undo line once, and Undo unticks', async () => {
+    await req('POST', `/settings/people/${ids.Phil}`, 'George', { name: 'Phil', email: 'phil@test.au', role: 'doer', active: '1', areas: 'factory', email_digest: '1' });
+    const s = await one(`select s.id from steps s join jobs j on j.id = s.job_id where j.status = 'live' and s.kind = 'factory' and s.label = '' and s.done_at is null and s.start_date is not null order by s.id limit 1`);
+    const r = await req('POST', `/steps/${s.id}/done`, 'Phil', { done: '1', back: '/me' });
+    const undo = (r as unknown as { headers?: Headers }).headers ? '' : '';
+    expect(r.status).toBe(302);
+    const res = await fetch(base + `/steps/${s.id}/done`, { method: 'POST', headers: { Origin: base, Cookie: `hub_session=${tokens.Phil}`, 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ done: '0', back: '/me' }).toString(), redirect: 'manual' });
+    expect(res.status).toBe(302);
+    const r2 = await fetch(base + `/steps/${s.id}/done`, { method: 'POST', headers: { Origin: base, Cookie: `hub_session=${tokens.Phil}`, 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ done: '1', back: '/me' }).toString(), redirect: 'manual' });
+    const set = r2.headers.get('set-cookie') ?? '';
+    expect(set).toContain(`hub_undo=${s.id}`);
+    const me = await fetch(base + '/me', { headers: { Cookie: `hub_session=${tokens.Phil}; hub_undo=${s.id}` } });
+    const t = await me.text();
+    expect(t).toContain('class="notice ok undo"');
+    expect(t).toContain(`action="/steps/${s.id}/done"`);
+    expect(me.headers.get('set-cookie')).toContain('hub_undo=;');
+    expect((await req('GET', '/me', 'Phil')).text).not.toContain('class="notice ok undo"');
+    expect(undo).toBe('');
+  });
+});

@@ -160,3 +160,25 @@ describe('nightly backup (failed 31 Oct 2026 until migration 004)', () => {
     expect(out).toContain('COPY public.owners_log');
   });
 });
+
+describe('the site log (George, 7 Nov 2026)', () => {
+  it('Doers write site logs as themselves and add photos only to their own; nobody edits or deletes them; links are Editors only', async () => {
+    const job = (await pool.query(`select id from jobs order by id limit 1`)).rows[0].id;
+    const doer2 = (await withSystem(async (db) => (await db.query(`insert into people (name, email, role) values ('Gus', 'g@x.au', 'doer') returning id`)).rows[0])).id;
+    const mine = await withPerson(doer, async (db) => (await db.query(`insert into site_logs (job_id, kind, note, person_id) values ($1, 'log', 'Gus was here', $2) returning id, person_id`, [job, editor])).rows[0]);
+    expect(mine.person_id).toBe(doer);
+    await withPerson(doer, (db) => db.query(`insert into site_log_photos (log_id, content_type, bytes, size) values ($1, 'image/png', '\\x00', 1)`, [mine.id]));
+    expect(await refused(withPerson(doer2, (db) => db.query(`insert into site_log_photos (log_id, content_type, bytes, size) values ($1, 'image/png', '\\x00', 1)`, [mine.id])))).toContain('Doers');
+    expect(await refused(withPerson(doer, (db) => db.query(`update site_logs set note = 'changed' where id = $1`, [mine.id])))).toContain('Doers');
+    expect(await refused(withPerson(doer, (db) => db.query(`delete from site_logs where id = $1`, [mine.id])))).toContain('Doers');
+    expect(await refused(withPerson(doer, (db) => db.query(`insert into site_links (job_id, person_id, token) values ($1, $2, 'x')`, [job, doer])))).toContain('Doers');
+    expect(await refused(withPerson(viewer, (db) => db.query(`insert into site_logs (job_id, kind, note) values ($1, 'log', 'no')`, [job])))).toContain('Viewers');
+    // Finished from their side is stamped with who said so; the tick is separate.
+    const step = (await withPerson(editor, async (db) => (await db.query(`insert into steps (job_id, kind, start_date) values ($1, 'install', '2026-11-20') returning id`, [job])).rows[0])).id;
+    await withPerson(doer, (db) => db.query('update steps set site_finished_at = now() where id = $1', [step]));
+    const s = (await pool.query('select site_finished_by, done_at from steps where id = $1', [step])).rows[0];
+    expect(s.site_finished_by).toBe(doer);
+    expect(s.done_at).toBeNull();
+    expect((await pool.query(`select count(*)::int as n from change_log where table_name = 'site_logs'`)).rows[0].n).toBeGreaterThan(0);
+  });
+});

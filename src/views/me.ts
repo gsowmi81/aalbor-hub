@@ -3,7 +3,7 @@
 // With ?job=, one job's open steps for whoever scanned its job sheet (R12).
 import { guide } from './guide.js';
 import { html, Html } from '../web/html.js';
-import { addDays, fmtRange, fmtShort, Iso, mondayOf } from '../domain/dates.js';
+import { addDays, fmtRange, fmtShort, Iso, mondayOf, sydneyDate } from '../domain/dates.js';
 import { KINDS, PEOPLE_AREAS, rowOf } from '../domain/steps.js';
 import { jobTitle, lastDate, StepRow, stepLabel } from '../domain/checks.js';
 import type { FullJob, IssueRow, IssueType, JobFile } from '../db/queries.js';
@@ -25,6 +25,8 @@ export interface MyDayData {
   stepPhotos?: Map<number, number[]>;
   /** The current file of each class on every job (George, 7 Nov 2026). */
   files?: Map<number, JobFile[]>;
+  /** The step just ticked from this screen, for the Undo line (George, 7 Nov 2026). */
+  undo?: StepRow;
 }
 
 /** Is this step one of mine: in an area I work in, or with my name on it. */
@@ -67,6 +69,9 @@ export function myDayPage(d: MyDayData): Html {
   const nextWeek = mine.filter((s) => s.start_date! >= nextMon && s.start_date! <= nextFri).sort((a, b) => a.start_date!.localeCompare(b.start_date!));
   const areas = d.person.areas.map((a) => PEOPLE_AREAS.find((x) => x.area === a)?.label ?? a);
 
+  // Installs the installer says are finished (George, 7 Nov 2026): a site manager inspects and ticks them off.
+  const signOff = d.steps.filter((s) => live.has(s.job_id) && !s.done_at && s.site_finished_at && s.kind === 'install' && !s.label && (d.person.areas.includes('install') || isMine(s, d.person)))
+    .sort((a, b) => String(a.site_finished_at).localeCompare(String(b.site_finished_at)));
   const row = (s: StepRow, late = false) => stepRow(s, jobById.get(s.job_id)!, d, `/me#c-${s.id}`, late, true);
   const section = (title: string, list: StepRow[], empty: string, late = false) => html`<section class="panel" style="gap:4px">
     <div class="row"><h2>${title}</h2><span class="muted small">${list.length || ''}</span></div>
@@ -74,9 +79,14 @@ export function myDayPage(d: MyDayData): Html {
   </section>`;
 
   return html`<div class="job" style="max-width:640px">
+    ${d.undo ? html`<div class="notice ok undo" role="status"><span>Ticked ${stepLabel(d.undo)} for ${jobById.get(d.undo.job_id) ? jobTitle(jobById.get(d.undo.job_id)!) : 'the job'}.</span>
+      <form method="post" action="/steps/${d.undo.id}/done" style="display:inline"><input type="hidden" name="done" value="0"><input type="hidden" name="back" value="/me"><button class="btn small" type="submit">Undo</button></form></div>` : ''}
     ${d.message ? html`<div class="me-msg" role="note">${d.message}</div>` : ''}
     ${!d.person.areas.length ? html`<div class="notice">Your areas aren't set yet, so this only shows steps with your name on them. Ask George or Christine to tick your areas in Settings → People.</div>`
       : guide('me', `${fmtShort(d.today)} · your areas: ${areas.join(', ')}. Tap Done when a step is finished; it leaves this list and the office sees it straight away.`)}
+    ${signOff.length ? html`<section class="panel" style="gap:4px"><div class="row"><h2>Needs your sign-off</h2><span class="muted small">${signOff.length}</span></div>
+      <p class="muted small" style="padding:0 0 4px">The installer says these are finished. Inspect, then tap Done to sign off (gaps adjusted? site clean? and your photos).</p>
+      ${signOff.map((s) => html`<div class="notice" style="margin-bottom:6px;padding:6px 10px"><span class="small">Installer finished ${fmtShort(sydneyDate(s.site_finished_at!))} · <a href="/jobs/${s.job_id}#site">their log and photos</a></span></div>${row(s)}`)}</section>` : ''}
     ${overdue.length ? section('Overdue', overdue, '', true) : ''}
     ${section('Today', todayList, 'Nothing on today.')}
     ${d.issues.length ? html`<section class="panel" style="gap:4px"><div class="row"><h2>Flags for you</h2><span class="muted small">${d.issues.length}</span></div>${d.issues.slice(0, 3).map((i) => issueItem(i, d.person, '/me'))}${d.issues.length > 3 ? html`<a class="btn small" href="/attention#flags">And ${d.issues.length - 3} more on Attention</a>` : ''}</section>` : ''}

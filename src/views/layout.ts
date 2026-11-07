@@ -3,7 +3,7 @@ import type { Person } from '../web/auth.js';
 import { config } from '../config.js';
 
 /** Shown at the top of every page of a preview copy, signed in or not. */
-const previewBar = (): Html => config.preview
+export const previewBar = (): Html => config.preview
   ? html`<div class="preview-bar" role="region" aria-label="Preview notice">Preview copy of the hub. Try anything here; nothing you change is real. The real hub is <a href="https://hub.aalborkitchens.com.au">hub.aalborkitchens.com.au</a>.</div>`
   : html``;
 
@@ -50,7 +50,7 @@ export function page(opts: { title: string; tab: Tab; person: Person; flash?: st
     board: ['board', 'Board', '/board'], pipeline: ['pipeline', 'Pipeline', '/pipeline'], me: ['me', 'My day', '/me'], jobs: ['jobs', 'Jobs', '/jobs'],
     attention: ['attention', att, '/attention'], more: ['more', more, '/more'], job: ['job', 'This job', '/jobs/last'], stock: ['stock', 'Stock', '/stock'],
   };
-  const row = p.role === 'doer' ? ['me', 'job', 'stock', 'more'] : p.role === 'viewer' ? ['board', 'pipeline', 'jobs', ...(p.can_stock ? ['stock'] : []), 'more'] : ['board', 'pipeline', 'attention', 'jobs', 'more'];
+  const row = p.role === 'doer' ? ['me', 'job', ...(p.can_stock || p.areas.includes('factory') || p.areas.includes('materials_in') ? ['stock'] : []), 'more'] : p.role === 'viewer' ? ['board', 'pipeline', 'jobs', ...(p.can_stock ? ['stock'] : []), 'more'] : ['board', 'pipeline', 'attention', 'jobs', 'more'];
   const tabs = row.map((k) => all[k]);
   const wanted: Tab = opts.tab === 'coming-up' ? 'board' : opts.tab;
   const current: Tab = tabs.some(([t]) => t === wanted) ? wanted : 'more';

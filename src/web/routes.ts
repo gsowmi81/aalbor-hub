@@ -1,9 +1,9 @@
 import express, { Request, Response } from 'express';
-import { pool, withPerson, Db } from '../db/pool.js';
+import { pool, withPerson, withSystem, Db } from '../db/pool.js';
 import { JOB_NUMBER_ORDER, loadBlocked, loadCalendar, loadEverything, loadJob, loadJobHistory, loadJobList, loadPlanRows, loadResponsible, loadRules, loadTemplates, syncStepSet, templateFor } from '../db/queries.js';
 import { AnchorKind, ANCHORS, applyChanges, Mode, PlanRow, proposeFromAnchor, proposeRework, reschedule, violations } from '../domain/schedule.js';
 import { canSqueeze, reschedulePage } from '../views/reschedule.js';
-import { addDays, fmtLong, Iso, todaySydney } from '../domain/dates.js';
+import { addDays, fmtLong, fmtShort, Iso, todaySydney } from '../domain/dates.js';
 import { capacity, needsDecision, overdue, StepRow } from '../domain/checks.js';
 import { DoorFinish, FLOW, isReworkCategory, KINDS, takesHours, proposeDates, ProposalInput, REWORK_AREAS, REWORK_ORDER, ReworkArea, shiftStep, siteStartFromJobNumber, StepKind, TASK_AREAS } from '../domain/steps.js';
 import type { Calendar } from '../domain/dates.js';
@@ -21,6 +21,8 @@ import { FILE_KINDS } from '../views/files.js';
 import { FILE_LIMITS } from './upload.js';
 import { newTvKey } from './tv.js';
 import { readinessByJob, stockRoutes } from './stock.js';
+import { siteRoutes, siteScope } from './site.js';
+import { loadInstallers, loadSiteLinks, loadSiteLogs } from '../db/site.js';
 import { loadItems, loadMaterials, loadOnHand, loadOrders, stockContext } from '../db/stock.js';
 import { allocatedByItem, readiness } from '../domain/stock.js';
 import { weekHours } from '../domain/checks.js';
@@ -56,7 +58,7 @@ const today = () => todaySydney();
 export function flash(res: Response, msg: string): void {
   setCookie(res, 'hub_flash', msg, 60);
 }
-function takeFlash(req: Request, res: Response): string | null {
+export function takeFlash(req: Request, res: Response): string | null {
   const f = readCookie(req, 'hub_flash');
   if (f) setCookie(res, 'hub_flash', '', 0);
   return f ?? null;
@@ -158,7 +160,10 @@ export function routes(): express.Router {
   const r = express.Router();
   const editor = requireRole('editor');
   const doer = requireRole('doer');
+  // A job-link session (an installer) reaches its site page and nothing else.
+  r.use(siteScope);
   r.use(stockRoutes());
+  r.use(siteRoutes());
 
   // ---------- Screens ----------
 
@@ -213,7 +218,10 @@ export function routes(): express.Router {
       const body = jobDayPage({ person: me(req), today: today(), jobs: all.jobs, steps: all.steps, message, types, issues: issues.filter((i) => i.job_id === job.id), stepPhotos: await loadStepPhotos(job.id), files: await loadCurrentFiles() }, job);
       return res.send(page({ title: 'My day', tab: 'me', person: me(req), flash: takeFlash(req, res), body, sub: me(req).name }).value);
     }
-    const body = myDayPage({ person: me(req), today: today(), jobs: all.jobs, steps: all.steps, message, types, issues: issues.filter((i) => i.responsible === me(req).id || i.raised_by === me(req).id), files: await loadCurrentFiles() });
+    const undoId = Number(readCookie(req, 'hub_undo')) || null;
+    if (undoId) setCookie(res, 'hub_undo', '', 0);
+    const undoStep = undoId ? all.steps.find((s) => s.id === undoId && s.done_at) : undefined;
+    const body = myDayPage({ person: me(req), today: today(), jobs: all.jobs, steps: all.steps, message, types, issues: issues.filter((i) => i.responsible === me(req).id || i.raised_by === me(req).id), files: await loadCurrentFiles(), undo: undoStep });
     res.send(page({ title: 'My day', tab: 'me', person: me(req), flash: takeFlash(req, res), body, sub: me(req).name }).value);
   });
 
@@ -370,7 +378,7 @@ export function routes(): express.Router {
       pool.query('select name from people where active order by name'),
     ]);
     const suggestionsPanel = jobPanel(await loadSuggestions({ status: 'pending', jobId: id }), me(req).role === 'editor', id);
-    const [issues, issueTypes] = await Promise.all([loadIssues({ jobId: id }), loadIssueTypes()]);
+    const [issues, issueTypes, siteLogs, siteLinks, installers] = await Promise.all([loadIssues({ jobId: id }), loadIssueTypes(), loadSiteLogs(id), me(req).role === 'editor' ? loadSiteLinks(id) : [], me(req).role === 'editor' ? loadInstallers() : []]);
     const flagId = Number(req.query.flag) || null;
     const fromFlag = flagId ? issues.find((i) => i.id === flagId) : undefined;
     // Materials (R15 to R20): this job's lines, every live job's allocations (for what is free), open orders, the catalogue.
@@ -378,6 +386,7 @@ export function routes(): express.Router {
     const factoryDate = data.steps.find((s) => s.kind === 'factory' && !s.label)?.start_date ?? null;
     const body = jobPage({ person: me(req), today: b.t, ...data, list, history, decisions, templates, responsible, peopleNames: people.rows.map((p) => p.name), suggestionsPanel,
       issues, issueTypes, fromFlag: fromFlag ? { id: fromFlag.id, note: fromFlag.note } : null,
+      site: { jobId: id, person: me(req), logs: siteLogs, links: siteLinks, appUrl: config.appUrl, installers, install: data.steps.find((s) => s.kind === 'install' && !s.label) },
       materials: { jobId: id, person: me(req), lines: materials, orders, items: stockItems, readiness: readiness(materials, orders, id), factoryDate, onHand, allocated: allocatedByItem(allMaterials) } });
     res.send(page({ title: 'One job', tab: 'job', person: me(req), flash: takeFlash(req, res), body, attention: attentionCount(b) }).value);
   });
@@ -563,6 +572,10 @@ export function routes(): express.Router {
     const moved = rows.find((r) => r.id === Number(src.step));
     if (!moved) throw new UserError('Pick the step to move.');
     if (moved.done) throw new UserError(`${moved.label || KINDS[moved.kind].label} is ticked done. Untick it first if it needs a new date.`);
+    // A stale page (7 Nov 2026): the move was drawn with one date and the step has another now, so someone else moved it. Refuse rather than overwrite.
+    if (req.method === 'POST' && src.was !== undefined && String(src.was) !== (moved.start_date ?? '')) {
+      throw new UserError(`${moved.label || KINDS[moved.kind].label} has moved since you opened this page (it is now ${moved.start_date ? fmtShort(moved.start_date) : 'undated'}). Reload and try again.`);
+    }
     let mode: Mode = ['shift', 'squeeze', 'only'].includes(String(src.mode)) ? (String(src.mode) as Mode) : 'shift';
     if (mode === 'squeeze' && !canSqueeze(moved, rows)) mode = 'shift';
     return { id, job, rows, cal, moved, mode };
@@ -695,6 +708,8 @@ export function routes(): express.Router {
         }
       }
     });
+    // Undo on My day (George, 7 Nov 2026): the next My day page shows what was ticked with an Undo button.
+    if (done && !s.done_at && String(fields.back ?? '').startsWith('/me')) setCookie(res, 'hub_undo', String(id), 20);
     // Materials in, ticked: the factory hears straight away (George, 7 Nov 2026).
     if (done && !s.done_at && s.kind === 'materials_in' && !s.label) {
       await deliverAll(await materialsInNudges(s, { id: s.job_id, client_name: s.client_name, suburb: s.suburb }));
@@ -1045,7 +1060,7 @@ export function routes(): express.Router {
     const [settings, blocked, people, email, tokens, calls, cap, issueTypes, runs] = await Promise.all([
       pool.query('select key, value, label from settings order by sort'),
       loadBlocked(),
-      pool.query('select id, name, email, role, active, is_owner, areas, email_digest, can_stock from people order by active desc, role, name'),
+      pool.query('select id, name, email, role, active, is_owner, areas, email_digest, can_stock from people where not link_only order by active desc, role, name'),
       pool.query(`select value from app_settings where key = 'suggestions_email'`),
       me(req).is_owner ? pool.query(`select t.id, t.name, t.created_at, p.name as created_by_name, t.last_used_at, t.revoked_at from api_tokens t left join people p on p.id = t.created_by order by t.revoked_at nulls first, t.id desc`) : null,
       me(req).is_owner ? pool.query(`select c.at, c.method, c.path, c.status, c.items, t.name as token_name from api_calls c left join api_tokens t on t.id = c.token_id order by c.id desc limit 30`) : null,
@@ -1056,7 +1071,7 @@ export function routes(): express.Router {
     const extra = suggestionSettings({ email: email.rows[0]?.value ?? '', isOwner: me(req).is_owner, tokens: tokens?.rows ?? [], calls: calls?.rows ?? [], newToken: newTok });
     return { settings: settings.rows, blocked, people: people.rows, today: today(), templates: await loadTemplates(), viewerIsOwner: me(req).is_owner, extra, message: await appSetting('board_message'),
       cap, issueTypes, runs, preview: config.preview, nudgeTo: config.preview ? await appSetting('suggestions_email') : null, tvKey: await appSetting('tv_token'), appUrl: config.appUrl,
-      liveTokens: tokens ? tokens.rows.filter((t) => !t.revoked_at).length : undefined };
+      liveTokens: tokens ? tokens.rows.filter((t) => !t.revoked_at).length : undefined, installers: await loadInstallers() };
   }
 
   // Settings as a menu of short pages (George, 7 Nov 2026; redesign C).
@@ -1248,6 +1263,16 @@ export function routes(): express.Router {
     await withPerson(me(req).id, (db) => db.query('insert into people (name, email, role, is_owner, areas, email_digest, can_stock) values ($1, $2, $3, $4, $5, $6, $7)',
       [name, email, roleOf(req.body.role), me(req).is_owner && req.body.is_owner === '1', areasOf(req.body.areas), req.body.email_digest !== '0', req.body.can_stock === '1']));
     flash(res, `${name} added. They can sign in at ${req.protocol}://${req.get('host')} with ${email}.`);
+    res.redirect('/settings/people');
+  });
+
+  r.post('/settings/installers/:id', editor, async (req, res) => {
+    const id = idParam(req);
+    const on = req.body.active === '1';
+    await withPerson(me(req).id, (db) => db.query('update people set active = $2 where id = $1 and link_only', [id, on]));
+    // Sessions are the sign-in code's (system): signing their phones out is part of switching them off.
+    if (!on) await withSystem((db) => db.query('delete from sessions where person_id = $1', [id]));
+    flash(res, on ? 'Installer switched on.' : 'Installer switched off; their links no longer open.');
     res.redirect('/settings/people');
   });
 

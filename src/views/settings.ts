@@ -43,6 +43,8 @@ export interface SettingsData {
   todaysNudges?: { subject: string; to: { name: string; email: string }; lines: string[] }[];
   /** How many tokens are live, for the menu line (owners). */
   liveTokens?: number;
+  /** Installers who sign in only by a job link (George, 7 Nov 2026). */
+  installers?: { id: number; name: string; active: boolean; jobs: string[] }[];
 }
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -208,6 +210,12 @@ const PAGES: Record<SettingsPage, (d: SettingsData) => Html> = {
       </form>`;
     })}</div>
   </section>
+  ${d.installers?.length ? html`<section class="panel"><h2>Installers</h2>
+    <p class="muted small">Installers don't sign in. They get a link to one job from that job's Site section, which opens the site page: plans, a daily log with photos, what's missing, and "finished from our side". Their name goes on what they write. Switch one off to stop every link they have.</p>
+    <div class="tbl" tabindex="0"><table><thead><tr><th>Installer</th><th>Jobs with a live link</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody>
+      ${d.installers.map((i) => html`<tr><td>${i.name}${i.active ? '' : html` <span class="muted small">· off</span>`}</td><td>${i.jobs.join(', ') || html`<span class="muted">None</span>`}</td>
+        <td><form method="post" action="/settings/installers/${i.id}"><input type="hidden" name="active" value="${i.active ? '0' : '1'}"><button class="btn small${i.active ? ' danger' : ''}" type="submit">${i.active ? 'Switch off' : 'Switch on'}</button></form></td></tr>`)}
+    </tbody></table></div></section>` : ''}
   <section class="panel"><h2>Add a person</h2>
     <form method="post" action="/settings/people" class="stack">
       <div class="fixgrid">

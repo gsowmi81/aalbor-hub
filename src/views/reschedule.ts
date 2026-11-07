@@ -78,6 +78,7 @@ export function reschedulePage(d: RescheduleData): Html {
     <form method="post" action="${base}" class="panel" style="gap:2px">
       <input type="hidden" name="step" value="${d.moved.id}">
       <input type="hidden" name="mode" value="${d.mode}">
+      <input type="hidden" name="was" value="${d.moved.start_date ?? ''}">
       <div class="row"><h2>New dates</h2><span class="muted small">${changedCount} ${changedCount === 1 ? 'step changes' : 'steps change'}</span></div>
       <p class="muted small" style="padding-bottom:6px">Change any date below before saving. The dates you save are confirmed, since you chose them; tick the box at the bottom to leave them provisional.</p>
       ${rows.map((r) => {

@@ -46,7 +46,7 @@ export async function loadCalendar(): Promise<Calendar> {
   return new Calendar(await loadBlocked());
 }
 
-const STEP_COLS = 'id, job_id, kind, rework_id, rework_area, hours, label, start_date, end_date, confirmed, pinned, owner, done_at, note, sort, gaps_adjusted, site_clean';
+const STEP_COLS = 'id, job_id, kind, rework_id, rework_area, hours, label, start_date, end_date, confirmed, pinned, owner, done_at, note, sort, gaps_adjusted, site_clean, site_finished_at, site_finished_by';
 
 /** Job-number order, oldest first (George, 6 Nov 2026): YYMMDD numbers by value, then any others, then none. */
 export const JOB_NUMBER_ORDER = `coalesce(job_number ~ '^[0-9]+$', false) desc, case when job_number ~ '^[0-9]{1,15}$' then job_number::bigint end, job_number nulls last, client_name`;

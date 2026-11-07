@@ -24,6 +24,10 @@ export interface Person {
   can_stock: boolean;
   /** Bot suggestions waiting for an Editor (the count on the Suggestions tab). */
   pending_suggestions?: number;
+  /** Signed in by a job link (an installer, George, 7 Nov 2026): held to this one job's site page. */
+  job_scope?: number | null;
+  /** Signs in only by a job link; the emailed sign-in refuses them. */
+  link_only?: boolean;
 }
 
 declare global {
@@ -61,7 +65,7 @@ export async function loadPerson(req: Request, _res: Response, next: NextFunctio
   const t = readCookie(req, COOKIE);
   if (t) {
     const r = await pool.query(
-      `select p.id, p.name, p.email, p.role, p.is_owner, p.areas, p.can_stock,
+      `select p.id, p.name, p.email, p.role, p.is_owner, p.areas, p.can_stock, p.link_only, s.job_id as job_scope,
               (select count(*)::int from suggestions where status = 'pending') as pending_suggestions
        from sessions s join people p on p.id = s.person_id
        where s.token_hash = $1 and s.expires_at > now() and p.active`,
@@ -139,7 +143,7 @@ export function authRoutes(): Router {
     const email = String(req.body.email ?? '').trim().toLowerCase();
     const next = safeNext(req.body.next);
     const sent = `If ${email} is on the Aalbor Hub list, a sign-in link is on its way. It works for ${LINK_MINUTES} minutes. Check junk mail if it isn't there in a minute.`;
-    const p = (await pool.query('select id, name, email from people where email = $1 and active', [email])).rows[0];
+    const p = (await pool.query('select id, name, email from people where email = $1 and active and not link_only', [email])).rows[0];
     if (!p) return res.send(loginPage({ email, next, message: sent }).value);
 
     const recent = await pool.query(
@@ -194,6 +198,21 @@ export function authRoutes(): Router {
     }
     setCookie(res, COOKIE, s, SESSION_DAYS * 86400);
     res.redirect(safeNext(req.body.next));
+  });
+
+  // A job link (George, 7 Nov 2026): the installer's way in. It opens one job's site page and nothing else.
+  r.get('/site/go/:token', async (req, res) => {
+    const t = String(req.params.token ?? '');
+    const link = (await pool.query(`select l.id, l.job_id, l.person_id from site_links l join people p on p.id = l.person_id join jobs j on j.id = l.job_id
+      where l.token = $1 and l.revoked_at is null and p.active and j.status <> 'cancelled'`, [t])).rows[0];
+    if (!link) return res.status(404).send(bare('Site link', html`<h1>This link has stopped</h1><p>Ask the office for a new one.</p>`).value);
+    const s = token();
+    await withSystem(async (db) => {
+      await db.query(`insert into sessions (token_hash, person_id, expires_at, job_id) values ($1, $2, now() + make_interval(days => $3), $4)`, [hash(s), link.person_id, SESSION_DAYS, link.job_id]);
+      await db.query('update site_links set last_used_at = now() where id = $1', [link.id]);
+    });
+    setCookie(res, COOKIE, s, SESSION_DAYS * 86400);
+    res.redirect('/site');
   });
 
   r.post('/logout', async (req, res) => {

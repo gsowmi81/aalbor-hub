@@ -110,7 +110,7 @@
   // Everything below binds to elements on the page, so it runs again after an in-place update.
   function init() {
   // A save message stays long enough to read, then goes.
-  document.querySelectorAll('.notice.ok').forEach(function (n) { setTimeout(function () { n.style.transition = 'opacity .6s'; n.style.opacity = '0'; setTimeout(function () { n.remove(); }, 700); }, 7000); });
+  document.querySelectorAll('.notice.ok').forEach(function (n) { setTimeout(function () { n.style.transition = 'opacity .6s'; n.style.opacity = '0'; setTimeout(function () { n.remove(); }, 700); }, n.classList.contains('undo') ? 10000 : 7000); });
   // Guidance that fades (redesign E): a screen's how-it-works line shows the first three visits in this
   // browser, then folds into a "?" that brings it back. A folded line stays folded; an opened one stays open until the next visit.
   document.querySelectorAll('.guide[data-guide]').forEach(function (g) {
@@ -173,6 +173,9 @@
     var hidden = function (n, v) { var i = el('input'); i.type = 'hidden'; i.name = n; i.value = v; form.appendChild(i); };
     hidden('step', step);
     hidden('back', location.pathname + location.search + '#s-' + step);
+    // The date the card was drawn with: the hub refuses the move if someone else moved it meanwhile.
+    var was = card.getAttribute('data-was');
+    if (was !== null) hidden('was', was);
     var qs = '';
     Object.keys(params).forEach(function (k) { hidden(k, params[k]); qs += '&' + k + '=' + encodeURIComponent(params[k]); });
     var dateInput = null;

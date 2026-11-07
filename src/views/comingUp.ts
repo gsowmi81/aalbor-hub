@@ -48,7 +48,7 @@ export function brandSeg(base: string, brand: string, extra = ''): Html {
  */
 export function dragData(s: StepRow, job: JobRow, jobSteps: StepRow[]): Html {
   const squeeze = canSqueeze(planRow(s), jobSteps.map(planRow));
-  return html` data-step="${s.id}" data-job="${job.id}" data-label="${jobTitle(job)} · ${stepLabel(s)}"${squeeze ? html` data-squeeze="1"` : ''}`;
+  return html` data-step="${s.id}" data-job="${job.id}" data-label="${jobTitle(job)} · ${stepLabel(s)}" data-was="${s.start_date ?? ''}"${squeeze ? html` data-squeeze="1"` : ''}`;
 }
 
 function chip(s: StepRow, job: JobRow, opts: { prefix?: string; suffix?: string; style?: string; today: Iso; movable?: boolean; jobSteps?: StepRow[] }): Html {

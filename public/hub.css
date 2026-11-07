@@ -452,3 +452,10 @@ td.acts-cell form { display: inline; }
   .pipe td.pc .rdy { position: static; }
   .count td input { width: 80px; }
 }
+/* The site log (George, 7 Nov 2026). */
+.slog-missing { border-left: 3px solid var(--over); padding-left: 10px; }
+.slog-finished { border-left: 3px solid var(--ok); padding-left: 10px; }
+.spill.warn { background: var(--warn-bg); color: var(--warn-fg); border-color: var(--warn-line); text-decoration: none; }
+.wrap.site .top h1 { font-size: 22px; }
+textarea { min-height: 80px; padding: 10px; resize: vertical; }
+.notice.undo { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
