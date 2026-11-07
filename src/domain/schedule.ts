@@ -41,6 +41,8 @@ export interface PlanRow {
   end_date: Iso | null;
   done: boolean;
   confirmed: boolean;
+  /** A promised date (George, 7 Nov 2026): never moved by shift, squeeze or a drag, only by hand. */
+  pinned?: boolean;
   /** Rework tasks: which rework, and which standard step the task stands for. */
   rework_id?: number | null;
   rework_area?: StepKind | null;
@@ -122,7 +124,8 @@ function moveTo(r: PlanRow, start: Iso, cal: Calendar): Change {
  * - squeeze: install (and after) stays put; the steps between take up their spare days first and
  *            only move as far as the rules force them to.
  * - only:    just the moved step.
- * Steps already done never move.
+ * Steps already done never move, and neither do pinned ones (a clash with a pinned step is
+ * a hard violation, so it needs "Move anyway" or a decision).
  */
 export function reschedule(
   rows: PlanRow[],
@@ -145,7 +148,7 @@ export function reschedule(
   if (isReworkTask(moved)) {
     const delta = cal.workingDaysBetween(cal.onOrAfter(moved.start_date, scope), cal.onOrAfter(newStart, scope), scope);
     for (const r of rows) {
-      if (r.id === moved.id || !isReworkTask(r) || r.rework_id !== moved.rework_id || r.done || !r.start_date) continue;
+      if (r.id === moved.id || !isReworkTask(r) || r.rework_id !== moved.rework_id || r.done || r.pinned || !r.start_date) continue;
       if (areaIndex(r) <= areaIndex(moved)) continue;
       changes.set(r.id, { id: r.id, ...shiftStep(r, delta, cal) });
     }
@@ -156,7 +159,7 @@ export function reschedule(
   const after = descendants(moved.kind);
   for (const c of COMPANIONS[moved.kind] ?? []) after.add(c);
   const later = rows
-    .filter((r) => isStandard(r) && after.has(r.kind) && !r.done && r.start_date)
+    .filter((r) => isStandard(r) && after.has(r.kind) && !r.done && !r.pinned && r.start_date)
     .sort((a, b) => FLOW.indexOf(a.kind) - FLOW.indexOf(b.kind));
 
   if (mode === 'shift') {
@@ -197,7 +200,7 @@ export function reschedule(
 function travel(rows: PlanRow[], changes: Map<number, Change>, cal: Calendar): Change[] {
   const std = new Map(rows.filter(isStandard).map((r) => [r.kind, r]));
   for (const r of rows) {
-    if (r.kind === 'rework' || !r.label || r.done || !r.start_date || changes.has(r.id)) continue;
+    if (r.kind === 'rework' || !r.label || r.done || r.pinned || !r.start_date || changes.has(r.id)) continue;
     const base = std.get(r.kind);
     const c = base && changes.get(base.id);
     if (!base?.start_date || !c?.start_date) continue;

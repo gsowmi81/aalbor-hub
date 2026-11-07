@@ -32,6 +32,8 @@ export interface StepRow {
   confirmed: boolean;
   owner: string;
   done_at: string | null;
+  /** A promised date: shift, squeeze and drags leave it alone (George, 7 Nov 2026). */
+  pinned?: boolean;
   /** Rework tasks: the standard step it stands for (its board row), and hours needed. */
   rework_area?: StepKind | null;
   hours?: number | null;
@@ -58,7 +60,73 @@ export function jobTitle(j: Pick<JobRow, 'client_name' | 'suburb'>): string {
 }
 
 export function planRow(s: StepRow): PlanRow {
-  return { id: s.id, kind: s.kind, label: s.label, start_date: s.start_date, end_date: s.end_date, done: !!s.done_at, confirmed: s.confirmed, rework_id: s.rework_id, rework_area: s.rework_area ?? null };
+  return { id: s.id, kind: s.kind, label: s.label, start_date: s.start_date, end_date: s.end_date, done: !!s.done_at, confirmed: s.confirmed, pinned: !!s.pinned, rework_id: s.rework_id, rework_area: s.rework_area ?? null };
+}
+
+/** The stages of the Pipeline grid (George, 7 Nov 2026): each groups the standard steps it stands for. */
+export const STAGES: { key: string; label: string; short: string; kinds: StepKind[] }[] = [
+  { key: 'contract', label: 'Drafting for contract', short: 'Drafting', kinds: ['contract_drafting'] },
+  { key: 'measure', label: 'Check measure', short: 'Measure', kinds: ['check_measure'] },
+  { key: 'drawings', label: 'Production drawings', short: 'Drawings', kinds: ['production_drawings'] },
+  { key: 'materials', label: 'Materials', short: 'Materials', kinds: ['materials_ordered', 'materials_in'] },
+  { key: 'factory', label: 'Factory', short: 'Factory', kinds: ['factory'] },
+  { key: 'painting', label: 'Painting', short: 'Painting', kinds: ['doors_to_painting', 'doors_back'] },
+  { key: 'delivery', label: 'Delivery', short: 'Delivery', kinds: ['delivery'] },
+  { key: 'install', label: 'Install cabinets', short: 'Install', kinds: ['install'] },
+  { key: 'stone', label: 'Stone', short: 'Stone', kinds: ['stone_measure', 'stone_install'] },
+];
+
+export type StageState = 'done' | 'overdue' | 'now' | 'later' | 'undated' | 'skipped' | 'na';
+
+export interface StageCell {
+  key: string;
+  state: StageState;
+  /** The first open step in the stage, or the last done one. */
+  step: StepRow | null;
+  /** Pinned step in the stage. */
+  pinned: boolean;
+}
+
+/**
+ * One job across the stages: done when every standard step in the stage is ticked, overdue when
+ * one is past its date, now when one is dated this week, later when dated ahead, undated when
+ * a step exists with no date, n/a when the job has no step of that stage (no painting, no stone).
+ * An undated stage before one already done is "skipped": it happened without being recorded
+ * (the imported jobs never had Drafting for contract ticked).
+ */
+export function stageCells(steps: StepRow[], weekMon: Iso, weekSun: Iso, today: Iso): StageCell[] {
+  const std = steps.filter((s) => s.kind !== 'rework' && !s.label);
+  const cells: StageCell[] = STAGES.map((st) => {
+    const mine = std.filter((s) => st.kinds.includes(s.kind)).sort((a, b) => FLOW.indexOf(a.kind) - FLOW.indexOf(b.kind));
+    if (!mine.length) return { key: st.key, state: 'na', step: null, pinned: false };
+    const open = mine.filter((s) => !s.done_at);
+    const pinned = mine.some((s) => s.pinned);
+    if (!open.length) return { key: st.key, state: 'done', step: mine[mine.length - 1], pinned };
+    const dated = open.filter((s) => s.start_date);
+    const first = dated.sort((a, b) => a.start_date!.localeCompare(b.start_date!))[0] ?? open[0];
+    let state: StageState = 'undated';
+    if (dated.some((s) => lastDate(s)! < today)) state = 'overdue';
+    else if (dated.some((s) => s.start_date! <= weekSun && lastDate(s)! >= weekMon)) state = 'now';
+    else if (dated.length) state = 'later';
+    return { key: st.key, state, step: first, pinned };
+  });
+  const lastDone = cells.reduce((m, c, i) => (c.state === 'done' ? i : m), -1);
+  for (let i = 0; i < lastDone; i++) if (cells[i].state === 'undated') cells[i].state = 'skipped';
+  return cells;
+}
+
+/** The stage a job is at: the first not done after the last one done (ignoring n/a), or null when every stage is done. */
+export function currentStage(cells: StageCell[]): StageCell | null {
+  const open = (c: StageCell) => c.state !== 'done' && c.state !== 'na' && c.state !== 'skipped';
+  const lastDone = cells.reduce((m, c, i) => (c.state === 'done' ? i : m), -1);
+  return cells.slice(lastDone + 1).find(open) ?? cells.find(open) ?? null;
+}
+
+/** The step a job is at, by the same rule: the first open standard step after the last one done. */
+export function currentStep(steps: StepRow[]): StepRow | undefined {
+  const std = steps.filter((s) => s.kind !== 'rework' && !s.label).sort((a, b) => FLOW.indexOf(a.kind) - FLOW.indexOf(b.kind));
+  const lastDone = std.reduce((m, s, i) => (s.done_at ? i : m), -1);
+  return std.slice(lastDone + 1).find((s) => !s.done_at) ?? std.find((s) => !s.done_at);
 }
 
 /** Steps whose last date has passed and nobody has ticked. */

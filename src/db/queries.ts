@@ -10,6 +10,22 @@ export interface FullJob extends JobRow {
   scope: string;
   notes: string;
   added_on: string;
+  /** Where the drawings live: a folder link, no files in the hub (George, 7 Nov 2026). */
+  drawings_url: string;
+}
+
+/** One text setting from app_settings, or '' when it isn't set. */
+export async function appSetting(key: string): Promise<string> {
+  return (await pool.query('select value from app_settings where key = $1', [key])).rows[0]?.value ?? '';
+}
+
+/** Jobs matching a typed search: number, client or suburb (the header search, George, 7 Nov 2026). */
+export async function findJobs(q: string): Promise<{ id: number; job_number: string | null; client_name: string; suburb: string; status: string }[]> {
+  const like = `%${q.replace(/[%_\\]/g, (c) => `\\${c}`)}%`;
+  return (await pool.query(
+    `select id, job_number, client_name, suburb, status from jobs
+      where job_number ilike $1 or client_name ilike $1 or suburb ilike $1
+      order by status = 'live' desc, ${JOB_NUMBER_ORDER} limit 50`, [like])).rows;
 }
 
 export interface ReworkFull extends ReworkRow {
@@ -30,7 +46,7 @@ export async function loadCalendar(): Promise<Calendar> {
   return new Calendar(await loadBlocked());
 }
 
-const STEP_COLS = 'id, job_id, kind, rework_id, rework_area, hours, label, start_date, end_date, confirmed, owner, done_at, note, sort';
+const STEP_COLS = 'id, job_id, kind, rework_id, rework_area, hours, label, start_date, end_date, confirmed, pinned, owner, done_at, note, sort';
 
 /** Job-number order, oldest first (George, 6 Nov 2026): YYMMDD numbers by value, then any others, then none. */
 export const JOB_NUMBER_ORDER = `coalesce(job_number ~ '^[0-9]+$', false) desc, case when job_number ~ '^[0-9]{1,15}$' then job_number::bigint end, job_number nulls last, client_name`;
@@ -110,7 +126,7 @@ export async function templateFor(job: { template?: string | null; has_painting:
 
 export async function loadPlanRows(jobId: number): Promise<(PlanRow & { owner: string })[]> {
   return (await pool.query(
-    `select id, kind, label, start_date, end_date, done_at is not null as done, confirmed, owner, rework_id, rework_area from steps where job_id = $1 order by sort, id`,
+    `select id, kind, label, start_date, end_date, done_at is not null as done, confirmed, pinned, owner, rework_id, rework_area from steps where job_id = $1 order by sort, id`,
     [jobId],
   )).rows;
 }

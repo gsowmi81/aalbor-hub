@@ -18,6 +18,8 @@ export interface Person {
   role: Role;
   /** George and Gus: can see who was responsible for each rework. */
   is_owner: boolean;
+  /** Board rows this person works in (Settings → People): their steps on My day. */
+  areas: string[];
   /** Bot suggestions waiting for an Editor (the count on the Suggestions tab). */
   pending_suggestions?: number;
 }
@@ -57,7 +59,7 @@ export async function loadPerson(req: Request, _res: Response, next: NextFunctio
   const t = readCookie(req, COOKIE);
   if (t) {
     const r = await pool.query(
-      `select p.id, p.name, p.email, p.role, p.is_owner,
+      `select p.id, p.name, p.email, p.role, p.is_owner, p.areas,
               (select count(*)::int from suggestions where status = 'pending') as pending_suggestions
        from sessions s join people p on p.id = s.person_id
        where s.token_hash = $1 and s.expires_at > now() and p.active`,

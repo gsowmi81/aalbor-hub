@@ -27,23 +27,33 @@
     if (text) e.textContent = text;
     return e;
   }
-  function moveBox(card, params, what, onCancel) {
+  // opts.date: show a date picker in the box (a tapped date on the job screen, George, 7 Nov 2026).
+  function moveBox(card, params, what, onCancel, opts) {
     if (openBox) openBox.close();
+    opts = opts || {};
     var job = card.getAttribute('data-job'), step = card.getAttribute('data-step');
     var name = card.getAttribute('data-label') || 'this step';
     var box = el('div', 'movebox');
     box.setAttribute('role', 'dialog');
     box.setAttribute('aria-label', 'Move ' + name);
-    box.appendChild(el('strong', '', 'Move ' + name + ' ' + what));
+    box.appendChild(el('strong', '', 'Move ' + name + (what ? ' ' + what : '')));
     box.appendChild(el('span', 'muted small', 'What happens to the rest of the job? It saves straight away, confirmed.'));
     var form = el('form');
     form.method = 'post';
     form.action = '/jobs/' + job + '/reschedule/quick';
     var hidden = function (n, v) { var i = el('input'); i.type = 'hidden'; i.name = n; i.value = v; form.appendChild(i); };
     hidden('step', step);
-    hidden('back', location.pathname + location.search);
+    hidden('back', location.pathname + location.search + '#s-' + step);
     var qs = '';
     Object.keys(params).forEach(function (k) { hidden(k, params[k]); qs += '&' + k + '=' + encodeURIComponent(params[k]); });
+    var dateInput = null;
+    if (opts.date !== undefined) {
+      var lab = el('label', 'f', 'New date');
+      dateInput = el('input'); dateInput.type = 'date'; dateInput.name = 'start'; dateInput.required = true;
+      dateInput.value = opts.date || new Date().toISOString().slice(0, 10);
+      lab.appendChild(dateInput);
+      form.appendChild(lab);
+    }
     var acts = el('div', 'acts');
     var choices = [['shift', 'Move everything after it', 'btn primary']];
     if (card.getAttribute('data-squeeze') === '1') choices.push(['squeeze', 'Keep the install date', 'btn']);
@@ -58,6 +68,7 @@
     var links = el('div', 'links');
     var see = el('a', '', 'See every date first');
     see.href = '/jobs/' + job + '/reschedule?step=' + step + qs;
+    if (dateInput) see.addEventListener('click', function () { see.href = '/jobs/' + job + '/reschedule?step=' + step + '&start=' + encodeURIComponent(dateInput.value); });
     var cancel = el('button', 'linkbtn', 'Cancel');
     cancel.type = 'button';
     links.appendChild(see);
@@ -73,8 +84,17 @@
     document.addEventListener('keydown', esc);
     document.body.appendChild(box);
     openBox = { close: close };
-    acts.firstChild.focus();
+    if (dateInput) dateInput.focus(); else acts.firstChild.focus();
   }
+
+  // The job screen (Editors): tap a date to move it (George, 7 Nov 2026). Without this file the
+  // link opens the Reschedule screen, which does the same in more taps.
+  document.querySelectorAll('a.datebtn[data-step]').forEach(function (a) {
+    a.addEventListener('click', function (e) {
+      e.preventDefault();
+      moveBox(a, {}, '', null, { date: a.getAttribute('data-date') || '' });
+    });
+  });
   var plural = function (n, one) { return (n > 0 ? '+' : '') + n + ' ' + one + (Math.abs(n) === 1 ? '' : 's'); };
 
   // All jobs timeline (Editors): drag a bar with a mouse to move it, or tap/click it to open

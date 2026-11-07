@@ -70,6 +70,15 @@ describe('reschedule', () => {
     expect(violations(next, cal).filter((v) => v.dep.hard)).toEqual([]);
   });
 
+  it('leaves a pinned install where it is when an earlier step shifts, and flags the clash (George, 7 Nov 2026)', () => {
+    const rows = plan().map((r) => (r.kind === 'install' ? { ...r, pinned: true } : r));
+    const next = applyChanges(rows, reschedule(rows, idOf(rows, 'materials_in'), '2027-03-08', null, 'shift', cal));
+    const d = dates(next);
+    expect(d.install).toBe('2027-03-01..2027-03-03');
+    expect(d.factory).toBe('2027-03-09..2027-03-10');
+    expect(violations(next, cal).filter((v) => v.dep.hard).map((v) => `${v.pred.kind}>${v.succ.kind}`)).toContain('delivery>install');
+  });
+
   it('says when squeezing still cannot keep the install date', () => {
     const rows = plan();
     // Materials in on Mon 01 Mar: factory 01 to 02 Mar, so delivery can't be before Tue 02 Mar.

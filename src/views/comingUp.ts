@@ -5,13 +5,8 @@ import { CapacityWarning, Decision, jobTitle, JobRow, lastDate, planRow, ReworkR
 import { canSqueeze } from './reschedule.js';
 import { can, Person } from '../web/auth.js';
 
-export interface StoredDecision {
-  key: string;
-  fingerprint: string;
-  note: string;
-  decided_at: string;
-  decided_by_name: string | null;
-}
+import { StoredDecision } from './items.js';
+export type { StoredDecision };
 
 export interface ComingUpData {
   person: Person;
@@ -27,6 +22,8 @@ export interface ComingUpData {
   capacity: CapacityWarning[];
   cal: Calendar;
   suggestionsPanel?: Html;
+  /** One line from the office (Settings), shown above the board (George, 7 Nov 2026). */
+  message?: string;
 }
 
 const DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
@@ -100,7 +97,6 @@ export function comingUp(d: ComingUpData): Html {
   });
 
   const pending = d.decisions.filter((x) => d.stored.get(x.key)?.fingerprint !== x.fingerprint);
-  const decided = d.decisions.filter((x) => d.stored.get(x.key)?.fingerprint === x.fingerprint);
   const weekLabel = d.week === 0 ? 'This week' : 'Next week';
   const q = `&brand=${d.brand}`;
 
@@ -153,10 +149,11 @@ export function comingUp(d: ComingUpData): Html {
   const agenda = html`${undatedRework.length ? html`<div class="lane-rework" style="display:flex;flex-direction:column;gap:3px"><h3>Rework, not yet dated</h3>${undatedRework.map((x) => reworkCard(x, jobById.get(x.job_id)!, false))}</div>` : ''}${agendaDays}`;
 
   return html`
+  ${d.message ? html`<div class="me-msg" role="note">${d.message}</div>` : ''}
   <div class="tiles">
-    <a class="tile over" href="#overdue"><b>${d.overdue.length}</b><span>Overdue</span><small>Date passed, not ticked</small></a>
+    <a class="tile over" href="/attention"><b>${d.overdue.length}</b><span>Overdue</span><small>Date passed, not ticked</small></a>
     <div class="tile"><div class="sum">${sum}</div><span>${weekLabel}</span><small>Jobs in each step</small></div>
-    <a class="tile warn" href="#attention"><b>${pending.length}</b><span>Needs a decision</span><small>${[...new Set(pending.map((x) => x.title.split(' · ')[0]))].slice(0, 4).join(', ') || 'Nothing to decide'}</small></a>
+    <a class="tile warn" href="/attention"><b>${pending.length}</b><span>To decide</span><small>${[...new Set(pending.map((x) => x.title.split(' · ')[0]))].slice(0, 4).join(', ') || 'Nothing to decide'}</small></a>
     <a class="tile" href="/jobs"><b>${liveJobs.length}</b><span>Live jobs</span><small>Across all steps</small></a>
   </div>
 
@@ -164,10 +161,10 @@ export function comingUp(d: ComingUpData): Html {
     <div class="row">
       <h2 id="weektitle">${weekLabel} · ${fmtShort(mon)} to ${fmtShort(fri)}</h2>
       <div class="inline">
-        ${brandSeg('/', d.brand, `&week=${d.week}`)}
+        ${brandSeg('/board', d.brand, `&week=${d.week}`)}
         <div class="seg" role="group" aria-label="Week">
-          <a href="/?week=0${q}"${d.week === 0 ? html` aria-current="true"` : ''}>This week</a>
-          <a href="/?week=1${q}"${d.week === 1 ? html` aria-current="true"` : ''}>Next week</a>
+          <a href="/board?week=0${q}"${d.week === 0 ? html` aria-current="true"` : ''}>This week</a>
+          <a href="/board?week=1${q}"${d.week === 1 ? html` aria-current="true"` : ''}>Next week</a>
         </div>
       </div>
     </div>
@@ -177,80 +174,5 @@ export function comingUp(d: ComingUpData): Html {
     <div class="agenda">${agenda}</div>
   </section>
 
-  ${d.suggestionsPanel ?? ''}
-  <div class="two">
-    <section class="panel" id="overdue">
-      <div class="row"><h2>Overdue</h2><span class="muted small">Tick it or give it a new date</span></div>
-      <div>${overdueList(d)}</div>
-    </section>
-    <section class="panel" id="attention">
-      <div class="row"><h2>Needs a date or a decision</h2><span class="muted small">${pending.length ? `${pending.length} to decide` : ''}</span></div>
-      <div class="muted small">Decide each one here: keep it as it is, or change the dates. Your choice updates the job.</div>
-      <div>${decisionList(d, pending, decided)}</div>
-    </section>
-  </div>`;
-}
-
-function overdueList(d: ComingUpData): Html {
-  if (!d.overdue.length) return html`<div style="padding:10px 0;font-weight:600">Nothing overdue.</div>`;
-  const jobById = new Map(d.jobs.map((j) => [j.id, j]));
-  const back = `/?week=${d.week}&brand=${d.brand}#overdue`;
-  return html`${d.overdue.map((s) => {
-    const j = jobById.get(s.job_id)!;
-    const due = lastDate(s)!;
-    const late = daysBetween(due, d.today);
-    return html`<div class="item">
-      <div class="what"><div><a href="/jobs/${j.id}" style="color:inherit">${j.client_name}</a> · ${stepLabel(s)}</div>
-        <div class="muted small">${s.owner || KINDS[s.kind].owner} · was due ${fmtShort(due)}</div></div>
-      <span class="late">${late} ${late === 1 ? 'day' : 'days'} late</span>
-      ${can(d.person, 'doer') ? html`<form method="post" action="/steps/${s.id}/done"><input type="hidden" name="done" value="1"><input type="hidden" name="back" value="${back}"><button class="btn" type="submit">Done</button></form>` : ''}
-      ${can(d.person, 'editor') ? html`<details class="pop" style="display:contents"><summary class="btn">New date</summary>
-        <form class="popbody" method="get" action="/jobs/${j.id}/reschedule" style="flex-basis:100%">
-          <input type="hidden" name="step" value="${s.id}">
-          <div class="inline"><label class="f" for="nd-${s.id}">Move to<input type="date" id="nd-${s.id}" name="start" value="${addDays(d.today, 1)}" min="${d.today}" required></label>
-          <button class="btn primary" type="submit" style="align-self:flex-end">Next</button></div>
-          <span class="muted small">Next shows what happens to the rest of the job before anything saves.</span>
-        </form></details>` : ''}
-    </div>`;
-  })}`;
-}
-
-const tick = html`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none;color:var(--meas)"><path d="M5 12l5 5L20 7"></path></svg>`;
-
-export function decisionFields(x: Decision): Html {
-  return html`<div class="fixgrid">${x.fields.map((f) => {
-    if (f.kind === 'site_start') {
-      return html`<label class="f">Site start<input type="date" name="site_start_${x.jobId}" value="${f.start ?? ''}"></label>`;
-    }
-    if (f.range) {
-      return html`<label class="f">${f.label} from<input type="date" name="start_${f.stepId}" value="${f.start ?? ''}"></label>
-        <label class="f">${f.label} to<input type="date" name="end_${f.stepId}" value="${f.end ?? ''}"></label>`;
-    }
-    return html`<label class="f">${f.label}<input type="date" name="start_${f.stepId}" value="${f.start ?? ''}"></label>`;
-  })}</div>`;
-}
-
-function decisionList(d: ComingUpData, pending: Decision[], decided: Decision[]): Html {
-  const editor = can(d.person, 'editor');
-  const back = `/?week=${d.week}&brand=${d.brand}#attention`;
-  const items = pending.map((x) => html`<div class="item stack">
-    <div style="font-weight:600">${x.jobId ? html`<a href="/jobs/${x.jobId}" style="color:inherit">${x.title}</a>` : x.title}</div>
-    <div>${x.fact}</div>
-    <div class="ask">${x.ask}</div>
-    ${editor ? html`<div class="acts">
-      <form method="post" action="/decisions/ok"><input type="hidden" name="key" value="${x.key}"><input type="hidden" name="fingerprint" value="${x.fingerprint}"><input type="hidden" name="note" value="${x.okText}"><input type="hidden" name="back" value="${back}"><button class="btn" type="submit">OK as is</button></form>
-      ${x.fields.length ? html`<details class="pop" style="display:contents"><summary class="btn">Change dates</summary>
-        <form class="popbody" method="post" action="/decisions/fix"><input type="hidden" name="back" value="${back}">
-          ${decisionFields(x)}
-          <div class="acts"><button class="btn primary" type="submit">Save</button></div></form></details>`
-        : x.jobId ? html`<a class="btn" href="/jobs/${x.jobId}">Open the job</a>` : ''}
-    </div>` : ''}
-  </div>`);
-  const done = decided.map((x) => {
-    const s = d.stored.get(x.key)!;
-    return html`<div class="item" style="gap:8px">${tick}<span style="flex:1 1 180px;min-width:0"><strong>${x.title}</strong> · ${s.note}${s.decided_by_name ? html` <span class="muted small">(${s.decided_by_name})</span>` : ''}</span>
-      ${editor ? html`<form method="post" action="/decisions/undo"><input type="hidden" name="key" value="${x.key}"><input type="hidden" name="back" value="${back}"><button class="btn small" type="submit">Undo</button></form>` : ''}</div>`;
-  });
-  if (!pending.length && !decided.length) return html`<div style="padding:10px 0;font-weight:600">All decided.</div>`;
-  return html`${items}${!pending.length ? html`<div style="padding:10px 0;font-weight:600">All decided.</div>` : ''}${done}`;
+  ${d.suggestionsPanel ?? ''}`;
 }

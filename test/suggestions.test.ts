@@ -295,7 +295,7 @@ describe('screens', () => {
     ] });
     const n = (await one(`select count(*)::int as n from suggestions where status = 'pending'`)).n;
     const home = await page('GET', '/', 'Christine');
-    expect(home.text).toContain(`aria-label="${n} waiting"`);
+    expect(home.text).toContain(`aria-label="${n} suggestions waiting"`);
     expect(home.text).toContain('Pending suggestions');
     expect((await page('GET', `/jobs/${j.job_id}`, 'Christine')).text).toContain('Pending suggestions');
     const list = await page('GET', '/suggestions?priority=urgent', 'Christine');

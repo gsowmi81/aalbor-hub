@@ -173,7 +173,7 @@ describe('Editors', () => {
   });
 
   it('clear a Needs a decision item with OK as is, and undo it', async () => {
-    const home = await req('GET', '/', 'George');
+    const home = await req('GET', '/attention', 'George');
     const m = home.text.match(/name="key" value="([^"]+)"><input type="hidden" name="fingerprint" value="([^"]+)">/)!;
     const key = m[1];
     const fingerprint = m[2].replace(/&quot;/g, '"');
@@ -249,7 +249,7 @@ describe('rescheduling (George, 30 Oct 2026)', () => {
     expect((await one('select start_date from steps where id = $1', [del.id])).start_date).not.toBe('2026-11-10');
     await req('POST', `/jobs/${job.id}/reschedule`, 'George', { ...body, override: '1' });
     expect((await one('select start_date from steps where id = $1', [del.id])).start_date).toBe('2026-11-10');
-    const home = await req('GET', '/', 'George');
+    const home = await req('GET', '/attention', 'George');
     expect(home.text).toContain("Delivery can&#39;t start before");
   });
 
@@ -554,6 +554,79 @@ describe('who was responsible: owners only (George, 30 Oct 2026)', () => {
     const log = await withPerson(ids.George, async (db) => (await db.query(`select action, person_name from owners_log where rework_id = $1 order by id`, [reworkId])).rows);
     expect(log).toEqual([{ action: 'insert', person_name: 'Gus' }, { action: 'delete', person_name: 'Christine' }]);
     expect(await withPerson(ids.Phil, async (db) => (await db.query('select * from owners_log')).rows)).toEqual([]);
+  });
+});
+
+describe('the preview round (George, 7 Nov 2026)', () => {
+  it('sends a Doer to My day and everyone else to the Board', async () => {
+    const phil = await req('GET', '/', 'Phil');
+    expect(phil.status).toBe(302);
+    expect(phil.location).toBe('/me');
+    expect((await req('GET', '/', 'George')).text).toContain('aria-current="page">Board');
+    expect((await req('GET', '/board?week=1', 'Angela')).status).toBe(200);
+  });
+
+  it('shows a person their own steps on My day once their areas are set in Settings', async () => {
+    const before = await req('GET', '/me', 'Phil');
+    expect(before.text).toContain("Your areas aren't set yet");
+    await req('POST', `/settings/people/${ids.Phil}`, 'George', { name: 'Phil', email: 'phil@test.au', role: 'doer', active: '1', areas: 'factory' });
+    expect((await one('select areas from people where id = $1', [ids.Phil])).areas).toEqual(['factory']);
+    const after = await req('GET', '/me', 'Phil');
+    expect(after.text).toContain('your areas: Factory');
+    expect(after.text).toContain('class="me-row lane-factory');
+    expect(after.text).toContain('Cut, edge and assemble');
+    expect(after.text).not.toContain('Check measure</div>');
+  });
+
+  it('pins a date so nothing moves it: not the job buttons, not a shift from an earlier step', async () => {
+    const job = await one(`select id from jobs where client_name = 'Greg Steven'`);
+    const install = await one(`select id, start_date from steps where job_id = $1 and kind = 'install'`, [job.id]);
+    const dr = await one(`select id, start_date from steps where job_id = $1 and kind = 'production_drawings'`, [job.id]);
+    expect((await req('POST', `/steps/${install.id}/pin`, 'George', { pinned: '1' })).status).toBe(302);
+    expect(await one('select pinned, confirmed from steps where id = $1', [install.id])).toEqual({ pinned: true, confirmed: true });
+    await req('POST', `/jobs/${job.id}/shift`, 'George', { n: '5' });
+    expect((await one('select start_date from steps where id = $1', [install.id])).start_date).toBe(install.start_date);
+    const page = await req('GET', `/jobs/${job.id}/reschedule?step=${dr.id}&wd=3`, 'George');
+    expect(page.status).toBe(200);
+    expect(page.text).toMatch(new RegExp(`name="start_${install.id}" value="${install.start_date}"`));
+    expect((await req('GET', `/jobs/${job.id}`, 'George')).text).toContain('Pinned');
+    expect((await req('POST', `/steps/${install.id}/pin`, 'Phil', { pinned: '0' })).status).toBe(403);
+    await req('POST', `/steps/${install.id}/pin`, 'George', { pinned: '0' });
+    expect((await one('select pinned from steps where id = $1', [install.id])).pinned).toBe(false);
+  });
+
+  it('renders Pipeline, Attention and More, and Find opens a single match', async () => {
+    for (const p of ['/pipeline', '/attention', '/more', '/find', '/find?q=zzzz']) expect((await req('GET', p, 'Angela')).status, p).toBe(200);
+    const pipe = await req('GET', '/pipeline', 'George');
+    expect(pipe.text).toContain('Greg Steven');
+    expect(pipe.text).toMatch(/td class="pc st-(now|later|overdue|undated)[^"]*cur"/);
+    // Imported jobs never had Drafting for contract ticked: it is skipped, not the current stage.
+    expect(pipe.text).toContain('class="pc st-skipped"');
+    const job = await one(`select id from jobs where client_name = 'Greg Steven'`);
+    const found = await req('GET', '/find?q=Greg%20Stev', 'Phil');
+    expect(found.location).toBe(`/jobs/${job.id}`);
+    expect((await req('GET', '/find?q=zzzz', 'Phil')).text).toContain('No job matches');
+    const more = await req('GET', '/more', 'Angela');
+    expect(more.text).not.toContain('href="/settings"');
+  });
+
+  it('keeps a drawings link on the job, web addresses only, and shows it on My day', async () => {
+    const job = await one(`select id, client_name from jobs where client_name = 'Greg Steven'`);
+    const base = { client_name: job.client_name, factory_days: '2', install_days: '3', status: 'live' };
+    await req('POST', `/jobs/${job.id}/details`, 'George', { ...base, drawings_url: 'https://www.dropbox.com/sh/abc' });
+    expect((await one('select drawings_url from jobs where id = $1', [job.id])).drawings_url).toBe('https://www.dropbox.com/sh/abc');
+    expect((await req('GET', `/jobs/${job.id}`, 'Phil')).text).toContain('Drawings ↗');
+    const bad = await req('POST', `/jobs/${job.id}/details`, 'George', { ...base, drawings_url: 'ftp://nope' });
+    expect(bad.status).toBe(302);
+    expect((await one('select drawings_url from jobs where id = $1', [job.id])).drawings_url).toBe('https://www.dropbox.com/sh/abc');
+  });
+
+  it('shows the office message on My day and the board', async () => {
+    await req('POST', '/settings/message', 'George', { message: 'Factory clean-out Friday afternoon' });
+    expect((await req('GET', '/me', 'Phil')).text).toContain('Factory clean-out Friday afternoon');
+    expect((await req('GET', '/board', 'George')).text).toContain('Factory clean-out Friday afternoon');
+    await req('POST', '/settings/message', 'George', { message: '' });
+    expect((await req('GET', '/me', 'Phil')).text).not.toContain('me-msg');
   });
 });
 

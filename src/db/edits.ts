@@ -51,6 +51,17 @@ export interface NewJob {
   install_days: number;
   notes: string;
   template: string | null;
+  drawings_url?: string;
+}
+
+/** A web address for the drawings folder, or '' (George, 7 Nov 2026). Never a file, never anything but http(s). */
+export function checkUrl(v: unknown, what: string): string {
+  const s = String(v ?? '').trim();
+  if (!s) return '';
+  let u: URL;
+  try { u = new URL(s); } catch { throw new UserError(`${what}: paste the full web address, starting with https://`); }
+  if (u.protocol !== 'https:' && u.protocol !== 'http:') throw new UserError(`${what}: paste a web address, starting with https://`);
+  return s.slice(0, 500);
 }
 
 /** Adds a job with the given step dates; every other step the job needs is created with no date. */
@@ -63,9 +74,9 @@ export async function createJob(
 ): Promise<number> {
   if (!v.client_name.trim()) throw new UserError('Add the client name.');
   const job = await db.query(
-    `insert into jobs (job_number, brand, client_name, suburb, scope, door_finish, has_painting, has_stone, site_start, factory_days, install_days, notes, added_on, template)
-     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) returning id`,
-    [v.job_number, v.brand, v.client_name, v.suburb, v.scope, v.door_finish, v.has_painting, v.has_stone, v.site_start, v.factory_days, v.install_days, v.notes, addedOn, v.template]);
+    `insert into jobs (job_number, brand, client_name, suburb, scope, door_finish, has_painting, has_stone, site_start, factory_days, install_days, notes, added_on, template, drawings_url)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) returning id`,
+    [v.job_number, v.brand, v.client_name, v.suburb, v.scope, v.door_finish, v.has_painting, v.has_stone, v.site_start, v.factory_days, v.install_days, v.notes, addedOn, v.template, v.drawings_url ?? '']);
   const jobId = job.rows[0].id as number;
   for (const p of steps) {
     const end = checkDates(p.start_date, p.end_date, KINDS[p.kind].label);

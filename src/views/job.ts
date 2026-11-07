@@ -1,11 +1,12 @@
 import { html, Html } from '../web/html.js';
 import { fmtLong, fmtRange, fmtShort, Iso, sydneyDate } from '../domain/dates.js';
 import { BOARD_ROWS, KINDS, StepKind, FLOW, REWORK_AREAS, REWORK_CATEGORIES, REWORK_ORDER, TASK_AREAS, rowOf } from '../domain/steps.js';
-import { Decision, jobTitle, lastDate, nextUp, StepRow, stepLabel } from '../domain/checks.js';
+import { currentStep, Decision, jobTitle, lastDate, nextUp, planRow, StepRow, stepLabel } from '../domain/checks.js';
+import { canSqueeze } from './reschedule.js';
 import { can, Person } from '../web/auth.js';
 import type { FullJob, LogEntry, ReworkFull, Responsible } from '../db/queries.js';
 import { ANCHORS, AnchorKind, Template } from '../domain/schedule.js';
-import { decisionFields } from './comingUp.js';
+import { decisionFields } from './items.js';
 
 export const CAUSES = ['drafting', 'measure', 'factory', 'install', 'supplier', 'client change'] as const;
 
@@ -70,6 +71,44 @@ function checkRow(s: Step, person: Person, back: string): Html {
     <button class="check${on ? ' on' : ''}" type="submit" aria-pressed="${on}" aria-label="${stepLabel(s)}: ${on ? 'done, tap to untick' : 'tap when done'}">${row}</button></form>`;
 }
 
+/** One step on the job timeline (George, 7 Nov 2026): tick, name, date to tap, pills, pin. */
+function stepRow(s: Step, d: JobPageData, std: Step[]): Html {
+  const { person, job } = d;
+  const editor = can(person, 'editor');
+  const on = !!s.done_at;
+  const over = !on && !!s.start_date && lastDate(s)! < d.today;
+  const back = `/jobs/${job.id}#c-${s.id}`;
+  const cls = ['step', on ? 'done' : '', over ? 'over' : '', !on && s.start_date && !s.confirmed ? 'prov' : '', s.pinned ? 'pinned' : ''].filter(Boolean).join(' ');
+  const box = html`<span class="box" aria-hidden="true">${on ? '✓' : ''}</span>`;
+  const tickBtn = can(person, 'doer')
+    ? html`<form method="post" action="/steps/${s.id}/done" id="c-${s.id}"><input type="hidden" name="done" value="${on ? '0' : '1'}"><input type="hidden" name="back" value="${back}">
+        <button class="check" type="submit" aria-pressed="${on}" aria-label="${stepLabel(s)}: ${on ? 'done, tap to untick' : 'tap when done'}">${box}</button></form>`
+    : html`<span class="check" id="c-${s.id}">${box}</span>`;
+  const when = s.start_date ? fmtRange(s.start_date, s.end_date) : on ? 'Done, date not recorded' : 'No date yet';
+  const pills: Html[] = [];
+  if (on) pills.push(html`<span class="spill done">Done</span>`);
+  else if (over) pills.push(html`<span class="spill over">Overdue</span>`);
+  if (!on && s.start_date) pills.push(s.confirmed ? html`<span class="spill">Confirmed</span>` : html`<span class="spill prov">Provisional</span>`);
+  if (s.pinned) pills.push(html`<span class="spill pin" title="Pinned: nothing moves it">📌 Pinned</span>`);
+  const movable = editor && !on;
+  const dateEl = movable
+    ? html`<a class="datebtn" href="/jobs/${job.id}/reschedule?step=${s.id}" ${dragAttrs(s, job, std)} data-date="${s.start_date ?? ''}" data-range="${KINDS[s.kind].range ? '1' : '0'}" title="Move this date">${when}</a>`
+    : html`<span class="datetxt">${when}</span>`;
+  const pin = editor && !on && s.start_date
+    ? html`<form method="post" action="/steps/${s.id}/pin" class="pinform"><input type="hidden" name="pinned" value="${s.pinned ? '0' : '1'}"><input type="hidden" name="back" value="/jobs/${job.id}#s-${s.id}"><button class="linkbtn small" type="submit">${s.pinned ? 'Unpin' : 'Pin'}</button></form>`
+    : '';
+  return html`<div class="${cls}" id="s-${s.id}">${tickBtn}
+    <div class="st-main"><div class="st-top"><strong>${stepLabel(s)}</strong><span class="muted small">${s.owner || KINDS[s.kind].owner}</span></div>
+      <div class="st-when">${dateEl}${pills}${pin}</div></div>
+  </div>`;
+}
+
+/** The data the move box needs: the same as a board card's. */
+function dragAttrs(s: Step, job: FullJob, std: Step[]): Html {
+  const squeeze = canSqueeze(planRow(s), std.map(planRow));
+  return html`data-step="${s.id}" data-job="${job.id}" data-label="${stepLabel(s)}"${squeeze ? html` data-squeeze="1"` : ''}`;
+}
+
 export function jobPage(d: JobPageData): Html {
   const { job, person } = d;
   const editor = can(person, 'editor');
@@ -80,7 +119,7 @@ export function jobPage(d: JobPageData): Html {
   const next = nextUp(d.steps);
   const back = `/jobs/${job.id}`;
   const doneCount = std.filter((s) => s.done_at).length;
-  const stage = std.find((s) => !s.done_at);
+  const stage = currentStep(std);
 
   const pills: Html[] = [];
   if (job.status !== 'live') pills.push(html`<span class="pill">${STATUS[job.status]}</span>`);
@@ -105,7 +144,7 @@ export function jobPage(d: JobPageData): Html {
     <div class="eyebrow">Job ${job.job_number ?? '(no number)'} · site start ${job.site_start ? fmtLong(job.site_start) : 'not set'}</div>
     <h2 style="font-size:24px">${jobTitle(job)}</h2>
     ${job.scope ? html`<p class="muted">${job.scope}</p>` : ''}
-    <div class="pills">${pills}</div>
+    <div class="pills">${pills}${job.drawings_url ? html`<a class="pill link" href="${job.drawings_url}" target="_blank" rel="noopener">Drawings ↗</a>` : ''}</div>
   </div>
 
   <div class="next"><span class="eyebrow">Next up</span><b>${next ? stepLabel(next) : 'No dates set'}</b><span>${next ? `${fmtRange(next.start_date, next.end_date)} · ${next.owner || KINDS[next.kind].owner}` : 'Add dates below'}</span></div>
@@ -119,28 +158,27 @@ export function jobPage(d: JobPageData): Html {
       </div>
     </div>`)}</section>` : ''}
 
-  <section class="panel" style="gap:2px">
-    <div class="row"><h2>Dates</h2><span class="muted small">Faded means provisional. Tick Confirmed once it matches Buildertrend.</span></div>
-    ${editor ? html`<form method="post" action="/jobs/${job.id}/dates">${std.map((s) => dateInputs(s, true, d.today))}
+  <section class="panel" style="gap:2px" id="steps">
+    <div class="row"><h2>Steps</h2><span class="muted small">${doneCount} of ${std.length} done · ${stage ? `at ${stepLabel(stage)}` : 'complete'}</span></div>
+    <div class="bar" aria-hidden="true"><i style="width:${std.length ? Math.round((doneCount / std.length) * 100) : 0}%"></i></div>
+    <p class="muted small" style="padding-bottom:4px">${can(person, 'doer') ? 'Tick a step when it is done. ' : ''}${editor ? 'Tap a date to move it; the rest of the job can follow. Pin a promised date so nothing moves it.' : 'Faded means provisional.'}</p>
+    ${std.map((s) => stepRow(s, d, std))}
+    ${editor ? html`<details class="pop" style="margin-top:8px"><summary class="btn small">Edit all dates</summary>
+      <form class="popbody" method="post" action="/jobs/${job.id}/dates">
+        <span class="muted small">Change several dates at once. Tick Confirmed once a date matches Buildertrend. A single change with later steps goes to the Reschedule screen first.</span>
+        ${std.map((s) => dateInputs(s, true, d.today))}
         <div class="acts" style="padding-top:12px;border-top:1px solid var(--line)"><button class="btn primary" type="submit">Save dates</button>
-          <button class="btn" type="submit" name="confirm_all" value="1">Save and confirm all</button></div></form>`
-      : std.map((s) => dateInputs(s, false, d.today))}
-    ${editor ? html`<div style="display:flex;flex-direction:column;gap:8px;padding-top:12px;margin-top:12px;border-top:1px solid var(--line)">
-      <strong>Job slipped? Move every date at once</strong>
-      <div class="shift">
-        ${[[-1, '−1 day'], [1, '+1 day'], [5, '+1 week']].map(([n, l]) => html`<form method="post" action="/jobs/${job.id}/shift"><input type="hidden" name="n" value="${n}"><button class="btn" type="submit">${l}</button></form>`)}
-      </div>
-      <span class="muted small">Working days. Moves every step not yet done, skipping weekends, public holidays and blocked days. Rework keeps its own dates.</span>
-      <form method="post" action="/jobs/${job.id}/repropose"><button class="btn small" type="submit">Work out the provisional dates again from site start</button></form>
-      <span class="muted small">Only changes steps that are neither done nor confirmed.</span>
-    </div>` : ''}
-  </section>
-
-  <section class="panel" style="gap:2px">
-    <div class="row"><h2>Checklist</h2><span class="muted small">${doneCount} of ${std.length} done</span></div>
-    <div class="muted small" style="padding-bottom:6px">${can(person, 'doer') ? 'Tick when done.' : 'Ticked by the team as steps are done.'}</div>
-    ${std.map((s) => checkRow(s, person, back))}
-    <div class="kv"><strong>Current stage</strong><span>${stage ? stepLabel(stage) : 'Complete'}</span></div>
+          <button class="btn" type="submit" name="confirm_all" value="1">Save and confirm all</button></div></form></details>
+    <details class="pop"><summary class="btn small">Move the whole job</summary>
+      <div class="popbody">
+        <strong>Job slipped? Move every date at once</strong>
+        <div class="shift">
+          ${[[-1, '−1 day'], [1, '+1 day'], [5, '+1 week']].map(([n, l]) => html`<form method="post" action="/jobs/${job.id}/shift"><input type="hidden" name="n" value="${n}"><button class="btn" type="submit">${l}</button></form>`)}
+        </div>
+        <span class="muted small">Working days. Moves every step not yet done, skipping weekends, public holidays and blocked days. Pinned dates and rework keep their own dates.</span>
+        <form method="post" action="/jobs/${job.id}/repropose"><button class="btn small" type="submit">Work out the provisional dates again from site start</button></form>
+        <span class="muted small">Only changes steps that are neither done, confirmed nor pinned.</span>
+      </div></details>` : ''}
   </section>
 
   ${editor ? tasksPanel(d, std.filter((s) => s.label)) : ''}
@@ -317,6 +355,7 @@ export function jobFields(j: Partial<FullJob> & { template?: string | null }, op
     <label class="checkline"><input type="checkbox" name="has_stone" value="1"${j.has_stone !== false ? html` checked` : ''}> Stone benchtops</label>
     ${opts.forNew ? '' : html`<label class="f">Status<select name="status">${Object.entries(STATUS).map(([k, l]) => html`<option value="${k}"${j.status === k ? html` selected` : ''}>${l}</option>`)}</select></label>
     <label class="checkline"><input type="checkbox" name="at_risk" value="1"${j.at_risk ? html` checked` : ''}> At risk</label>`}
+    <label class="f wide">Drawings link (a Dropbox, OneDrive or Buildertrend folder)<input name="drawings_url" type="url" inputmode="url" value="${v(j.drawings_url)}" placeholder="https://…"></label>
     <label class="f wide">Rooms and scope<textarea name="scope">${v(j.scope)}</textarea></label>
     <label class="f wide">Notes<textarea name="notes">${v(j.notes)}</textarea></label>
     <p class="muted small wide">No phone numbers, emails or street addresses here. They stay in Buildertrend.</p>

@@ -9,7 +9,15 @@ import { DoorFinish, FLOW, isReworkCategory, KINDS, takesHours, proposeDates, Pr
 import type { Calendar } from '../domain/dates.js';
 import { Person, readCookie, requireRole, setCookie } from './auth.js';
 import { page } from '../views/layout.js';
-import { comingUp, StoredDecision } from '../views/comingUp.js';
+import { comingUp } from '../views/comingUp.js';
+import type { StoredDecision } from '../views/items.js';
+import { attentionPage } from '../views/attention.js';
+import { pipelinePage } from '../views/pipeline.js';
+import { myDayPage } from '../views/me.js';
+import { morePage, findPage } from '../views/other.js';
+import { appSetting, findJobs } from '../db/queries.js';
+import { checkUrl } from '../db/edits.js';
+import { PEOPLE_AREAS } from '../domain/steps.js';
 import { allJobs } from '../views/jobs.js';
 import { CAUSES, jobPage } from '../views/job.js';
 import { newJobPage, proposalBlock, reworkPage, settingsPage } from '../views/other.js';
@@ -120,6 +128,7 @@ function parseJobForm(body: Record<string, unknown>) {
     at_risk: body.at_risk === '1',
     notes: s('notes'),
     template: s('template') || null,
+    drawings_url: checkUrl(body.drawings_url, 'Drawings link'),
     anchor: (ANCHORS.some((a) => a.kind === s('anchor')) ? s('anchor') : 'site_start') as AnchorKind,
     anchor_date: date(body.anchor_date, 'The date to work from'),
   };
@@ -133,7 +142,10 @@ export function routes(): express.Router {
 
   // ---------- Screens ----------
 
-  r.get('/', async (req, res) => {
+  // Doers land on My day; everyone else on the Board (George, 7 Nov 2026).
+  r.get('/', (req, res, next) => (me(req).role === 'doer' ? res.redirect('/me') : next()));
+
+  async function boardPage(req: Request, res: Response) {
     const b = await board();
     const week = req.query.week === '1' ? 1 : 0;
     const body = comingUp({
@@ -141,8 +153,49 @@ export function routes(): express.Router {
       overdue: overdue(b.jobs, b.steps, b.t), decisions: b.decisions, stored: b.stored,
       capacity: capacity(b.jobs, b.steps, b.rules, b.cal, b.t), cal: b.cal,
       suggestionsPanel: pendingPanel(await loadSuggestions({ status: 'pending' })),
+      message: await appSetting('board_message'),
     });
-    res.send(page({ title: 'Coming up', tab: 'coming-up', person: me(req), flash: takeFlash(req, res), body }).value);
+    res.send(page({ title: 'Board', tab: 'board', person: me(req), flash: takeFlash(req, res), body, attention: attentionCount(b) }).value);
+  }
+  r.get('/', boardPage);
+  r.get('/board', boardPage);
+
+  /** Overdue steps plus decisions still open: the count on the Attention tab. */
+  function attentionCount(b: Awaited<ReturnType<typeof board>>): number {
+    return overdue(b.jobs, b.steps, b.t).length + b.decisions.filter((x) => b.stored.get(x.key)?.fingerprint !== x.fingerprint).length;
+  }
+
+  r.get('/attention', async (req, res) => {
+    const b = await board();
+    const body = attentionPage({ person: me(req), today: b.t, jobs: b.jobs, steps: b.steps, overdue: overdue(b.jobs, b.steps, b.t), decisions: b.decisions, stored: b.stored });
+    res.send(page({ title: 'Attention', tab: 'attention', person: me(req), flash: takeFlash(req, res), body, attention: attentionCount(b) }).value);
+  });
+
+  r.get('/pipeline', async (req, res) => {
+    const b = await board();
+    const body = pipelinePage({ jobs: b.jobs, steps: b.steps, rework: b.rework, today: b.t, brand: brandOf(req) });
+    res.send(page({ title: 'Pipeline', tab: 'pipeline', person: me(req), flash: takeFlash(req, res), body, attention: attentionCount(b) }).value);
+  });
+
+  r.get('/me', async (req, res) => {
+    const [all, message] = await Promise.all([loadEverything(), appSetting('board_message')]);
+    const body = myDayPage({ person: me(req), today: today(), jobs: all.jobs, steps: all.steps, message });
+    res.send(page({ title: 'My day', tab: 'me', person: me(req), flash: takeFlash(req, res), body, sub: me(req).name }).value);
+  });
+
+  r.get('/more', async (req, res) => {
+    const body = morePage({ person: me(req), waiting: me(req).pending_suggestions ?? 0 });
+    res.send(page({ title: 'More', tab: 'more', person: me(req), flash: takeFlash(req, res), body }).value);
+  });
+
+  // The header search: one match opens the job, more than one lists them (George, 7 Nov 2026).
+  r.get('/find', async (req, res) => {
+    const q = String(req.query.q ?? '').trim().slice(0, 80);
+    const jobs = q ? await findJobs(q) : [];
+    if (jobs.length === 1) return res.redirect(`/jobs/${jobs[0].id}`);
+    const exact = jobs.filter((j) => j.job_number === q);
+    if (exact.length === 1) return res.redirect(`/jobs/${exact[0].id}`);
+    res.send(page({ title: 'Find a job', tab: 'jobs', person: me(req), body: findPage({ q, jobs }) }).value);
   });
 
   r.get('/jobs', async (req, res) => {
@@ -255,9 +308,9 @@ export function routes(): express.Router {
     await withPerson(me(req).id, async (db) => {
       await db.query(
         `update jobs set job_number=$2, brand=$3, client_name=$4, suburb=$5, scope=$6, door_finish=$7, has_stone=$8, site_start=$9,
-           factory_days=$10, install_days=$11, status=$12, at_risk=$13, notes=$14, has_painting=$15, template=$16 where id=$1`,
+           factory_days=$10, install_days=$11, status=$12, at_risk=$13, notes=$14, has_painting=$15, template=$16, drawings_url=$17 where id=$1`,
         [id, v.job_number, v.brand, v.client_name, v.suburb, v.scope, v.door_finish, v.has_stone, v.site_start, v.factory_days, v.install_days, v.status, v.at_risk, v.notes, v.has_painting,
-          (await loadTemplates()).some((t) => t.key === v.template) ? v.template : null]);
+          (await loadTemplates()).some((t) => t.key === v.template) ? v.template : null, v.drawings_url]);
       await syncStepSet(db, id);
     });
     flash(res, 'Job details saved.');
@@ -399,7 +452,8 @@ export function routes(): express.Router {
     if (![-1, 1, 5].includes(n)) throw new UserError('Pick −1 day, +1 day or +1 week.');
     const cal = await loadCalendar();
     // Rework keeps its own dates: the main job moving never moves it.
-    const steps = (await pool.query(`select id, kind, start_date, end_date from steps where job_id = $1 and kind <> 'rework' and done_at is null and start_date is not null`, [id])).rows;
+    // Pinned dates are promises: the buttons leave them alone too (George, 7 Nov 2026).
+    const steps = (await pool.query(`select id, kind, start_date, end_date from steps where job_id = $1 and kind <> 'rework' and done_at is null and not pinned and start_date is not null`, [id])).rows;
     await withPerson(me(req).id, async (db) => {
       for (const s of steps) {
         const moved = shiftStep(s, n, cal);
@@ -420,7 +474,7 @@ export function routes(): express.Router {
     await withPerson(me(req).id, async (db) => {
       for (const p of proposal) {
         const u = await db.query(
-          `update steps set start_date = $3, end_date = $4 where job_id = $1 and kind = $2 and done_at is null and not confirmed
+          `update steps set start_date = $3, end_date = $4 where job_id = $1 and kind = $2 and done_at is null and not confirmed and not pinned
              and (start_date is distinct from $3 or end_date is distinct from $4)`,
           [id, p.kind, p.start_date, p.end_date]);
         changed += u.rowCount ?? 0;
@@ -436,6 +490,19 @@ export function routes(): express.Router {
     const id = idParam(req);
     const done = req.body.done === '1';
     await withPerson(me(req).id, (db) => setStepDone(db, id, done));
+    res.redirect(backTo(req));
+  });
+
+  // Pin a date (George, 7 Nov 2026): a promise. Shift, squeeze, drags and the job buttons leave it alone.
+  r.post('/steps/:id/pin', editor, async (req, res) => {
+    const id = idParam(req);
+    const pinned = req.body.pinned === '1';
+    const s = (await pool.query('select kind, label, start_date from steps where id = $1', [id])).rows[0];
+    if (!s) throw new UserError('That step has gone.');
+    if (pinned && !s.start_date) throw new UserError('Give it a date first, then pin it.');
+    // Pinning also confirms: a promised date is one someone set on purpose.
+    await withPerson(me(req).id, (db) => db.query('update steps set pinned = $2, confirmed = (confirmed or $2) where id = $1', [id, pinned]));
+    flash(res, pinned ? `${s.label || KINDS[s.kind as StepKind].label} pinned. Nothing moves it until it's unpinned.` : `${s.label || KINDS[s.kind as StepKind].label} unpinned.`);
     res.redirect(backTo(req));
   });
 
@@ -766,18 +833,25 @@ export function routes(): express.Router {
     const [settings, blocked, people, email, tokens, calls] = await Promise.all([
       pool.query('select key, value, label from settings order by sort'),
       loadBlocked(),
-      pool.query('select id, name, email, role, active, is_owner from people order by active desc, role, name'),
+      pool.query('select id, name, email, role, active, is_owner, areas from people order by active desc, role, name'),
       pool.query(`select value from app_settings where key = 'suggestions_email'`),
       me(req).is_owner ? pool.query(`select t.id, t.name, t.created_at, p.name as created_by_name, t.last_used_at, t.revoked_at from api_tokens t left join people p on p.id = t.created_by order by t.revoked_at nulls first, t.id desc`) : null,
       me(req).is_owner ? pool.query(`select c.at, c.method, c.path, c.status, c.items, t.name as token_name from api_calls c left join api_tokens t on t.id = c.token_id order by c.id desc limit 30`) : null,
     ]);
     const extra = suggestionSettings({ email: email.rows[0]?.value ?? '', isOwner: me(req).is_owner, tokens: tokens?.rows ?? [], calls: calls?.rows ?? [], newToken: newTok });
-    return settingsPage({ settings: settings.rows, blocked, people: people.rows, today: today(), templates: await loadTemplates(), viewerIsOwner: me(req).is_owner, extra });
+    return settingsPage({ settings: settings.rows, blocked, people: people.rows, today: today(), templates: await loadTemplates(), viewerIsOwner: me(req).is_owner, extra, message: await appSetting('board_message') });
   }
 
   r.get('/settings', editor, async (req, res) => {
     const body = await settingsBody(req);
     res.send(page({ title: 'Settings', tab: 'settings', person: me(req), flash: takeFlash(req, res), body }).value);
+  });
+
+  r.post('/settings/message', editor, async (req, res) => {
+    const m = String(req.body.message ?? '').trim().slice(0, 200);
+    await withPerson(me(req).id, (db) => db.query(`update app_settings set value = $1 where key = 'board_message'`, [m]));
+    flash(res, m ? 'Message saved. It shows on My day and the board.' : 'Message cleared.');
+    res.redirect('/settings#message');
   });
 
   r.post('/settings/suggestions-email', editor, async (req, res) => {
@@ -870,6 +944,11 @@ export function routes(): express.Router {
   });
 
   const roleOf = (v: unknown) => (['editor', 'doer', 'viewer'].includes(String(v)) ? String(v) : 'viewer');
+  /** The areas ticked on a person form: only known board rows, in board order. */
+  const areasOf = (v: unknown): string[] => {
+    const picked = new Set((Array.isArray(v) ? v : v ? [v] : []).map(String));
+    return PEOPLE_AREAS.filter((a) => picked.has(a.area)).map((a) => a.area);
+  };
   const emailOf = (v: unknown) => {
     const e = String(v ?? '').trim().toLowerCase();
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) throw new UserError('That email address looks wrong.');
@@ -881,8 +960,8 @@ export function routes(): express.Router {
     if (!name) throw new UserError('Add a name.');
     const email = emailOf(req.body.email);
     if ((await pool.query('select 1 from people where email = $1', [email])).rowCount) throw new UserError(`${email} is already on the list.`);
-    await withPerson(me(req).id, (db) => db.query('insert into people (name, email, role, is_owner) values ($1, $2, $3, $4)',
-      [name, email, roleOf(req.body.role), me(req).is_owner && req.body.is_owner === '1']));
+    await withPerson(me(req).id, (db) => db.query('insert into people (name, email, role, is_owner, areas) values ($1, $2, $3, $4, $5)',
+      [name, email, roleOf(req.body.role), me(req).is_owner && req.body.is_owner === '1', areasOf(req.body.areas)]));
     flash(res, `${name} added. They can sign in at ${req.protocol}://${req.get('host')} with ${email}.`);
     res.redirect('/settings');
   });
@@ -897,8 +976,8 @@ export function routes(): express.Router {
     // Only owners see or change the Owner tick; for anyone else it stays as it was.
     const isOwner = me(req).is_owner ? req.body.is_owner === '1' : current.is_owner;
     if (id === me(req).id && me(req).is_owner && !isOwner) throw new UserError("You can't take away your own Owner access. Ask the other owner.");
-    await withPerson(me(req).id, (db) => db.query('update people set name = $2, email = $3, role = $4, active = $5, is_owner = $6 where id = $1',
-      [id, String(req.body.name ?? '').trim(), emailOf(req.body.email), role, active, isOwner]));
+    await withPerson(me(req).id, (db) => db.query('update people set name = $2, email = $3, role = $4, active = $5, is_owner = $6, areas = $7 where id = $1',
+      [id, String(req.body.name ?? '').trim(), emailOf(req.body.email), role, active, isOwner, areasOf(req.body.areas)]));
     flash(res, 'Saved.');
     res.redirect('/settings');
   });

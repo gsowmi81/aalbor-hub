@@ -1,6 +1,6 @@
 import { html, Html } from '../web/html.js';
 import { fmtLong, fmtRange, fmtShort, Iso, sydneyDate } from '../domain/dates.js';
-import { KINDS, ProposedStep } from '../domain/steps.js';
+import { KINDS, PEOPLE_AREAS, ProposedStep } from '../domain/steps.js';
 import { CapacityWarning } from '../domain/checks.js';
 import type { FullJob, ReworkFull } from '../db/queries.js';
 import type { AnchorKind, Template } from '../domain/schedule.js';
@@ -114,21 +114,54 @@ function ownersTally(d: Parameters<typeof reworkPage>[0]): Html {
   </section>`;
 }
 
+// ---------- More, and Find a job (George, 7 Nov 2026) ----------
+
+export function morePage(d: { person: Person; waiting: number }): Html {
+  const editor = can(d.person, 'editor');
+  const link = (href: string, title: string, sub: string, badge?: number) => html`<a class="tile" href="${href}"><span>${title}${badge ? html` <span class="badge" aria-label="${badge} waiting">${badge}</span>` : ''}</span><small>${sub}</small></a>`;
+  return html`<div class="tiles more">
+    ${link('/rework', 'Rework', 'Raise it, date it, the monthly tally')}
+    ${link('/suggestions', 'Suggestions', 'What the Buildertrend bot found', d.waiting)}
+    ${editor ? link('/jobs/new', 'New job', 'One date, every other date proposed') : ''}
+    ${editor ? link('/settings', 'Settings', 'Capacities, job types, blocked days, people') : ''}
+    ${link('/export.xlsx', 'Spreadsheet', 'Download jobs, steps and rework')}
+  </div>`;
+}
+
+export function findPage(d: { q: string; jobs: { id: number; job_number: string | null; client_name: string; suburb: string; status: string }[] }): Html {
+  const STATUS: Record<string, string> = { live: 'Live', on_hold: 'On hold', complete: 'Complete', cancelled: 'Cancelled' };
+  return html`<section class="panel">
+    <form method="get" action="/find" class="inline"><input type="search" name="q" value="${d.q}" placeholder="Job number, client or suburb" aria-label="Find a job" style="flex:1 1 240px"><button class="btn primary" type="submit">Find</button></form>
+    ${!d.q ? html`<p class="muted">Type part of a job number, a client's name or a suburb.</p>`
+      : !d.jobs.length ? html`<p>No job matches "${d.q}".</p>`
+      : html`<div>${d.jobs.map((j) => html`<div class="item"><div class="what"><div><a href="/jobs/${j.id}" style="color:inherit">${j.client_name}</a>${j.suburb ? ` · ${j.suburb}` : ''}</div><div class="muted small">${j.job_number ?? 'No number'}${j.status === 'live' ? '' : ` · ${STATUS[j.status] ?? j.status}`}</div></div><a class="btn small" href="/jobs/${j.id}">Open</a></div>`)}</div>`}
+  </section>`;
+}
+
 // ---------- Settings ----------
 
 export function settingsPage(d: {
   settings: { key: string; value: number; label: string }[];
   blocked: { id: number; day: Iso; scope: string; reason: string }[];
-  people: { id: number; name: string; email: string; role: string; active: boolean; is_owner: boolean }[];
+  people: { id: number; name: string; email: string; role: string; active: boolean; is_owner: boolean; areas: string[] }[];
   today: Iso;
   templates: Template[];
   viewerIsOwner: boolean;
+  /** The one-line message shown on My day and the board. */
+  message: string;
   /** Suggestions email and, for owners, API tokens (views/suggestions.ts). */
   extra?: Html;
 }): Html {
   const upcoming = d.blocked.filter((b) => b.day >= d.today);
   return html`
   <section class="panel"><div class="row"><h2>Spreadsheet</h2><a class="btn" href="/export.xlsx">Download jobs, steps and rework (.xlsx)</a></div></section>
+
+  <section class="panel" id="message"><h2>Message on My day and the board</h2>
+    <form method="post" action="/settings/message" class="inline">
+      <input name="message" value="${d.message}" maxlength="200" placeholder="e.g. Factory clean-out Friday afternoon" aria-label="Message" style="flex:1 1 300px">
+      <button class="btn primary" type="submit">Save</button>
+    </form>
+    <span class="muted small">One line everyone sees at the top of My day and the board. Leave it empty to show nothing.</span></section>
 
   <section class="panel"><h2>Capacities and default durations</h2>
     <form method="post" action="/settings/values" class="stack">
@@ -168,7 +201,7 @@ export function settingsPage(d: {
     </tbody></table></div></section>
 
   <section class="panel"><h2>People</h2>
-    <p class="muted small">Only these addresses can sign in. Editors change anything; Doers tick steps and raise rework; Viewers look. Switch someone off rather than deleting them, so the history keeps their name.${d.viewerIsOwner ? ' Owners (you see this column because you are one) also see who was responsible for each rework; only an owner can make someone an owner.' : ''}</p>
+    <p class="muted small">Only these addresses can sign in. Editors change anything; Doers tick steps and raise rework; Viewers look. Switch someone off rather than deleting them, so the history keeps their name.${d.viewerIsOwner ? ' Owners (you see this column because you are one) also see who was responsible for each rework; only an owner can make someone an owner.' : ''} Areas are the board rows a person works in: their steps make up My day.</p>
     <div class="tbl"><table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Can sign in</th>${d.viewerIsOwner ? html`<th>Owner</th>` : ''}<th></th></tr></thead><tbody>
       ${d.people.map((p) => {
         const locked = p.is_owner && !d.viewerIsOwner;
@@ -179,7 +212,8 @@ export function settingsPage(d: {
         <select name="role" aria-label="Role"${dis}>${['editor', 'doer', 'viewer'].map((r) => html`<option value="${r}"${p.role === r ? html` selected` : ''}>${cap(r)}</option>`)}</select>
         <label class="checkline" style="font-weight:400"><input type="checkbox" name="active" value="1"${p.active ? html` checked` : ''}${dis}> Yes</label>
         ${d.viewerIsOwner ? html`<label class="checkline" style="font-weight:400" title="Owners see who was responsible for each rework"><input type="checkbox" name="is_owner" value="1"${p.is_owner ? html` checked` : ''}> Yes</label>` : ''}
-        ${locked ? html`<span class="muted small">Only an owner can change this person.</span>` : html`<button class="btn small" type="submit">Save</button>`}</form></td></tr>`;
+        ${locked ? html`<span class="muted small">Only an owner can change this person.</span>` : html`<button class="btn small" type="submit">Save</button>`}
+        <div class="areas" style="grid-column:1 / -1"><span class="muted small">Areas:</span>${PEOPLE_AREAS.map((a) => html`<label class="checkline small" style="min-height:28px;font-weight:400"><input type="checkbox" name="areas" value="${a.area}"${p.areas.includes(a.area) ? html` checked` : ''}${dis}> ${a.label}</label>`)}</div></form></td></tr>`;
       })}
     </tbody></table></div>
     <form method="post" action="/settings/people" class="fixgrid">
@@ -187,6 +221,7 @@ export function settingsPage(d: {
       <label class="f">Email<input name="email" type="email" required></label>
       <label class="f">Role<select name="role"><option value="viewer">Viewer</option><option value="doer">Doer</option><option value="editor">Editor</option></select></label>
       ${d.viewerIsOwner ? html`<label class="checkline"><input type="checkbox" name="is_owner" value="1"> Owner</label>` : ''}
+      <div class="areas" style="grid-column:1 / -1"><span class="muted small">Areas:</span>${PEOPLE_AREAS.map((a) => html`<label class="checkline small" style="min-height:28px;font-weight:400"><input type="checkbox" name="areas" value="${a.area}"> ${a.label}</label>`)}</div>
       <button class="btn primary" type="submit" style="align-self:end">Add person</button>
     </form></section>
   ${d.extra ?? ''}`;

@@ -56,6 +56,9 @@ export const BOARD_ROWS: { row: BoardRow; label: string }[] = [
   { row: 'rework', label: 'Rework' },
 ];
 
+/** The areas a person can work in (Settings → People): the board rows, less Rework. Their steps make up My day. */
+export const PEOPLE_AREAS: { area: BoardRow; label: string }[] = BOARD_ROWS.filter((r) => r.row !== 'rework').map((r) => ({ area: r.row, label: r.label }));
+
 /**
  * Rework is a mini job (George, 6 Nov 2026): its tasks are picked from these standard steps,
  * in this order, and each shows on the board in its step's row, in red.
