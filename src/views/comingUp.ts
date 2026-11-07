@@ -105,7 +105,7 @@ export function comingUp(d: ComingUpData): Html {
     .filter((c) => (row === 'factory' && c.row === 'factory' && c.period === mon)
       || (row === 'install' && c.row === 'install' && c.period === mon)
       || (row === 'measure' && c.row === 'measure' && c.period >= mon && c.period <= fri))
-    .map((c) => html`<a class="tag warn" href="/load" title="${c.decision.fact}" style="text-decoration:none">${c.row === 'measure' ? `${fmtShort(c.period).slice(0, 3)}: ${c.booked} of ${c.limit}` : `${c.booked} of ${c.limit} days`}</a>`);
+    .map((c) => html`<a class="tag warn" href="/load" title="${c.decision.fact}" style="text-decoration:none">${c.row === 'measure' ? `${fmtShort(c.period).slice(0, 3)}: ${c.booked} of ${c.limit}` : `${c.booked} booked of ${c.limit} days`}</a>`);
 
   // Week board, wide screens.
   let board = html`<div></div>${DOW.map((name, i) => {
@@ -146,7 +146,7 @@ export function comingUp(d: ComingUpData): Html {
       }))}
     </div></div>`;
   });
-  const agenda = html`${undatedRework.length ? html`<div class="lane-rework" style="display:flex;flex-direction:column;gap:3px"><h3>Rework, not yet dated</h3>${undatedRework.map((x) => reworkCard(x, jobById.get(x.job_id)!, false))}</div>` : ''}${agendaDays}`;
+  const agenda = html`${agendaDays}${undatedRework.length ? html`<div class="lane-rework" style="display:flex;flex-direction:column;gap:3px"><h3>Rework, not yet dated</h3>${undatedRework.map((x) => reworkCard(x, jobById.get(x.job_id)!, false))}</div>` : ''}`;
 
   return html`
   ${d.message ? html`<div class="me-msg" role="note">${d.message}</div>` : ''}
@@ -168,7 +168,7 @@ export function comingUp(d: ComingUpData): Html {
         </div>
       </div>
     </div>
-    ${legend()}
+    <details class="key"><summary>Key to the colours</summary>${legend()}</details>
     ${editor ? html`<p class="muted small board-hint">Drag a card sideways to move it to another day. You'll be asked what happens to the rest of the job, then it saves, confirmed. Red cards are rework.</p>` : html`<p class="muted small board-hint">Red cards are rework.</p>`}
     <div class="board"${editor ? html` data-dragdays` : ''}>${board}</div>
     <div class="agenda">${agenda}</div>

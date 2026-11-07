@@ -74,8 +74,13 @@ export async function loadPerson(req: Request, _res: Response, next: NextFunctio
 
 export function requireSignIn(req: Request, res: Response, next: NextFunction): void {
   if (req.person) return next();
-  if (req.method === 'GET') res.redirect(`/login?next=${encodeURIComponent(req.originalUrl)}`);
-  else res.status(401).send('Sign in first.');
+  if (req.method === 'GET') return res.redirect(`/login?next=${encodeURIComponent(req.originalUrl)}`);
+  // A form posted after the sign-in expired: say so and bring them back to where they were.
+  const back = (req.get('referer') ?? '/').replace(/^https?:\/\/[^/]+/, '') || '/';
+  if ((req.headers.accept ?? '').includes('text/html') || req.headers['x-hub-live']) {
+    return res.redirect(`/login?next=${encodeURIComponent(back)}&expired=1`);
+  }
+  res.status(401).send('Sign in first.');
 }
 
 const rank: Record<Role, number> = { viewer: 0, doer: 1, editor: 2 };
@@ -127,7 +132,7 @@ export function authRoutes(): Router {
 
   r.get('/login', (req, res) => {
     if (req.person) return res.redirect('/');
-    res.send(loginPage({ next: safeNext(req.query.next) }).value);
+    res.send(loginPage({ next: safeNext(req.query.next), message: req.query.expired ? 'Your sign-in has run out. Sign in again and you can carry on where you were.' : undefined }).value);
   });
 
   r.post('/login', async (req, res) => {

@@ -89,6 +89,8 @@
 
   // Everything below binds to elements on the page, so it runs again after an in-place update.
   function init() {
+  // A save message stays long enough to read, then goes.
+  document.querySelectorAll('.notice.ok').forEach(function (n) { setTimeout(function () { n.style.transition = 'opacity .6s'; n.style.opacity = '0'; setTimeout(function () { n.remove(); }, 700); }, 7000); });
   // "Flag" on a step opens the job's flag form for that step.
   document.querySelectorAll('a[data-flag-step]').forEach(function (a) {
     a.addEventListener('click', function (e) {

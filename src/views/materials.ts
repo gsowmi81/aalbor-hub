@@ -35,7 +35,7 @@ export function materialsPanel(d: MaterialsView): Html {
   return html`<section class="panel" id="materials" style="gap:8px">
     <div class="row"><h2>Materials</h2><span>${readinessPill(d.readiness, d.factoryDate)}</span></div>
     <p class="muted small">From the Cabinet Vision cut list or typed. Source takes stock on hand first, then stock on order, and lists the rest to order by the factory date less the supplier's lead time. Picking takes it off the shelf.</p>
-    ${d.lines.length ? html`<div class="tbl"><table class="mats"><thead><tr><th>Item</th><th class="num">Needs</th><th class="num">From stock</th><th class="num">Picked</th><th>Where it stands</th><th></th></tr></thead><tbody>
+    ${d.lines.length ? html`<div class="tbl" tabindex="0"><table class="mats"><thead><tr><th>Item</th><th class="num">Needs</th><th class="num">From stock</th><th class="num">Picked</th><th>Where it stands</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody>
       ${d.lines.map((m) => {
         const st = lineState.get(m.id);
         const free = (d.onHand.get(m.item_id) ?? 0) - (d.allocated.get(m.item_id) ?? 0);
@@ -78,7 +78,7 @@ export function matchPage(d: { jobId: number; unknown: { code: string; qty: numb
   return html`<section class="panel" style="gap:8px"><h2>${d.unknown.length} ${d.unknown.length === 1 ? 'code' : 'codes'} the hub doesn't know</h2>
     <p class="muted small">${d.known ? `${d.known} ${d.known === 1 ? 'line' : 'lines'} matched and loaded already. ` : ''}Pick the item each code means; the hub remembers it for next time. Leave one blank to skip it.</p>
     <form method="post" action="/jobs/${d.jobId}/materials/match"><input type="hidden" name="nested" value="${d.nested ? '1' : '0'}">
-      <div class="tbl"><table><thead><tr><th>Code on the cut list</th><th class="num">Qty</th><th>Is</th></tr></thead><tbody>
+      <div class="tbl" tabindex="0"><table><thead><tr><th>Code on the cut list</th><th class="num">Qty</th><th>Is</th></tr></thead><tbody>
         ${d.unknown.map((u, i) => html`<tr><td class="mono">${u.code}<input type="hidden" name="code_${i}" value="${u.code}"><input type="hidden" name="qty_${i}" value="${u.qty}"></td><td class="num">${n(u.qty)}</td>
           <td><input name="item_${i}" list="matitems" placeholder="type to find, or leave blank" style="width:100%"></td></tr>`)}
       </tbody></table></div>

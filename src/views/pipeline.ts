@@ -30,7 +30,7 @@ export function pipelinePage(d: { jobs: JobRow[]; steps: StepRow[]; rework: Rewo
     <span><i class="pc st-later" style="outline:2px solid var(--fg);outline-offset:-2px"></i>Current stage</span>
     <span><i class="pc rdy-short" style="position:relative"><i class="rdy"></i></i>Materials short</span><span><i class="pc rdy-ready" style="position:relative"><i class="rdy"></i></i>Materials ready</span>
   </div>
-  <div class="tl-box"><table class="pipe">
+  <div class="tl-box" tabindex="0"><table class="pipe">
     <thead><tr><th class="pj">Job</th>${STAGES.map((st) => html`<th title="${st.label}">${st.short}<span class="muted small" style="display:block;font-weight:400">${atStage(st.key) || ''}</span></th>`)}<th>Rework</th></tr></thead>
     <tbody>${rows.map((r) => html`<tr>
       <td class="pj"><div class="n"><span class="no">${r.j.job_number ?? '—'}</span><a href="/jobs/${r.j.id}">${r.j.client_name}</a>${r.j.at_risk ? html`<span class="risk">at risk</span>` : ''}</div>

@@ -33,6 +33,7 @@ const idParam = (req: Request, key = 'id'): number => {
 const num = (v: unknown, what: string, opts: { min?: number; allowNeg?: boolean } = {}): number => {
   const n = Number(String(v ?? '').trim());
   if (!Number.isFinite(n) || (!opts.allowNeg && n < (opts.min ?? 0))) throw new UserError(`${what}: that isn't a number${opts.min ? ` of at least ${opts.min}` : ''}.`);
+  if (Math.abs(n) > 1000000) throw new UserError(`${what}: that's more than a million. Check the figure.`);
   return Math.round(n * 100) / 100;
 };
 const dateOf = (v: unknown, what: string): string | null => {

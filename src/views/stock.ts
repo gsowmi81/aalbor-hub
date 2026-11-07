@@ -36,7 +36,7 @@ export function stockHome(d: { person: Person; rows: DemandRow[]; mondays: Iso[]
     <td class="num">${r.gap > 0 ? html`<strong class="nodate">${n(r.gap)}</strong>` : r.low ? html`<span class="tag warn">low</span>` : html`<span class="muted">ok</span>`}</td>
     <td>${r.gap > 0 && r.orderBy ? html`<strong>${fmtShort(r.orderBy)}</strong>` : ''}${r.gap > 0 && r.orderBy && r.orderBy < d.mondays[0] ? html` <span class="nodate small">late</span>` : ''}</td>
   </tr>`;
-  const table = (rows: DemandRow[]) => html`<div class="tl-box"><table class="demand">
+  const table = (rows: DemandRow[]) => html`<div class="tl-box" tabindex="0"><table class="demand">
     <thead><tr><th>Item</th>${d.mondays.map((m) => html`<th class="num">${fmtShort(m).slice(4)}</th>`)}<th class="num">On hand</th><th class="num">Spoken for</th><th class="num">Free</th><th class="num">On order</th><th class="num">Gap</th><th>Order by</th></tr></thead>
     <tbody>${rows.map(row)}</tbody></table></div>`;
   return html`${stockNav('home', { orders: d.waiting, low: d.lowCount })}
@@ -51,7 +51,7 @@ export function stockHome(d: { person: Person; rows: DemandRow[]; mondays: Iso[]
       ${stock ? html`<form method="post" action="/stock/orders/from-gaps" class="acts"><button class="btn primary" type="submit">Put the ${gaps.length} ${gaps.length === 1 ? 'gap' : 'gaps'} on the order list</button><span class="muted small">${d.listedGaps ? `${d.listedGaps} already listed.` : ''} Each becomes a line for stock with its order-by date.</span></form>` : ''}` : html`<p class="muted">Nothing short. Every line jobs need in the next six weeks is on hand or on order.</p>`}
   </section>
   <section class="panel" id="low"><div class="row"><h2>Running low</h2><span class="muted small">Standing lines at or under their minimum with nothing on order.</span></div>
-    ${low.length ? html`<div class="tbl"><table><thead><tr><th>Item</th><th>Bin</th><th class="num">Free</th><th class="num">Minimum</th><th class="num">Reorder</th><th></th></tr></thead><tbody>
+    ${low.length ? html`<div class="tbl" tabindex="0"><table><thead><tr><th>Item</th><th>Bin</th><th class="num">Free</th><th class="num">Minimum</th><th class="num">Reorder</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody>
       ${low.map((r) => html`<tr><td><a href="/stock/items/${r.item.id}">${r.item.name}</a><div class="muted small">${r.item.supplier}</div></td><td>${r.item.bin}</td><td class="num">${n(r.available)}</td><td class="num">${n(r.item.minimum ?? 0)}</td><td class="num">${r.item.reorder_qty ? n(r.item.reorder_qty) : '·'}</td>
         <td>${stock || can(d.person, 'doer') ? html`<form method="post" action="/stock/orders"><input type="hidden" name="item_id" value="${r.item.id}"><input type="hidden" name="qty" value="${n(r.item.reorder_qty || Math.max(1, (r.item.minimum ?? 0) * 2 - r.available))}"><input type="hidden" name="reason" value="low"><input type="hidden" name="back" value="/stock#low"><button class="btn small" type="submit">List it</button></form>` : ''}</td></tr>`)}
     </tbody></table></div>` : html`<p class="muted">Nothing running low${d.rows.some((r) => r.item.standing && r.item.minimum == null) ? '. Standing lines without a minimum are not checked: set one on the item.' : '.'}</p>`}
@@ -89,7 +89,7 @@ export function itemsPage(d: ItemsView): Html {
       <a class="btn small" href="/stock/labels" target="_blank" rel="noopener">Bin labels ↗</a>
     </form>
     <p class="muted small">${list.length} of ${d.items.length} items. Standing lines are always stocked: on the Friday count and the running-low rule. A line can only flag low when it has a minimum. On hand is the ledger's sum, never typed.</p>
-    <div class="tbl"><table class="items"><thead><tr><th>Item</th><th>Code</th><th>Unit</th><th>Supplier</th><th class="num">On hand</th><th class="num">Free</th><th class="num">On order</th><th class="num">Min</th><th>Bin</th><th></th></tr></thead><tbody>
+    <div class="tbl" tabindex="0"><table class="items"><thead><tr><th>Item</th><th>Code</th><th>Unit</th><th>Supplier</th><th class="num">On hand</th><th class="num">Free</th><th class="num">On order</th><th class="num">Min</th><th>Bin</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody>
       ${groups.map((g) => html`<tr class="grp"><td colspan="10">${g || 'Uncategorised'}</td></tr>${list.filter((i) => i.category === g).map((i) => {
         const oh = d.onHand.get(i.id) ?? 0; const free = oh - (d.allocated.get(i.id) ?? 0); const oo = d.onOrder.get(i.id);
         const low = i.standing && i.minimum != null && free <= i.minimum;
@@ -164,15 +164,15 @@ export function itemPage(d: ItemView): Html {
       <form method="post" action="/stock/items/${i.id}/count" class="stack"><input type="hidden" name="back" value="${back}"><label class="f">Counted on the shelf<input name="counted" type="number" step="0.01" min="0" required placeholder="${n(d.onHand)}"></label><button class="btn" type="submit">Record the count</button><span class="muted small">The difference is logged as a count move.</span></form>
       <form method="post" action="/stock/items/${i.id}/move" class="stack"><input type="hidden" name="back" value="${back}"><label class="f">Received, or taken (minus)<input name="qty" type="number" step="0.01" required placeholder="e.g. 12 or -2"></label><label class="f">Why<input name="reason" required maxlength="120" placeholder="e.g. Polytec delivery, damaged sheet"></label><button class="btn" type="submit">Record it</button></form>
     </div></section>` : ''}
-  ${d.needs.length ? html`<section class="panel"><h2>Jobs that need it</h2><div class="tbl"><table><thead><tr><th>Job</th><th>Factory</th><th class="num">Needs</th><th class="num">Picked</th></tr></thead><tbody>
+  ${d.needs.length ? html`<section class="panel"><h2>Jobs that need it</h2><div class="tbl" tabindex="0"><table><thead><tr><th>Job</th><th>Factory</th><th class="num">Needs</th><th class="num">Picked</th></tr></thead><tbody>
     ${d.needs.map((x) => html`<tr><td><a href="/jobs/${x.job.id}#materials">${jobTitle(x.job)}</a></td><td>${x.factoryDate ? fmtShort(x.factoryDate) : 'not dated'}</td><td class="num">${n(x.qty)}</td><td class="num">${n(x.picked)}</td></tr>`)}</tbody></table></div></section>` : ''}
-  ${d.orders.length ? html`<section class="panel"><h2>Orders</h2><div class="tbl"><table><thead><tr><th>Listed</th><th class="num">Qty</th><th>For</th><th>Status</th><th>Expected</th><th class="num">Received</th></tr></thead><tbody>
+  ${d.orders.length ? html`<section class="panel"><h2>Orders</h2><div class="tbl" tabindex="0"><table><thead><tr><th>Listed</th><th class="num">Qty</th><th>For</th><th>Status</th><th>Expected</th><th class="num">Received</th></tr></thead><tbody>
     ${d.orders.map((o) => html`<tr><td>${fmtShort(sydneyDate(o.listed_at))}</td><td class="num">${n(o.qty)}</td><td>${o.client_name ?? 'stock'}</td><td>${o.status}${o.ordered_on ? ` ${fmtShort(o.ordered_on)}` : ''}</td><td>${o.expected ? fmtShort(o.expected) : ''}</td><td class="num">${n(o.received_qty)}</td></tr>`)}</tbody></table></div><a class="small" href="/stock/orders">The order list</a></section>` : ''}
   ${i.kind === 'board' || d.offcuts.length ? html`<section class="panel"><div class="row"><h2>Offcuts</h2><span class="muted small">Over half a sheet, by size and where it is.</span></div>
     ${d.offcuts.length ? d.offcuts.map((o) => html`<div class="item"><div class="what"><div>${o.length_mm} × ${o.width_mm} mm${o.location ? ` · ${o.location}` : ''}${o.used_at ? ' · used' : ''}</div><div class="muted small">${o.note ? `${o.note} · ` : ''}logged by ${o.logged_by_name ?? 'unknown'}, ${fmtShort(sydneyDate(o.logged_at))}</div></div>${!o.used_at && floor ? html`<form method="post" action="/stock/offcuts/${o.id}/used"><input type="hidden" name="back" value="${back}"><button class="btn small" type="submit">Used</button></form>` : ''}</div>`) : html`<p class="muted small">None logged.</p>`}
     ${floor ? offcutForm(i.id, back) : ''}</section>` : ''}
   <section class="panel"><div class="row"><h2>Ledger</h2><span class="muted small">Newest first. Never edited; a mistake gets a correcting move.</span></div>
-    <div class="tbl"><table><thead><tr><th>When</th><th>What</th><th class="num">Qty</th><th>Why</th><th>Who</th></tr></thead><tbody>
+    <div class="tbl" tabindex="0"><table><thead><tr><th>When</th><th>What</th><th class="num">Qty</th><th>Why</th><th>Who</th></tr></thead><tbody>
       ${d.moves.map((m) => html`<tr><td>${fmtShort(sydneyDate(m.moved_at))}</td><td>${MOVE[m.kind] ?? m.kind}${m.client_name ? ` · ${m.client_name}` : ''}</td><td class="num${m.qty < 0 ? ' nodate' : ''}">${m.qty > 0 ? '+' : ''}${n(m.qty)}</td><td class="small">${m.reason}</td><td class="small">${m.moved_by_name ?? 'System'}</td></tr>`)}
       ${!d.moves.length ? html`<tr><td colspan="5" class="muted">No moves yet: on hand is 0 until something is counted or received.</td></tr>` : ''}
     </tbody></table></div></section>
@@ -219,7 +219,7 @@ export function ordersPage(d: { person: Person; orders: OrderRow[]; items: Stock
   return html`${stockNav('orders', { orders: d.waiting })}
   <section class="panel"><div class="row"><h2>Order list</h2><span class="muted small">Grouped by supplier. Angela marks each line Ordered with the expected date; the factory ticks In when it arrives. No order numbers, no prices.</span></div>
     ${open.length ? suppliers.map((s) => html`<h3 class="supplier">${s} <span class="muted small">${open.filter((o) => (o.supplier || 'No supplier set') === s).length}</span></h3>
-      <div class="tbl"><table class="orders"><thead><tr><th>Item</th><th class="num">Qty</th><th>For</th><th>Order by</th><th>Status</th><th></th></tr></thead><tbody>${open.filter((o) => (o.supplier || 'No supplier set') === s).map(line)}</tbody></table></div>`) : html`<p class="muted">Nothing to order.</p>`}
+      <div class="tbl" tabindex="0"><table class="orders"><thead><tr><th>Item</th><th class="num">Qty</th><th>For</th><th>Order by</th><th>Status</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody>${open.filter((o) => (o.supplier || 'No supplier set') === s).map(line)}</tbody></table></div>`) : html`<p class="muted">Nothing to order.</p>`}
   </section>
   ${stock ? html`<section class="panel"><details class="pop"><summary class="btn small">Add a line</summary>
     <form class="popbody" method="post" action="/stock/orders"><input type="hidden" name="reason" value="manual"><input type="hidden" name="back" value="/stock/orders">
@@ -231,7 +231,7 @@ export function ordersPage(d: { person: Person; orders: OrderRow[]; items: Stock
         <label class="f wide">Note<input name="note" maxlength="120"></label>
       </div><div class="acts"><button class="btn primary" type="submit">Add to the list</button></div></form></details></section>` : ''}
   <section class="panel"><details${d.showDone ? html` open` : ''}><summary style="cursor:pointer"><h2 style="display:inline">Received and dropped</h2> <span class="muted small">the last ${done.length}</span></summary>
-    <div class="tbl" style="padding-top:8px"><table><thead><tr><th>Item</th><th class="num">Qty</th><th>For</th><th>What happened</th></tr></thead><tbody>
+    <div class="tbl" tabindex="0" style="padding-top:8px"><table><thead><tr><th>Item</th><th class="num">Qty</th><th>For</th><th>What happened</th></tr></thead><tbody>
       ${done.map((o) => html`<tr><td>${o.name}</td><td class="num">${n(o.received_qty || o.qty)}</td><td>${o.client_name ?? 'Stock'}</td><td>${o.status === 'received' ? `In ${o.received_on ? fmtShort(o.received_on) : ''}` : 'Dropped'}</td></tr>`)}
       ${!done.length ? html`<tr><td colspan="4" class="muted">Nothing yet.</td></tr>` : ''}
     </tbody></table></div></details></section>`;
@@ -247,7 +247,7 @@ export function countPage(d: { person: Person; items: StockItem[]; onHand: Map<n
     <div class="row"><h2>${d.all ? 'Stocktake: every active item' : "Friday count: the standing lines"}</h2><div class="seg" role="group"><a href="/stock/count"${!d.all ? html` aria-current="true"` : ''}>Standing</a><a href="/stock/count?all=1"${d.all ? html` aria-current="true"` : ''}>Everything</a></div></div>
     <p class="muted small">Type what is on the shelf. Leave a box empty to skip it. Each difference is logged as a count move with your name; the last count shows beside each line.</p>
     <form method="post" action="/stock/count"${d.all ? html`<input type="hidden" name="all" value="1">` : ''}>
-      <div class="tbl"><table class="count"><thead><tr><th>Item</th><th>Bin</th><th>Last count</th><th class="num">Hub says</th><th class="num">On the shelf</th></tr></thead><tbody>
+      <div class="tbl" tabindex="0"><table class="count"><thead><tr><th>Item</th><th>Bin</th><th>Last count</th><th class="num">Hub says</th><th class="num">On the shelf</th></tr></thead><tbody>
         ${groups.map((g) => html`<tr class="grp"><td colspan="5">${g || 'Uncategorised'}</td></tr>${list.filter((i) => i.category === g).map((i) => {
           const last = d.last.get(i.id);
           return html`<tr${i.needs_check ? html` class="check"` : ''}><td>${i.name}${i.needs_check ? html` <span class="spill prov">check</span>` : ''}<div class="muted small">${[i.code, i.unit].filter(Boolean).join(' · ')}</div></td><td>${i.bin}</td><td class="small muted">${last ? `${fmtShort(sydneyDate(last.at))}${last.by ? `, ${last.by.split(' ')[0]}` : ''}` : 'never'}</td><td class="num">${n(d.onHand.get(i.id) ?? 0)}</td><td class="num"><input type="number" step="0.01" min="0" name="c_${i.id}" inputmode="decimal" style="width:90px" aria-label="${i.name} counted"></td></tr>`;
@@ -265,7 +265,7 @@ export function offcutsPage(d: { person: Person; offcuts: OffcutRow[]; boards: S
   const open = d.offcuts.filter((o) => !o.used_at);
   return html`${stockNav('offcuts', { orders: d.waiting })}
   <section class="panel"><div class="row"><h2>Offcuts</h2><span class="muted small">Pieces over half a sheet of colours we don't keep. Check here before cutting a fresh sheet; they show on Need and supply when the colour is next needed.</span></div>
-    ${open.length ? html`<div class="tbl"><table><thead><tr><th>Colour</th><th>Size</th><th>Where</th><th>Logged</th><th></th></tr></thead><tbody>
+    ${open.length ? html`<div class="tbl" tabindex="0"><table><thead><tr><th>Colour</th><th>Size</th><th>Where</th><th>Logged</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody>
       ${open.map((o) => html`<tr><td><a href="/stock/items/${o.item_id}">${o.name}</a></td><td>${o.length_mm} × ${o.width_mm} mm</td><td>${o.location}${o.note ? html`<div class="muted small">${o.note}</div>` : ''}</td><td class="small">${fmtShort(sydneyDate(o.logged_at))}${o.logged_by_name ? `, ${o.logged_by_name.split(' ')[0]}` : ''}</td>
         <td>${floor ? html`<form method="post" action="/stock/offcuts/${o.id}/used"><input type="hidden" name="back" value="/stock/offcuts"><button class="btn small" type="submit">Used</button></form>` : ''}</td></tr>`)}
     </tbody></table></div>` : html`<p class="muted">None on the rack.</p>`}

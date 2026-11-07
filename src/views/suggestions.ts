@@ -194,13 +194,13 @@ export function suggestionSettings(d: { email: string; isOwner: boolean; tokens:
       <label class="f">Name (who uses it)<input name="name" required placeholder="e.g. Grokbot"></label>
       <button class="btn primary" type="submit" style="align-self:end">Make a token</button>
     </form>
-    <div class="tbl"><table><thead><tr><th>Name</th><th>Made</th><th>Last used</th><th></th></tr></thead><tbody>
+    <div class="tbl" tabindex="0"><table><thead><tr><th>Name</th><th>Made</th><th>Last used</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody>
       ${d.tokens.length ? d.tokens.map((t) => html`<tr><td>${t.name}</td><td>${when(t.created_at)}${t.created_by_name ? ` by ${t.created_by_name}` : ''}</td><td>${t.last_used_at ? when(t.last_used_at) : 'Never'}</td>
         <td>${t.revoked_at ? html`<span class="muted small">Revoked ${when(t.revoked_at)}</span>` : html`<form method="post" action="/settings/tokens/${t.id}/revoke"><button class="btn small danger" type="submit">Revoke</button></form>`}</td></tr>`)
         : html`<tr><td colspan="4" class="muted">No tokens yet.</td></tr>`}
     </tbody></table></div>
     <details><summary style="cursor:pointer"><strong>Recent API calls</strong> <span class="muted small">last ${d.calls.length}</span></summary>
-      <div class="tbl"><table><thead><tr><th>When</th><th>Token</th><th>Call</th><th>Result</th><th>Items</th></tr></thead><tbody>
+      <div class="tbl" tabindex="0"><table><thead><tr><th>When</th><th>Token</th><th>Call</th><th>Result</th><th>Items</th></tr></thead><tbody>
         ${d.calls.map((c) => html`<tr><td>${when(c.at)}</td><td>${c.token_name ?? html`<span class="muted">none</span>`}</td><td><code>${c.method} ${c.path}</code></td><td>${c.status}</td><td>${c.items ?? ''}</td></tr>`)}
       </tbody></table></div></details>
   </section>` : ''}`;

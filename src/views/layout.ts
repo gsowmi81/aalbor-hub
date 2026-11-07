@@ -4,7 +4,7 @@ import { config } from '../config.js';
 
 /** Shown at the top of every page of a preview copy, signed in or not. */
 const previewBar = (): Html => config.preview
-  ? html`<div class="preview-bar" role="note">Preview copy of the hub. Try anything here; nothing you change is real. The real hub is <a href="https://hub.aalborkitchens.com.au">hub.aalborkitchens.com.au</a>.</div>`
+  ? html`<div class="preview-bar" role="region" aria-label="Preview notice">Preview copy of the hub. Try anything here; nothing you change is real. The real hub is <a href="https://hub.aalborkitchens.com.au">hub.aalborkitchens.com.au</a>.</div>`
   : html``;
 
 /**
@@ -69,7 +69,9 @@ export function page(opts: { title: string; tab: Tab; person: Person; flash?: st
   <nav class="tabs" aria-label="Screens">
     ${tabs.map(([t, label, href]) => html`<a href="${href}"${t === current ? html` aria-current="page"` : ''}>${label}</a>`)}
   </nav>
+  <main id="main">
   ${flash}
   ${opts.body}
+  </main>
 </div></body></html>`;
 }

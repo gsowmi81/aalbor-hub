@@ -76,9 +76,9 @@ export function myDayPage(d: MyDayData): Html {
     ${d.message ? html`<div class="me-msg" role="note">${d.message}</div>` : ''}
     ${!d.person.areas.length ? html`<div class="notice">Your areas aren't set yet, so this only shows steps with your name on them. Ask George or Christine to tick your areas in Settings → People.</div>`
       : html`<p class="muted small">${fmtShort(d.today)} · your areas: ${areas.join(', ')}. Tap Done when a step is finished; it leaves this list and the office sees it straight away.</p>`}
-    ${d.issues.length ? html`<section class="panel" style="gap:4px"><div class="row"><h2>Flags for you</h2><span class="muted small">${d.issues.length}</span></div>${d.issues.map((i) => issueItem(i, d.person, '/me'))}</section>` : ''}
     ${overdue.length ? section('Overdue', overdue, '', true) : ''}
     ${section('Today', todayList, 'Nothing on today.')}
+    ${d.issues.length ? html`<section class="panel" style="gap:4px"><div class="row"><h2>Flags for you</h2><span class="muted small">${d.issues.length}</span></div>${d.issues.slice(0, 3).map((i) => issueItem(i, d.person, '/me'))}${d.issues.length > 3 ? html`<a class="btn small" href="/attention#flags">And ${d.issues.length - 3} more on Attention</a>` : ''}</section>` : ''}
     ${section('Later this week', thisWeek, 'Nothing more this week.')}
     ${section('Next week', nextWeek, 'Nothing yet next week.')}
   </div>`;

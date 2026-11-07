@@ -28,6 +28,7 @@
     "qrcode-generator": "^2.0.4"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
     "@types/express": "5.0.3",
     "@types/node": "22.18.0",
     "@types/pg": "8.15.5",

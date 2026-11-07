@@ -72,5 +72,5 @@ export function allJobs(d: { jobs: JobRow[]; steps: StepRow[]; decisions: Decisi
 
   return html`<div class="row"><div class="muted">Every live job from ${fmtShort(start)} to ${fmtShort(end)}, sorted by install. Tap a job name to open it. Orange means a date has passed and nobody ticked it. Scroll sideways on a phone.${d.canMove ? ' Drag a bar to move it: you\'ll be asked what happens to the rest of the job, then it saves, confirmed. Or tap a bar to pick a date on the Reschedule screen.' : ''}</div>${brandSeg('/jobs', d.brand)}</div>
   ${legend}
-  <div class="tl-box"><div class="tl" data-days="${N}">${head}${rows}</div></div>`;
+  <div class="tl-box" tabindex="0"><div class="tl" data-days="${N}">${head}${rows}</div></div>`;
 }

@@ -99,7 +99,7 @@ export function reworkPage(d: { person: Person; rework: (ReworkFull & { client_n
   <div class="two">
     <section class="panel"><div class="row"><h2>Open</h2><span class="muted small">${open.length}</span></div><div>${open.length ? open.map(item) : html`<p>No open rework.</p>`}</div></section>
     <section class="panel"><h2>Monthly tally</h2><p class="muted small">By the month rework was raised. Hours and dollars come in when it's closed.</p>
-      <div class="tbl"><table><thead><tr><th>Month</th><th>Cause</th><th class="num">Count</th><th class="num">Extra hours</th><th class="num">Extra material</th></tr></thead><tbody>${tallyRows}</tbody></table></div></section>
+      <div class="tbl" tabindex="0"><table><thead><tr><th>Month</th><th>Cause</th><th class="num">Count</th><th class="num">Extra hours</th><th class="num">Extra material</th></tr></thead><tbody>${tallyRows}</tbody></table></div></section>
   </div>
   <section class="panel"><h2>Closed</h2><div>${closed.length ? closed.map(item) : html`<p class="muted">Nothing closed yet.</p>`}</div></section>`;
 }
@@ -124,7 +124,7 @@ function ownersTally(d: Parameters<typeof reworkPage>[0]): Html {
   return html`<section class="panel owners" style="display:flex;flex-direction:column;align-items:stretch">
     <div class="row"><h2>Who was responsible</h2><span class="tag">Owners only</span></div>
     <p class="muted small">Only you and the other owner see this. The last six months, by the month rework was raised.</p>
-    <div class="tbl"><table><thead><tr><th>Responsible</th><th class="num">This month</th><th class="num">6 months</th><th class="num">Extra hours</th><th class="num">Extra material</th></tr></thead>
+    <div class="tbl" tabindex="0"><table><thead><tr><th>Responsible</th><th class="num">This month</th><th class="num">6 months</th><th class="num">Extra hours</th><th class="num">Extra material</th></tr></thead>
       <tbody>${rows.length ? rows.map(([who, e]) => html`<tr><td>${who}</td><td class="num">${e.month}</td><td class="num">${e.count}</td><td class="num">${e.hours.toFixed(1)}</td><td class="num">$${e.cost.toFixed(0)}</td></tr>`) : html`<tr><td colspan="5" class="muted">No rework in the last six months.</td></tr>`}</tbody></table></div>
   </section>`;
 }
@@ -206,7 +206,7 @@ export function settingsPage(d: {
       <label class="f">Reason<input name="reason" required placeholder="e.g. Phil on leave"></label>
       <button class="btn primary" type="submit" style="align-self:end">Add</button>
     </form>
-    ${d.cap.adjustments.length ? html`<div class="tbl"><table><thead><tr><th>Area</th><th>From</th><th>To</th><th class="num">Hours a day</th><th>Reason</th><th></th></tr></thead><tbody>
+    ${d.cap.adjustments.length ? html`<div class="tbl" tabindex="0"><table><thead><tr><th>Area</th><th>From</th><th>To</th><th class="num">Hours a day</th><th>Reason</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody>
       ${d.cap.adjustments.filter((a) => a.to_day >= d.today).map((a) => html`<tr><td>${d.cap.centres.find((c) => c.key === a.centre)?.label ?? a.centre}</td><td>${fmtShort(a.from_day)}</td><td>${fmtShort(a.to_day)}</td><td class="num">${a.hours}</td><td>${a.reason}</td>
         <td><form method="post" action="/settings/adjustments/${a.id}/delete"><button class="btn small danger" type="submit">Remove</button></form></td></tr>`)}
     </tbody></table></div>` : ''}
@@ -214,7 +214,7 @@ export function settingsPage(d: {
 
   <section class="panel" id="flags"><h2>Flagged problems: who looks after what</h2>
     <p class="muted small">Anyone who can tick can flag a problem from My day or a step. The flag goes by email to the person here and to the Editors, and sits on Attention until it's marked fixed.</p>
-    <div class="tbl"><table><thead><tr><th>Problem</th><th>Looked after by</th><th>In the list</th><th></th></tr></thead><tbody>
+    <div class="tbl" tabindex="0"><table><thead><tr><th>Problem</th><th>Looked after by</th><th>In the list</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody>
       ${d.issueTypes.map((t) => html`<tr><td colspan="4" style="padding:0;border:0"><form method="post" action="/settings/flag-types/${t.key}" style="display:grid;grid-template-columns:minmax(160px,1.2fr) minmax(160px,1fr) 100px auto;gap:8px;padding:8px 10px;border-bottom:1px solid var(--line);align-items:center;min-width:560px">
         <strong>${t.label}</strong>
         <select name="responsible" aria-label="Looked after by"><option value="">Editors only</option>${d.people.filter((p) => p.active && p.role !== 'viewer').map((p) => html`<option value="${p.id}"${t.responsible === p.id ? html` selected` : ''}>${p.name}</option>`)}</select>
@@ -225,7 +225,7 @@ export function settingsPage(d: {
   <section class="panel" id="emails"><h2>Emails</h2>
     <p class="muted small">Every weekday at 7 am Sydney time the hub emails whoever owns a step that went overdue the day before, and on Mondays everyone gets their week. A flag emails the person who looks after it and the Editors as it's raised; Materials in, ticked, emails the factory. Untick "Emails" on a person below to leave them out.${d.preview && d.nudgeTo ? html` <strong>On this preview copy every one of these goes to ${d.nudgeTo} instead of the person.</strong>` : ''}</p>
     <div class="acts"><a class="btn" href="/settings/emails">See what today's run would send</a></div>
-    ${d.runs.length ? html`<div class="tbl"><table><thead><tr><th>Day</th><th class="num">Sent</th><th>Ran at</th></tr></thead><tbody>${d.runs.map((r) => html`<tr><td>${fmtShort(r.day)}</td><td class="num">${r.sent}</td><td>${new Intl.DateTimeFormat('en-AU', { timeZone: 'Australia/Sydney', hour: '2-digit', minute: '2-digit', hour12: false, day: '2-digit', month: 'short' }).format(new Date(r.ran_at))}</td></tr>`)}</tbody></table></div>` : html`<p class="muted small">No runs yet.</p>`}
+    ${d.runs.length ? html`<div class="tbl" tabindex="0"><table><thead><tr><th>Day</th><th class="num">Sent</th><th>Ran at</th></tr></thead><tbody>${d.runs.map((r) => html`<tr><td>${fmtShort(r.day)}</td><td class="num">${r.sent}</td><td>${new Intl.DateTimeFormat('en-AU', { timeZone: 'Australia/Sydney', hour: '2-digit', minute: '2-digit', hour12: false, day: '2-digit', month: 'short' }).format(new Date(r.ran_at))}</td></tr>`)}</tbody></table></div>` : html`<p class="muted small">No runs yet.</p>`}
   </section>
 
   <section class="panel"><h2>Default durations and limits</h2>
@@ -260,7 +260,7 @@ export function settingsPage(d: {
       <label class="f">Reason<input name="reason" required placeholder="e.g. Factory clean-out"></label>
       <button class="btn primary" type="submit" style="align-self:end">Add</button>
     </form>
-    <div class="tbl"><table><thead><tr><th>Date</th><th>Applies to</th><th>Reason</th><th></th></tr></thead><tbody>
+    <div class="tbl" tabindex="0"><table><thead><tr><th>Date</th><th>Applies to</th><th>Reason</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody>
       ${upcoming.map((b) => html`<tr><td>${fmtShort(b.day)} ${b.day.slice(0, 4)}</td><td>${b.scope === 'all' ? 'Everyone' : 'Factory only'}</td><td>${b.reason}</td>
         <td><form method="post" action="/settings/blocked/${b.id}/delete"><button class="btn small danger" type="submit">Remove</button></form></td></tr>`)}
     </tbody></table></div></section>
@@ -273,7 +273,7 @@ export function settingsPage(d: {
 
   <section class="panel"><h2>People</h2>
     <p class="muted small">Only these addresses can sign in. Editors change anything; Doers tick steps and raise rework; Viewers look. Switch someone off rather than deleting them, so the history keeps their name.${d.viewerIsOwner ? ' Owners (you see this column because you are one) also see who was responsible for each rework; only an owner can make someone an owner.' : ''} Areas are the board rows a person works in: their steps make up My day.</p>
-    <div class="tbl"><table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Can sign in</th>${d.viewerIsOwner ? html`<th>Owner</th>` : ''}<th>Emails</th><th title="May change stock: items, counts, the order list">Stock</th><th></th></tr></thead><tbody>
+    <div class="tbl" tabindex="0"><table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Can sign in</th>${d.viewerIsOwner ? html`<th>Owner</th>` : ''}<th>Emails</th><th title="May change stock: items, counts, the order list">Stock</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody>
       ${d.people.map((p) => {
         const locked = p.is_owner && !d.viewerIsOwner;
         const cols = d.viewerIsOwner ? 'minmax(120px,1fr) minmax(180px,1.5fr) 120px 110px 90px 90px 80px auto' : 'minmax(120px,1fr) minmax(180px,1.5fr) 120px 110px 90px 80px auto';

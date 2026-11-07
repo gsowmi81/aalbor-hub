@@ -20,7 +20,7 @@ export function loadPage(d: { from: Iso; today: Iso; rows: { centre: LabourCentr
   return html`<p class="muted">Hours booked against hours available, each working day for six weeks. A kitchen's factory or install day counts as ${d.hoursPerDay} h; a rework task counts its hours. Red is over. Change the hours, or add leave and shutdowns, under <a href="/settings#capacity">Settings → Capacity</a>.</p>
   ${d.rows.map((r) => html`<section class="panel" style="gap:6px">
     <h2>${r.centre.label}</h2>
-    <div class="tl-box"><table class="loadt">
+    <div class="tl-box" tabindex="0"><table class="loadt">
       <thead><tr><th>Week</th>${['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((n) => html`<th>${n}</th>`)}<th class="num">Week</th></tr></thead>
       <tbody>${weeks.map((w) => {
         const days = r.days.slice(w * 5, w * 5 + 5);
