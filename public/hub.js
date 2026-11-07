@@ -42,23 +42,31 @@
       return fetch(action, { method: 'POST', body: body, credentials: 'same-origin', headers: { 'X-Hub-Live': '1' } });
     }).then(function (r) {
       var url = new URL(r.url, location.href);
-      if (r.redirected && url.pathname !== location.pathname) { location.href = r.url; return; }
       return r.text().then(function (html) {
         if (!r.redirected) { document.open(); document.write(html); document.close(); return; }
         var doc = new DOMParser().parseFromString(html, 'text/html');
         var fresh = doc.querySelector('.wrap'), mine = document.querySelector('.wrap');
-        if (!fresh || !mine) { location.reload(); return; }
+        if (!fresh || !mine) { location.href = r.url; return; }
+        // The page the hub sent back is the one to show, flash message included: swap it in. A redirect to
+        // another screen (a new job, a deleted one) becomes a history entry so Back still works.
+        var samePage = url.pathname === location.pathname && url.search === location.search;
         var y = window.scrollY;
         mine.replaceWith(fresh);
-        if (url.hash && url.hash !== location.hash) history.replaceState(null, '', url.pathname + url.search + url.hash);
+        document.querySelectorAll('.movebox').forEach(function (b) { b.remove(); });
+        if (doc.title) document.title = doc.title;
+        if (!samePage) history.pushState(null, '', url.pathname + url.search + url.hash);
+        else if (url.hash && url.hash !== location.hash) history.replaceState(null, '', url.pathname + url.search + url.hash);
         init();
-        window.scrollTo(0, y);
+        window.scrollTo(0, samePage ? y : 0);
         var target = url.hash && document.querySelector(url.hash);
         if (target && (target.getBoundingClientRect().top < 0 || target.getBoundingClientRect().bottom > window.innerHeight)) target.scrollIntoView({ block: 'center' });
       });
     }).catch(function () { f.setAttribute('data-plain', ''); busy = false; if (submitter) submitter.disabled = false; f.requestSubmit ? f.requestSubmit(submitter || undefined) : f.submit(); })
       .then(function () { busy = false; if (submitter) submitter.disabled = false; });
   });
+
+  // After an in-place move to another screen, Back loads that screen afresh.
+  window.addEventListener('popstate', function () { location.reload(); });
 
   // Photos on a flag: shrunk on the phone to 1600px JPEG before they go up (a 5 MB photo becomes ~300 KB).
   function withShrunkPhotos(f) {
@@ -324,6 +332,9 @@
     }, 300);
   }
   form.addEventListener('change', refresh);
+  // "Show proposed dates" refreshes the proposal in place instead of reloading the whole page.
+  var preview = form.querySelector('button[name=action][value=preview]');
+  if (preview) preview.addEventListener('click', function (e) { e.preventDefault(); refresh(); preview.blur(); });
   }
   init();
 })();

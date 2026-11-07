@@ -99,7 +99,7 @@ function stepRow(s: Step, d: JobPageData, std: Step[]): Html {
     ? !on && asksOnDone(s)
       ? html`<div id="c-${s.id}" style="display:contents">${installDoneForm(s, back, box)}</div>`
       : html`<form method="post" action="/steps/${s.id}/done" id="c-${s.id}"><input type="hidden" name="done" value="${on ? '0' : '1'}"><input type="hidden" name="back" value="${back}">
-        <button class="check" type="submit" aria-pressed="${on}" aria-label="${stepLabel(s)}: ${on ? 'done, tap to untick' : 'tap when done'}">${box}</button></form>`
+        <button class="check" type="submit" aria-pressed="${on ? 'true' : 'false'}" aria-label="${stepLabel(s)}: ${on ? 'done, tap to untick' : 'tap when done'}">${box}</button></form>`
     : html`<span class="check" id="c-${s.id}">${box}</span>`;
   const when = s.start_date ? fmtRange(s.start_date, s.end_date) : on ? 'Done, date not recorded' : 'No date yet';
   const pills: Html[] = [];

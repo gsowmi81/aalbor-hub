@@ -984,6 +984,17 @@ describe('stock and the factory TV (George, 7 Nov 2026)', () => {
     expect((await req('GET', '/stock/offcuts', 'Angela')).text).toContain('1800 × 900');
   });
 
+  it('a job with picked stock can still be deleted; the ledger keeps the moves without the job', async () => {
+    const job = await one(`select id from jobs where client_name = 'Greg Steven'`);
+    const moves = Number((await one(`select count(*) from stock_moves where job_id = $1`, [job.id])).count);
+    expect(moves).toBeGreaterThan(0);
+    const r = await req('POST', `/jobs/${job.id}/delete`, 'George', {});
+    expect(r.status).toBe(302);
+    expect(r.location).toBe('/jobs');
+    expect(await one('select 1 from jobs where id = $1', [job.id])).toBeUndefined();
+    expect(Number((await one(`select count(*) from stock_moves where job_id is null and kind in ('picked', 'received')`)).count)).toBeGreaterThanOrEqual(moves);
+  });
+
   it('the factory TV opens with the link key from Settings, and with nothing else', async () => {
     expect((await req('GET', '/tv')).status).toBe(403);
     expect((await req('POST', '/settings/tv', 'George', {})).status).toBe(302);
