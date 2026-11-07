@@ -44,7 +44,7 @@ const pdf = Buffer.from('%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\ntrailer 
   // ============ EDITOR (George) ============
   await as('george');
   await step('landing: editor sees the Board', async () => { await go('/'); expect((await text()).includes('This week'), 'no week board'); });
-  await step('find a job by number opens it', async () => { await go('/find?q=260916'); expect(/\/jobs\/\d+$/.test(page.url()), page.url()); });
+  await step('find a job by number opens it', async () => { await go('/find?q=260909'); expect(/\/jobs\/\d+$/.test(page.url()), page.url()); });
   await step('find by part of a name lists matches', async () => { await go('/find?q=wissam'); expect((await text()).includes('Wissam'), 'no match'); });
   await step('header search form works', async () => { await go('/board'); await page.fill('header input[name=q]', 'parry'); await page.locator('header form.find button').click(); await page.waitForTimeout(500); expect(/\/jobs\/\d+$/.test(page.url()), page.url()); });
 
@@ -103,7 +103,7 @@ const pdf = Buffer.from('%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\ntrailer 
     expect((await flash()).length > 0 || true, '');
   });
   await step('one job: add, edit and delete a task for this job only', async () => {
-    await go(`/jobs/${newId}`); const ts = page.locator('summary', { hasText: 'Add a task' }).first(); if (!(await ts.evaluate((x) => x.parentElement.open))) await ts.click();
+    await go(`/jobs/${newId}#tasks`); const ts = page.locator('summary', { hasText: 'Add a task' }).first(); if (!(await ts.evaluate((x) => x.parentElement.open))) await ts.click();
     await page.fill('form[action$="/tasks"] input[name=label]', 'Spray doors'); await page.selectOption('form[action$="/tasks"] select[name=area]', { index: 1 });
     await submitIn('form[action$="/tasks"]');
     expect((await text()).includes('Spray doors'), 'task not added');
@@ -155,7 +155,7 @@ const pdf = Buffer.from('%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\ntrailer 
     const m = await one('select picked from job_materials where job_id = $1', [newId]); expect(Number(m.picked) === 3, 'not picked');
   });
   await step('one job: job details edit and status change', async () => {
-    await go(`/jobs/${newId}`); await page.locator('summary', { hasText: 'Job details' }).first().click();
+    await go(`/jobs/${newId}#details`); const jd = page.locator('summary', { hasText: 'Job details' }).first(); if (!(await jd.evaluate((x) => x.parentElement.open))) await jd.click();
     const f = page.locator(`form[action="/jobs/${newId}/details"]`); await f.locator('input[name=suburb]').fill('Mascot'); await f.locator('button[type=submit]').first().click(); await page.waitForTimeout(800);
     expect((await one('select suburb from jobs where id = $1', [newId])).suburb === 'Mascot', 'suburb not saved');
   });
@@ -173,6 +173,7 @@ const pdf = Buffer.from('%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\ntrailer 
   await step('attention: overdue "Done" from the list', async () => {
     await go('/attention'); const done = page.locator('.att-body form[action$="/done"] button').first(); if (!(await done.count())) return;
     const before = Number((await one('select count(*) from steps where done_at is not null')).count);
+    await done.evaluate((b) => { const d = b.closest('details'); if (d) d.open = true; });
     await done.click(); await page.waitForTimeout(700);
     expect(Number((await one('select count(*) from steps where done_at is not null')).count) === before + 1, 'not ticked');
   });
@@ -196,31 +197,31 @@ const pdf = Buffer.from('%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\ntrailer 
     if (await sup.count()) { await sup.locator('xpath=ancestor::details[1]/summary').click().catch(() => {}); await page.fill('form[action*="supersede"] input[name=reason], form[action*="supersede"] input[name=note]', 'QA clear').catch(() => {}); await sup.click(); await page.waitForTimeout(800); }
     const left = Number((await one(`select count(*) from suggestions where status = 'pending'`)).count); expect(left === 0, `${left} still pending`);
   });
-  await step('settings: every section saves', async () => {
-    await go('/settings');
+  await step('settings: every page saves', async () => {
+    await go('/settings/message');
     await page.fill('form[action="/settings/message"] input[name=message]', 'QA message'); await submitIn('form[action="/settings/message"]');
     expect((await one(`select value from app_settings where key = 'board_message'`)).value === 'QA message', 'message');
-    await page.fill('form[action="/settings/centres/factory"] input[name=fri]', '6'); await submitIn('form[action="/settings/centres/factory"]');
+    await go('/settings/capacity'); await page.fill('form[action="/settings/centres/factory"] input[name=fri]', '6'); await submitIn('form[action="/settings/centres/factory"]');
     await page.fill('form[action="/settings/adjustments"] input[name=from]', '2027-04-05'); await page.fill('form[action="/settings/adjustments"] input[name=to]', '2027-04-09'); await page.fill('form[action="/settings/adjustments"] input[name=hours]', '0'); await page.fill('form[action="/settings/adjustments"] input[name=reason]', 'QA shutdown'); await submitIn('form[action="/settings/adjustments"]');
     expect(await one(`select 1 from capacity_adjustments where reason = 'QA shutdown'`), 'adjustment');
     await page.locator('form[action^="/settings/adjustments/"][action$="/delete"] button').first().click(); await page.waitForTimeout(600);
-    await page.locator('form[action="/settings/flag-types/damaged"] button').click(); await page.waitForTimeout(600);
-    await submitIn('form[action="/settings/tv"]'); expect((await one(`select value from app_settings where key = 'tv_token'`)).value.length > 10, 'tv key');
-    const blocked = page.locator('form[action="/settings/blocked"]'); await blocked.locator('input[name=from]').fill('2027-06-14'); await blocked.locator('input[name=reason]').fill('QA block'); await blocked.locator('button[type=submit]').click(); await page.waitForTimeout(600);
+    await go('/settings/flag-types'); await page.locator('form[action="/settings/flag-types/damaged"] button').click(); await page.waitForTimeout(600);
+    await go('/settings/tv'); await submitIn('form[action="/settings/tv"]'); expect((await one(`select value from app_settings where key = 'tv_token'`)).value.length > 10, 'tv key');
+    await go('/settings/blocked-days'); const blocked = page.locator('form[action="/settings/blocked"]'); await blocked.locator('input[name=from]').fill('2027-06-14'); await blocked.locator('input[name=reason]').fill('QA block'); await blocked.locator('button[type=submit]').click(); await page.waitForTimeout(600);
     expect(await one(`select 1 from blocked_days where reason = 'QA block'`), 'blocked day');
     await page.locator('form[action^="/settings/blocked/"] button').last().click(); await page.waitForTimeout(500);
-    await page.locator('form[action="/settings/people"] input[name=name]').fill('QA Person'); await page.locator('form[action="/settings/people"] input[name=email]').fill('qa@test.local'); await submitIn('form[action="/settings/people"]');
+    await go('/settings/people'); await page.locator('form[action="/settings/people"] input[name=name]').fill('QA Person'); await page.locator('form[action="/settings/people"] input[name=email]').fill('qa@test.local'); await submitIn('form[action="/settings/people"]');
     expect(await one(`select 1 from people where email = 'qa@test.local'`), 'person');
-    await page.fill('form[action="/settings/message"] input[name=message]', ''); await submitIn('form[action="/settings/message"]');
+    await go('/settings/message'); await page.fill('form[action="/settings/message"] input[name=message]', ''); await submitIn('form[action="/settings/message"]');
   });
   await step('settings: durations save and templates save', async () => {
-    await go('/settings'); const f = page.locator('form[action="/settings/rules"], form[action="/settings"]').first(); if (await f.count()) { await f.locator('button[type=submit]').first().click(); await page.waitForTimeout(600); }
-    const t = page.locator('form[action^="/settings/templates/"]').first(); if (await t.count()) { await t.locator('button[type=submit]').click(); await page.waitForTimeout(600); }
+    await go('/settings/durations'); const f = page.locator('form[action="/settings/values"]').first(); if (await f.count()) { await f.locator('button[type=submit]').first().click(); await page.waitForTimeout(600); }
+    await go('/settings/job-types'); const t = page.locator('form[action^="/settings/templates/"]').first(); if (await t.count()) { await t.locator('button[type=submit]').click(); await page.waitForTimeout(600); }
     expect(!(await text()).includes("didn't work"), 'error');
   });
   await step('settings: emails preview and send now', async () => { expect((await go('/settings/emails')) === 200, 'emails page'); await submitIn('form[action="/settings/emails/run"]'); expect(await one(`select 1 from digest_runs`), 'no run'); });
   await step('settings: API token made and revoked; the API accepts a suggestion with it', async () => {
-    await go('/settings'); const mk = page.locator('form[action="/settings/tokens"]'); if (!(await mk.count())) throw new Error('no token form (owner only)');
+    await go('/settings/bot'); const mk = page.locator('form[action="/settings/tokens"]'); if (!(await mk.count())) throw new Error('no token form (owner only)');
     await mk.locator('input[name=name]').fill('QA bot'); await mk.locator('button[type=submit]').click(); await page.waitForTimeout(700);
     const tokVal = await page.locator('input[readonly]').first().inputValue(); const tok = [null, tokVal]; expect(/^hub_/.test(tokVal), 'token not shown: ' + tokVal);
     const r = await page.request.post(BASE + '/api/suggestions', { headers: { Authorization: `Bearer ${tok[1]}`, 'Content-Type': 'application/json' }, data: { batch_id: 'qa1', suggestions: [{ type: 'note', job_number: '270301', priority: 'info', proposed_value: 'QA note from the bot', reason: 'QA' }] } });
@@ -250,8 +251,8 @@ const pdf = Buffer.from('%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\ntrailer 
     expect((await text()).includes('1200 × 800'), 'no offcut');
   });
   await step('delete the QA job', async () => {
-    await go(`/jobs/${newId}`); const del = page.locator(`form[action="/jobs/${newId}/delete"]`); expect(await del.count(), 'no job delete form');
-    await page.locator('summary', { hasText: 'Job details' }).first().click();
+    await go(`/jobs/${newId}#details`); const del = page.locator(`form[action="/jobs/${newId}/delete"]`); await del.waitFor({ state: 'attached', timeout: 8000 });
+    const jd = page.locator('summary', { hasText: 'Job details' }).first(); if (!(await jd.evaluate((x) => x.parentElement.open))) await jd.click();
     await del.locator('xpath=ancestor::details[1]/summary').click(); await del.locator('button[type=submit]').click(); await page.waitForTimeout(1200);
     expect(/deleted/i.test(await flash()) || page.url().endsWith('/jobs'), 'no deleted message; url ' + page.url());
     expect(!(await one('select id from jobs where id = $1', [newId])), 'job still there');

@@ -87,10 +87,34 @@
     })).then(function (list) { list.forEach(function (file) { data.append(input.name, file, file.name); }); return data; });
   }
 
+  function showSection() {
+    var nav = document.querySelector('.jobnav');
+    if (!nav) return;
+    var links = nav.querySelectorAll('a[data-section]');
+    var ids = []; links.forEach(function (l) { ids.push(l.getAttribute('data-section')); });
+    var h = (location.hash || '').slice(1);
+    var want = ids.indexOf(h) >= 0 ? h : 'steps';
+    if (h && ids.indexOf(h) < 0) {
+      var t = document.getElementById(h);
+      ids.forEach(function (id) { var sec = document.getElementById(id); if (t && sec && sec.contains(t)) want = id; });
+    }
+    ids.forEach(function (id) { var sec = document.getElementById(id); if (sec) sec.hidden = id !== want; });
+    document.querySelectorAll('.job > [data-with]').forEach(function (sec) { sec.hidden = sec.getAttribute('data-with') !== want; });
+    links.forEach(function (l) { l.setAttribute('aria-current', l.getAttribute('data-section') === want ? 'true' : 'false'); });
+    var open = document.getElementById(want);
+    var d = open && open.querySelector(':scope > details');
+    if (d && (want === 'details' || want === 'history')) d.open = true;
+  }
+  window.addEventListener('hashchange', showSection);
+
   // Everything below binds to elements on the page, so it runs again after an in-place update.
   function init() {
   // A save message stays long enough to read, then goes.
   document.querySelectorAll('.notice.ok').forEach(function (n) { setTimeout(function () { n.style.transition = 'opacity .6s'; n.style.opacity = '0'; setTimeout(function () { n.remove(); }, 700); }, 7000); });
+  // One job as sections (George, 7 Nov 2026; redesign B): the strip under the job head shows one
+  // section at a time. A link into an item (#s-12, #i-4, #m-7, #f-3, #rwd-2) opens the section it sits in.
+  // Without this file every section is stacked on the page.
+  showSection();
   // "Flag" on a step opens the job's flag form for that step.
   document.querySelectorAll('a[data-flag-step]').forEach(function (a) {
     a.addEventListener('click', function (e) {
@@ -98,6 +122,8 @@
       var box = panel && panel.querySelector('details.flag');
       if (!box) return;
       e.preventDefault();
+      if (location.hash !== '#flags') history.replaceState(null, '', '#flags');
+      showSection();
       var form = box.querySelector('form');
       var hidden = form.querySelector('input[name=step_id]');
       if (!hidden) { hidden = document.createElement('input'); hidden.type = 'hidden'; hidden.name = 'step_id'; form.appendChild(hidden); }

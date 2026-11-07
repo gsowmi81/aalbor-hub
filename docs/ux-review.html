@@ -87,7 +87,7 @@
         <tr><th>Finding</th><th>Severity</th><th>Recommendation</th></tr>
         <tr><td>Header took 40% of the first screen on a phone; tabs wrapped to two rows.</td><td class="sev"><span class="pill done">Done</span></td><td>Short header, tabs as a fixed bar along the bottom with the badges. Keep it; it is the single biggest gain for the floor.</td></tr>
         <tr><td>The name and role line wraps on narrow phones ("George Sowmi · Editor / Sign out").</td><td class="sev"><span class="pill minor">Minor</span></td><td>Show the first name only on phones; move Sign out under More.</td></tr>
-        <tr><td>Six tabs for everyone. A Doer never uses three of them.</td><td class="sev"><span class="pill mod">Moderate</span></td><td>Redesign A: tabs by role. Doer: My day · This job · Stock · More. Editor: Board · Pipeline · Attention · Jobs · More.</td></tr>
+        <tr><td>Six tabs for everyone. A Doer never uses three of them.</td><td class="sev"><span class="pill done">Done</span></td><td>Redesign A: tabs by role. Doer: My day · This job · Stock · More. Editor: Board · Pipeline · Attention · Jobs · More.</td></tr>
         <tr><td>The Attention badge shows the whole count (58 in test data). A big red number on every page reads as alarm, not information.</td><td class="sev"><span class="pill mod">Moderate</span></td><td>Badge only what is new since the person last looked, or cap at "9+". Keep the full count on the Attention screen itself.</td></tr>
       </table></div>
     </div>
@@ -121,7 +121,7 @@
       <h3>One job</h3>
       <div class="tbl"><table>
         <tr><th>Finding</th><th>Severity</th><th>Recommendation</th></tr>
-        <tr><td>Eight panels in a row: decisions, steps, materials, files, flags, tasks, rework, details, history. On a phone with a busy job that is 14,000 pixels, and the panel someone wants is never where they left it.</td><td class="sev"><span class="pill crit">Critical</span></td><td>Redesign B: a sticky strip of section tabs under the job's name (Steps · Materials · Files · Flags · Rework · More), each a count. Open on Steps. The address keeps the section so links from Attention land on the right one.</td></tr>
+        <tr><td>Eight panels in a row: decisions, steps, materials, files, flags, tasks, rework, details, history. On a phone with a busy job that is 14,000 pixels, and the panel someone wants is never where they left it.</td><td class="sev"><span class="pill done">Done</span></td><td>Redesign B: a sticky strip of section tabs under the job's name (Steps · Materials · Files · Flags · Rework · More), each a count. Open on Steps. The address keeps the section so links from Attention land on the right one.</td></tr>
         <tr><td>Empty panels take as much room as full ones ("Tasks for this job only: None" is a paragraph, a button and a form).</td><td class="sev"><span class="pill mod">Moderate</span></td><td>An empty panel is one line with its Add button. The explanation moves behind a "?".</td></tr>
         <tr><td>The date is the tap target for moving a step, shown as an underlined date. Nothing says "tap to move".</td><td class="sev"><span class="pill mod">Moderate</span></td><td>A small calendar icon after the date, or a "Move" word on the row for Editors. Keep the tap on the date too.</td></tr>
         <tr><td>Pin, Flag, Unpin are 13px links next to pills: hard to hit on a phone, and Pin is an Editor concept that confuses Doers.</td><td class="sev"><span class="pill mod">Moderate</span></td><td>Move Pin into the move box ("Pin this date" tick). Make Flag a proper small button for Doers.</td></tr>
@@ -155,7 +155,7 @@
       <h3>Settings</h3>
       <div class="tbl"><table>
         <tr><th>Finding</th><th>Severity</th><th>Recommendation</th></tr>
-        <tr><td>One page holds eleven unrelated things: message, capacity, flag types, emails, durations, job types, blocked days, TV, people, bot email, API tokens. Twenty thousand pixels on a phone; finding "add a person" means scrolling past the holiday list.</td><td class="sev"><span class="pill crit">Critical</span></td><td>Redesign C: Settings becomes a menu of pages (People · Capacity · Job types · Blocked days · Flag types · Emails · Factory TV · Bot), each short. The menu shows one line of status per page ("7 people, 2 without areas").</td></tr>
+        <tr><td>One page holds eleven unrelated things: message, capacity, flag types, emails, durations, job types, blocked days, TV, people, bot email, API tokens. Twenty thousand pixels on a phone; finding "add a person" means scrolling past the holiday list.</td><td class="sev"><span class="pill done">Done</span></td><td>Redesign C: Settings becomes a menu of pages (People · Capacity · Job types · Blocked days · Flag types · Emails · Factory TV · Bot), each short. The menu shows one line of status per page ("7 people, 2 without areas").</td></tr>
         <tr><td>The People table is an 800px-wide grid inside a scroll box, with eight checkboxes per row.</td><td class="sev"><span class="pill mod">Moderate</span></td><td>One card per person: name, role, the switches as labelled toggles, areas as chips. Edit opens a form.</td></tr>
         <tr><td>"Default durations and limits" is a wall of fourteen number fields with long labels.</td><td class="sev"><span class="pill minor">Minor</span></td><td>Group them: Drafting, Measure and drawings, Materials, Factory, Stone, Rework. Show units in the field ("3 days").</td></tr>
       </table></div>
@@ -187,13 +187,13 @@
   <section id="redesigns">
     <h2>The redesigns, in the order I'd do them</h2>
     <div class="plan">
-      <div class="card"><h3>A · Home by role <small>about 3 days</small></h3>
+      <div class="card"><h3>A · Home by role <small><span class="pill done">Done</span> 7 Nov</small></h3>
         <p>The tabs and the home screen depend on who is signed in. A Doer sees My day · This job · Stock · More, and "This job" is whatever they last opened or scanned. An Editor keeps Board · Pipeline · Attention · Jobs · More. Viewers get Board · Pipeline · Jobs. The bottom bar done today is the first half of this.</p>
         <p>Why first: it is the difference between Phil opening the hub on his own and Phil being told to.</p></div>
-      <div class="card"><h3>B · One job as sections <small>about 2 days</small></h3>
+      <div class="card"><h3>B · One job as sections <small><span class="pill done">Done</span> 7 Nov</small></h3>
         <p>A sticky strip of section tabs with counts under the job name. Steps opens by default; Materials, Files, Flags, Rework, Details and History are a tap away and the page never exceeds one or two screens. Links from Attention, the sheet and My day open the right section.</p>
         <p>Why second: it is the screen everyone lands on, from every other screen.</p></div>
-      <div class="card"><h3>C · Settings as pages <small>about 1 day</small></h3>
+      <div class="card"><h3>C · Settings as pages <small><span class="pill done">Done</span> 7 Nov</small></h3>
         <p>A menu with one line of status per page, and the People page as cards. Only Editors go here, but they go here to fix the things that make the other screens wrong (areas, minimums, flag types), so it has to be quick.</p></div>
       <div class="card"><h3>D · Phone versions of the wide screens <small>about 2 days</small></h3>
         <p>Pipeline, Need and supply and Count become card lists on phones. Same data, no sideways scrolling. The desktop tables stay.</p></div>

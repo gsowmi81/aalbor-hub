@@ -19,6 +19,14 @@ export interface MaterialsView {
   allocated: Map<number, number>;
 }
 
+/** The readiness in words, for the pill at the top of the job. */
+export function readinessText(r: Readiness, factoryDate: Iso | null): string {
+  if (r.state === 'none') return 'none loaded';
+  if (r.state === 'ready') return 'ready to cut';
+  if (r.state === 'waiting') return `on order${r.expected ? `, expected ${fmtShort(r.expected)}` : ''}${r.expected && factoryDate && r.expected > factoryDate ? ' (after the factory date)' : ''}`;
+  return 'short';
+}
+
 export function readinessPill(r: Readiness, factoryDate: Iso | null): Html {
   if (r.state === 'none') return html`<span class="spill">No materials loaded</span>`;
   if (r.state === 'ready') return html`<span class="spill done">Ready to cut</span>`;

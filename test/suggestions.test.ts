@@ -85,14 +85,14 @@ describe('API tokens', () => {
     tokenId = row.id;
     expect(row.token_hash).toBe(crypto.createHash('sha256').update(token).digest('hex'));
     expect(row.created_by).toBe(ids.George);
-    expect((await page('GET', '/settings', 'George')).text).not.toContain(token);
+    expect((await page('GET', '/settings/bot', 'George')).text).not.toContain(token);
   });
 
   it('an Editor who is not an owner cannot make or see tokens', async () => {
     const r = await page('POST', '/settings/tokens', 'Christine', { name: 'Sneaky' });
     expect(r.status).toBe(302);
     expect(flashOf(r.cookie)).toContain('Only an owner');
-    expect((await page('GET', '/settings', 'Christine')).text).not.toContain('API tokens');
+    expect((await page('GET', '/settings/bot', 'Christine')).text).not.toContain('API tokens');
     expect(await refused(withPerson(ids.Christine, (db) => db.query(`insert into api_tokens (name, token_hash) values ('x', 'y')`)))).toContain('Only an owner');
   });
 

@@ -37,7 +37,8 @@ import { checkUrl } from '../db/edits.js';
 import { PEOPLE_AREAS } from '../domain/steps.js';
 import { allJobs } from '../views/jobs.js';
 import { CAUSES, jobPage } from '../views/job.js';
-import { newJobPage, proposalBlock, reworkPage, settingsPage } from '../views/other.js';
+import { newJobPage, proposalBlock, reworkPage } from '../views/other.js';
+import { SETTINGS_PAGES, SettingsData, SettingsPage, settingsMenu, settingsPageBody } from '../views/settings.js';
 import { exportWorkbook } from './export.js';
 import { checkDates, createJob, setStepDates, setStepDone, UserError } from '../db/edits.js';
 import { html } from './html.js';
@@ -208,6 +209,7 @@ export function routes(): express.Router {
     if (jobId && !job) throw new UserError("That job isn't in the hub.");
     if (job) {
       // From the job sheet's QR code (George, 7 Nov 2026): this job's open steps, whoever's they are.
+      setCookie(res, 'hub_lastjob', String(job.id), 90 * 86400);
       const body = jobDayPage({ person: me(req), today: today(), jobs: all.jobs, steps: all.steps, message, types, issues: issues.filter((i) => i.job_id === job.id), stepPhotos: await loadStepPhotos(job.id), files: await loadCurrentFiles() }, job);
       return res.send(page({ title: 'My day', tab: 'me', person: me(req), flash: takeFlash(req, res), body, sub: me(req).name }).value);
     }
@@ -350,9 +352,15 @@ export function routes(): express.Router {
     res.redirect(`/jobs/${id}`);
   });
 
+  // "This job" on the floor's tab row (redesign A): the job last opened on this phone, else Find a job.
+  r.get('/jobs/last', (req, res) => {
+    const last = Number(readCookie(req, 'hub_lastjob'));
+    res.redirect(last > 0 ? `/jobs/${last}` : '/find');
+  });
   r.get('/jobs/:id', async (req, res) => {
     const id = idParam(req);
     const data = await loadJob(id);
+    if (data) setCookie(res, 'hub_lastjob', String(id), 90 * 86400);
     if (!data) return res.status(404).send(page({ title: 'Not found', tab: 'job', person: me(req), body: html`<p>That job isn't in the hub. <a href="/jobs">All jobs</a></p>` }).value);
     const [list, history, b] = await Promise.all([loadJobList(), loadJobHistory(id), board()]);
     const decisions = b.decisions.filter((x) => x.jobId === id && b.stored.get(x.key)?.fingerprint !== x.fingerprint);
@@ -496,7 +504,7 @@ export function routes(): express.Router {
       await syncStepSet(db, id);
     });
     flash(res, 'Job details saved.');
-    res.redirect(`/jobs/${id}`);
+    res.redirect(`/jobs/${id}#details`);
   });
 
   r.post('/jobs/:id/dates', editor, async (req, res) => {
@@ -1033,7 +1041,7 @@ export function routes(): express.Router {
 
   // ---------- Settings (Editors) ----------
 
-  async function settingsBody(req: Request, newTok?: { name: string; token: string }) {
+  async function settingsData(req: Request, newTok?: { name: string; token: string }): Promise<SettingsData> {
     const [settings, blocked, people, email, tokens, calls, cap, issueTypes, runs] = await Promise.all([
       pool.query('select key, value, label from settings order by sort'),
       loadBlocked(),
@@ -1046,14 +1054,24 @@ export function routes(): express.Router {
       lastRuns(8),
     ]);
     const extra = suggestionSettings({ email: email.rows[0]?.value ?? '', isOwner: me(req).is_owner, tokens: tokens?.rows ?? [], calls: calls?.rows ?? [], newToken: newTok });
-    return settingsPage({ settings: settings.rows, blocked, people: people.rows, today: today(), templates: await loadTemplates(), viewerIsOwner: me(req).is_owner, extra, message: await appSetting('board_message'),
-      cap, issueTypes, runs, preview: config.preview, nudgeTo: config.preview ? await appSetting('suggestions_email') : null, tvKey: await appSetting('tv_token'), appUrl: config.appUrl });
+    return { settings: settings.rows, blocked, people: people.rows, today: today(), templates: await loadTemplates(), viewerIsOwner: me(req).is_owner, extra, message: await appSetting('board_message'),
+      cap, issueTypes, runs, preview: config.preview, nudgeTo: config.preview ? await appSetting('suggestions_email') : null, tvKey: await appSetting('tv_token'), appUrl: config.appUrl,
+      liveTokens: tokens ? tokens.rows.filter((t) => !t.revoked_at).length : undefined };
   }
 
+  // Settings as a menu of short pages (George, 7 Nov 2026; redesign C).
   r.get('/settings', editor, async (req, res) => {
-    const body = await settingsBody(req);
-    res.send(page({ title: 'Settings', tab: 'settings', person: me(req), flash: takeFlash(req, res), body }).value);
+    const body = settingsMenu(await settingsData(req));
+    res.send(page({ title: 'Settings', tab: 'settings', person: me(req), flash: takeFlash(req, res), body, sub: 'Each page is short; the line under it says where things stand.' }).value);
   });
+  const settingsScreen = async (req: Request, res: Response, key: SettingsPage, newTok?: { name: string; token: string }) => {
+    const d = await settingsData(req, newTok);
+    if (key === 'emails') d.todaysNudges = await dailyNudges(today());
+    const label = SETTINGS_PAGES.find((x) => x.key === key)!.label;
+    if (newTok) res.setHeader('Cache-Control', 'no-store');
+    res.send(page({ title: label, tab: 'settings', person: me(req), flash: newTok ? undefined : takeFlash(req, res), body: settingsPageBody(key, d), sub: html`<a href="/settings">Settings</a> · ${label}` }).value);
+  };
+  for (const p of SETTINGS_PAGES) r.get(`/settings/${p.key}`, editor, (req, res) => settingsScreen(req, res, p.key));
 
   // Capacity in hours per area (George, 7 Nov 2026).
   const hoursOf2 = (v: unknown, what: string) => {
@@ -1069,7 +1087,7 @@ export function routes(): express.Router {
     const h = (['mon', 'tue', 'wed', 'thu', 'fri'] as const).map((d) => hoursOf2(req.body[d], `${c.label} ${d}`));
     await withPerson(me(req).id, (db) => db.query('update labour_centres set mon = $2, tue = $3, wed = $4, thu = $5, fri = $6 where key = $1', [key, ...h]));
     flash(res, `${c.label}: ${h.reduce((a, b) => a + b, 0)} hours a week. Warnings use it from now on.`);
-    res.redirect('/settings#capacity');
+    res.redirect('/settings/capacity');
   });
   r.post('/settings/adjustments', editor, async (req, res) => {
     const cap = await loadCapacity();
@@ -1083,12 +1101,12 @@ export function routes(): express.Router {
     if (!reason) throw new UserError('Add a reason, e.g. Phil on leave.');
     await withPerson(me(req).id, (db) => db.query('insert into capacity_adjustments (centre, from_day, to_day, hours, reason) values ($1, $2, $3, $4, $5)', [centre, from, to, hours, reason]));
     flash(res, `${reason}: ${hours} h a day from ${fmtLong(from)} to ${fmtLong(to)}.`);
-    res.redirect('/settings#capacity');
+    res.redirect('/settings/capacity');
   });
   r.post('/settings/adjustments/:id/delete', editor, async (req, res) => {
     await withPerson(me(req).id, (db) => db.query('delete from capacity_adjustments where id = $1', [idParam(req)]));
     flash(res, 'Adjustment removed.');
-    res.redirect('/settings#capacity');
+    res.redirect('/settings/capacity');
   });
 
   // Who looks after each kind of flagged problem.
@@ -1099,36 +1117,28 @@ export function routes(): express.Router {
     const r2 = await withPerson(me(req).id, (db) => db.query('update issue_types set responsible = $2, active = $3 where key = $1 returning label', [key, who, req.body.active === '1']));
     if (!r2.rowCount) throw new UserError('No such flag type.');
     flash(res, `${r2.rows[0].label} saved.`);
-    res.redirect('/settings#flags');
+    res.redirect('/settings/flag-types');
   });
 
-  // Emails: what today's run would send, and send it now.
-  r.get('/settings/emails', editor, async (req, res) => {
-    const list = await dailyNudges(today());
-    const to = config.preview ? await appSetting('suggestions_email') : null;
-    const body = html`<section class="panel"><div class="row"><h2>What the 7 am run would send today</h2><span class="muted small">${list.length} ${list.length === 1 ? 'email' : 'emails'}${to ? html` · on the preview every one goes to ${to}` : ''}</span></div>
-      ${list.length ? list.map((n) => html`<div class="item stack"><div><strong>${n.subject}</strong> <span class="muted small">to ${n.to.name} (${n.to.email})</span></div><div class="small">${n.lines.map((l) => html`<div>${l}</div>`)}</div></div>`) : html`<p class="muted">Nothing to send today: no one has a step that went overdue${new Date(`${today()}T00:00:00Z`).getUTCDay() === 1 ? ' and no one has steps this week' : ''}.</p>`}
-      <div class="acts"><form method="post" action="/settings/emails/run"><button class="btn primary" type="submit">Send these now</button></form><a class="btn" href="/settings#emails">Back to Settings</a></div></section>`;
-    res.send(page({ title: 'Emails', tab: 'settings', person: me(req), flash: takeFlash(req, res), body }).value);
-  });
+  // Emails: send today's run now (the preview is on the Emails settings page).
   r.post('/settings/emails/run', editor, async (_req, res) => {
     const n = await runDaily(today(), true);
     flash(res, `${n ?? 0} ${n === 1 ? 'email' : 'emails'} sent.`);
-    res.redirect('/settings#emails');
+    res.redirect('/settings/emails');
   });
 
   // The factory TV link (George, 7 Nov 2026): a new key stops the old link.
   r.post('/settings/tv', editor, async (req, res) => {
     await withPerson(me(req).id, (db) => db.query(`update app_settings set value = $1 where key = 'tv_token'`, [newTvKey()]));
     flash(res, 'Factory TV link made. Open it on the factory screen; the old link no longer works.');
-    res.redirect('/settings#tv');
+    res.redirect('/settings/tv');
   });
 
   r.post('/settings/message', editor, async (req, res) => {
     const m = String(req.body.message ?? '').trim().slice(0, 200);
     await withPerson(me(req).id, (db) => db.query(`update app_settings set value = $1 where key = 'board_message'`, [m]));
     flash(res, m ? 'Message saved. It shows on My day and the board.' : 'Message cleared.');
-    res.redirect('/settings#message');
+    res.redirect('/settings/message');
   });
 
   r.post('/settings/suggestions-email', editor, async (req, res) => {
@@ -1136,7 +1146,7 @@ export function routes(): express.Router {
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) throw new UserError('That email address looks wrong.');
     await withPerson(me(req).id, (db) => db.query(`update app_settings set value = $1 where key = 'suggestions_email'`, [e]));
     flash(res, `Suggestions emails now go to ${e}.`);
-    res.redirect('/settings#suggestions-email');
+    res.redirect('/settings/bot');
   });
 
   const owner = (req: Request) => {
@@ -1150,16 +1160,14 @@ export function routes(): express.Router {
     const token = newToken();
     await withPerson(me(req).id, (db) => db.query('insert into api_tokens (name, token_hash) values ($1, $2)', [name, hashToken(token)]));
     // Shown once, on this page only: not in a cookie, a redirect or the log.
-    res.setHeader('Cache-Control', 'no-store');
-    const body = await settingsBody(req, { name, token });
-    res.send(page({ title: 'Settings', tab: 'settings', person: me(req), body }).value);
+    await settingsScreen(req, res, 'bot', { name, token });
   });
 
   r.post('/settings/tokens/:id/revoke', editor, async (req, res) => {
     owner(req);
     await withPerson(me(req).id, (db) => db.query('update api_tokens set revoked_at = now() where id = $1 and revoked_at is null', [idParam(req)]));
     flash(res, 'Token revoked. Anything still using it now gets "revoked".');
-    res.redirect('/settings#api-tokens');
+    res.redirect('/settings/bot');
   });
 
   r.post('/settings/values', editor, async (req, res) => {
@@ -1173,7 +1181,7 @@ export function routes(): express.Router {
       }
     });
     flash(res, 'Settings saved.');
-    res.redirect('/settings');
+    res.redirect('/settings/durations');
   });
 
   r.post('/settings/templates/:key', editor, async (req, res) => {
@@ -1190,7 +1198,7 @@ export function routes(): express.Router {
       [key, name, req.body.door_finish === 'polyurethane' ? 'polyurethane' : 'melamine', req.body.has_painting === '1', req.body.has_stone === '1',
         n('factory_days', 1, 30, 'Factory days'), n('install_days', 1, 30, 'Install days'), n('install_weeks', 1, 52, 'Install weeks after site start')]));
     flash(res, `${name} saved. New jobs use it from now on; jobs already in the hub don't change.`);
-    res.redirect('/settings');
+    res.redirect('/settings/job-types');
   });
 
   r.post('/settings/blocked', editor, async (req, res) => {
@@ -1211,13 +1219,13 @@ export function routes(): express.Router {
       }
     });
     flash(res, `${n} blocked ${n === 1 ? 'day' : 'days'} added. Dates already on jobs don't move; Needs a decision will flag any that land on them.`);
-    res.redirect('/settings');
+    res.redirect('/settings/blocked-days');
   });
 
   r.post('/settings/blocked/:id/delete', editor, async (req, res) => {
     await withPerson(me(req).id, (db) => db.query('delete from blocked_days where id = $1', [idParam(req)]));
     flash(res, 'Blocked day removed.');
-    res.redirect('/settings');
+    res.redirect('/settings/blocked-days');
   });
 
   const roleOf = (v: unknown) => (['editor', 'doer', 'viewer'].includes(String(v)) ? String(v) : 'viewer');
@@ -1240,7 +1248,7 @@ export function routes(): express.Router {
     await withPerson(me(req).id, (db) => db.query('insert into people (name, email, role, is_owner, areas, email_digest, can_stock) values ($1, $2, $3, $4, $5, $6, $7)',
       [name, email, roleOf(req.body.role), me(req).is_owner && req.body.is_owner === '1', areasOf(req.body.areas), req.body.email_digest !== '0', req.body.can_stock === '1']));
     flash(res, `${name} added. They can sign in at ${req.protocol}://${req.get('host')} with ${email}.`);
-    res.redirect('/settings');
+    res.redirect('/settings/people');
   });
 
   r.post('/settings/people/:id', editor, async (req, res) => {
@@ -1256,7 +1264,7 @@ export function routes(): express.Router {
     await withPerson(me(req).id, (db) => db.query('update people set name = $2, email = $3, role = $4, active = $5, is_owner = $6, areas = $7, email_digest = $8, can_stock = $9 where id = $1',
       [id, String(req.body.name ?? '').trim(), emailOf(req.body.email), role, active, isOwner, areasOf(req.body.areas), req.body.email_digest === '1', req.body.can_stock === '1']));
     flash(res, 'Saved.');
-    res.redirect('/settings');
+    res.redirect('/settings/people');
   });
 
   // ---------- Export ----------

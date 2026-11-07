@@ -540,7 +540,7 @@ describe('who was responsible: owners only (George, 30 Oct 2026)', () => {
     expect(await refused('update people set is_owner = true where id = $1', [christine])).toBe(true);
     expect(await refused(`update people set email = 'design@aalborkitchens.com.au.x' where id = $1`, [ids.George])).toBe(true);
     expect(await refused('update people set active = false where id = $1', [ids.Gus])).toBe(true);
-    const settings = await req('GET', '/settings', 'Christine');
+    const settings = await req('GET', '/settings/people', 'Christine');
     expect(settings.text).not.toContain('name="is_owner"');
     expect(settings.text).toContain('Only an owner can change this person.');
   });
@@ -1006,7 +1006,7 @@ describe('stock and the factory TV (George, 7 Nov 2026)', () => {
     expect(tv.text).toContain('http-equiv="refresh"');
     expect((await req('GET', '/tv?k=wrong')).status).toBe(403);
     expect((await req('GET', '/tv', 'Phil')).status).toBe(200);
-    expect((await req('GET', '/settings', 'George')).text).toContain(`/tv?k=${key}`);
+    expect((await req('GET', '/settings/tv', 'George')).text).toContain(`/tv?k=${key}`);
   });
 });
 
@@ -1016,5 +1016,55 @@ describe('export', () => {
     expect(r.headers.get('content-type')).toContain('spreadsheetml');
     const buf = Buffer.from(await r.arrayBuffer());
     expect(buf.subarray(0, 2).toString()).toBe('PK');
+  });
+});
+
+describe('the redesigns (George, 7 Nov 2026)', () => {
+  const tabsOf = (text: string) => [...text.matchAll(/<nav class="tabs"[\s\S]*?<\/nav>/g)][0]?.[0] ?? '';
+  it('A: tabs by role, and More completes the set', async () => {
+    const editor = tabsOf((await req('GET', '/board', 'George')).text);
+    expect(editor).toContain('href="/attention"');
+    expect(editor).not.toContain('href="/me"');
+    const doer = tabsOf((await req('GET', '/me', 'Phil')).text);
+    expect(doer).toContain('href="/jobs/last"');
+    expect(doer).toContain('href="/stock"');
+    expect(doer).not.toContain('href="/board"');
+    expect((await req('GET', '/more', 'Phil')).text).toContain('href="/board"');
+    const viewer = tabsOf((await req('GET', '/board', 'Angela')).text);
+    expect(viewer).toContain('href="/pipeline"');
+    expect(viewer).not.toContain('href="/attention"');
+    // A screen off the role's row lights More.
+    expect(tabsOf((await req('GET', '/rework', 'Phil')).text)).toMatch(/href="\/more" aria-current="page"/);
+  });
+  it('A: This job is the job last opened on this phone, else Find', async () => {
+    expect((await req('GET', '/jobs/last', 'Phil')).location).toBe('/find');
+    const job = await one(`select id from jobs where status = 'live' order by id limit 1`);
+    const r = await fetch(`${base}/jobs/${job.id}`, { headers: { Cookie: `hub_session=${tokens.Phil}` } });
+    const cookie = r.headers.get('set-cookie') ?? '';
+    expect(cookie).toContain(`hub_lastjob=${job.id}`);
+    const again = await fetch(`${base}/jobs/last`, { headers: { Cookie: `hub_session=${tokens.Phil}; hub_lastjob=${job.id}` }, redirect: 'manual' });
+    expect(again.headers.get('location')).toBe(`/jobs/${job.id}`);
+  });
+  it('B: the job page carries a section strip with ids for every part', async () => {
+    const job = await one(`select id from jobs where status = 'live' order by id limit 1`);
+    const t = (await req('GET', `/jobs/${job.id}`, 'George')).text;
+    expect(t).toContain('class="jobnav"');
+    for (const id of ['steps', 'materials', 'files', 'flags', 'tasks', 'rework', 'details', 'history']) {
+      expect(t).toContain(`data-section="${id}"`);
+      expect(t).toContain(`id="${id}"`);
+    }
+    expect((await req('GET', `/jobs/${job.id}`, 'Phil')).text).not.toContain('data-section="tasks"');
+  });
+  it('C: Settings is a menu of pages, each with a status line, and the old anchors land on pages', async () => {
+    const menu = (await req('GET', '/settings', 'George')).text;
+    for (const k of ['people', 'capacity', 'job-types', 'durations', 'blocked-days', 'flag-types', 'emails', 'message', 'tv', 'bot']) {
+      expect(menu).toContain(`href="/settings/${k}"`);
+      expect((await req('GET', `/settings/${k}`, 'George')).status).toBe(200);
+      expect((await req('GET', `/settings/${k}`, 'Phil')).status).toBe(403);
+    }
+    expect(menu).toContain('can sign in');
+    expect((await req('POST', '/settings/message', 'George', { message: 'Hello' })).location).toBe('/settings/message');
+    expect((await req('POST', '/settings/message', 'George', { message: '' })).location).toBe('/settings/message');
+    expect((await req('GET', '/settings/people', 'George')).text).toContain('class="cards people"');
   });
 });

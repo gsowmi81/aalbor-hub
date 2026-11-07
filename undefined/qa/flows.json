@@ -1,0 +1,254 @@
+[
+  {
+    "role": "george",
+    "step": "landing: editor sees the Board",
+    "ok": true
+  },
+  {
+    "role": "george",
+    "step": "find a job by number opens it",
+    "ok": true
+  },
+  {
+    "role": "george",
+    "step": "find by part of a name lists matches",
+    "ok": true
+  },
+  {
+    "role": "george",
+    "step": "header search form works",
+    "ok": true
+  },
+  {
+    "role": "george",
+    "step": "new job: preview, clash text, add",
+    "ok": true
+  },
+  {
+    "role": "george",
+    "step": "new job: duplicate number refused with a message",
+    "ok": true
+  },
+  {
+    "role": "george",
+    "step": "one job: tick and untick a step in place",
+    "ok": true
+  },
+  {
+    "role": "george",
+    "step": "one job: tap a date, move everything after it",
+    "ok": true
+  },
+  {
+    "role": "george",
+    "step": "one job: pin and unpin",
+    "ok": true
+  },
+  {
+    "role": "george",
+    "step": "one job: edit all dates form saves",
+    "ok": true
+  },
+  {
+    "role": "george",
+    "step": "one job: move the whole job +1 week and work out again",
+    "ok": true
+  },
+  {
+    "role": "george",
+    "step": "one job: add, edit and delete a task for this job only",
+    "ok": true
+  },
+  {
+    "role": "george",
+    "step": "one job: raise rework with dates, add an item, edit, delete",
+    "ok": true
+  },
+  {
+    "role": "george",
+    "step": "one job: flag a problem, then Fixed with a note",
+    "ok": true
+  },
+  {
+    "role": "george",
+    "step": "one job: files add two classes, second version, remove",
+    "ok": true
+  },
+  {
+    "role": "george",
+    "step": "one job: materials add, source, pick (editor can pick too)",
+    "ok": true
+  },
+  {
+    "role": "george",
+    "step": "one job: job details edit and status change",
+    "ok": true
+  },
+  {
+    "role": "george",
+    "step": "reschedule screen: open from Move…, squeeze mode renders, Move anyway appears only on a clash",
+    "ok": true
+  },
+  {
+    "role": "george",
+    "step": "all jobs (Gantt) renders with bars",
+    "ok": true
+  },
+  {
+    "role": "george",
+    "step": "attention: OK as is on a decision, then undo",
+    "ok": true
+  },
+  {
+    "role": "george",
+    "step": "attention: overdue \"Done\" from the list",
+    "ok": true
+  },
+  {
+    "role": "george",
+    "step": "board: drag a card to another day",
+    "ok": true
+  },
+  {
+    "role": "george",
+    "step": "pipeline, load, more, suggestions screens render",
+    "ok": true
+  },
+  {
+    "role": "george",
+    "step": "suggestions: accept one, decline one, supersede the rest",
+    "ok": true
+  },
+  {
+    "role": "george",
+    "step": "settings: every page saves",
+    "ok": true
+  },
+  {
+    "role": "george",
+    "step": "settings: durations save and templates save",
+    "ok": true
+  },
+  {
+    "role": "george",
+    "step": "settings: emails preview and send now",
+    "ok": true
+  },
+  {
+    "role": "george",
+    "step": "settings: API token made and revoked; the API accepts a suggestion with it",
+    "ok": true
+  },
+  {
+    "role": "george",
+    "step": "export downloads a spreadsheet",
+    "ok": true
+  },
+  {
+    "role": "george",
+    "step": "stock: items search, edit item, import csv",
+    "ok": true
+  },
+  {
+    "role": "george",
+    "step": "stock: order list add a line, ordered, received; count page; offcuts",
+    "ok": true
+  },
+  {
+    "role": "george",
+    "step": "delete the QA job",
+    "ok": false,
+    "note": "no job delete form",
+    "shot": "undefined/qa/fail-31.png"
+  },
+  {
+    "role": "phil",
+    "step": "doer lands on My day",
+    "ok": true
+  },
+  {
+    "role": "phil",
+    "step": "doer: Done from My day in place",
+    "ok": true
+  },
+  {
+    "role": "phil",
+    "step": "doer: install done with answers and photos from My day",
+    "ok": true
+  },
+  {
+    "role": "phil",
+    "step": "doer: flag from My day with the Flag button",
+    "ok": true
+  },
+  {
+    "role": "phil",
+    "step": "doer: raise rework with a factory task",
+    "ok": true
+  },
+  {
+    "role": "phil",
+    "step": "doer: cannot open settings, new job, or change dates",
+    "ok": true
+  },
+  {
+    "role": "phil",
+    "step": "doer: stock count, bin low, receive; cannot edit items",
+    "ok": true
+  },
+  {
+    "role": "phil",
+    "step": "doer: job sheet and QR job view",
+    "ok": true
+  },
+  {
+    "role": "michael",
+    "step": "viewer: sees pages, no forms that change anything",
+    "ok": true
+  },
+  {
+    "role": "angela",
+    "step": "stock tick: a viewer runs the order list and edits items",
+    "ok": true
+  },
+  {
+    "role": "george",
+    "step": "no script: tick done works with a full page load",
+    "ok": true
+  },
+  {
+    "role": "george",
+    "step": "no script: tapping a date opens the Reschedule screen",
+    "ok": true
+  },
+  {
+    "role": "george",
+    "step": "no script: flag form posts",
+    "ok": true
+  },
+  {
+    "role": "george",
+    "step": "phone: board day list has Move links and a card opens the job",
+    "ok": true
+  },
+  {
+    "role": "george",
+    "step": "phone: My day Done and Flag reachable",
+    "ok": true
+  },
+  {
+    "role": "george",
+    "step": "phone: stock count usable",
+    "ok": true
+  },
+  {
+    "role": "nobody",
+    "step": "sign-in: unsigned goes to login; bad token gives a clear page",
+    "ok": true
+  },
+  {
+    "role": "nobody",
+    "step": "sign-in: email a link, then sign in with it, then sign out",
+    "ok": true
+  }
+]

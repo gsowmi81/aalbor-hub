@@ -31,8 +31,8 @@ export function bare(title: string, body: Html): Html {
 }
 
 /**
- * The tabs (George, 7 Nov 2026): Board · Pipeline · My day · Jobs · Attention · More.
- * Rework, Suggestions, New job and Settings live under More. 'job' pages light no tab.
+ * The tabs (George, 7 Nov 2026) are by role: Editors Board · Pipeline · Attention · Jobs · More; Doers My day · This job · Stock · More;
+ * Viewers Board · Pipeline · Jobs · More (Stock too with the stock tick). A screen off the row lights More.
  */
 export type Tab = 'board' | 'pipeline' | 'me' | 'jobs' | 'attention' | 'more' | 'job' | 'rework' | 'suggestions' | 'new' | 'settings' | 'stock'
   | 'coming-up';
@@ -42,16 +42,18 @@ const ROLE_NAME = { editor: 'Editor', doer: 'Doer', viewer: 'Viewer' } as const;
 export function page(opts: { title: string; tab: Tab; person: Person; flash?: string | null; body: Html; sub?: Html | string; attention?: number }): Html {
   const p = opts.person;
   const waiting = p.pending_suggestions ?? 0;
-  const under = (['rework', 'suggestions', 'new', 'settings', 'stock'] as Tab[]).includes(opts.tab);
-  const current = opts.tab === 'coming-up' ? 'board' : under ? 'more' : opts.tab;
-  const tabs: [Tab, string | Html, string][] = [
-    ['board', 'Board', '/board'],
-    ['pipeline', 'Pipeline', '/pipeline'],
-    ['me', 'My day', '/me'],
-    ['jobs', 'Jobs', '/jobs'],
-    ['attention', opts.attention ? html`Attention <span class="badge" aria-label="${opts.attention} to look at">${opts.attention}</span>` : 'Attention', '/attention'],
-    ['more', waiting ? html`More <span class="badge" aria-label="${waiting} suggestions waiting">${waiting}</span>` : 'More', '/more'],
-  ];
+  const att = opts.attention ? html`Attention <span class="badge" aria-label="${opts.attention} to look at">${opts.attention}</span>` : 'Attention';
+  const more = waiting ? html`More <span class="badge" aria-label="${waiting} suggestions waiting">${waiting}</span>` : 'More';
+  // Tabs by role (George, 7 Nov 2026; redesign A): the office plans, the floor ticks, Viewers look.
+  // Whatever is missing from a role's row is on More, so nothing is lost.
+  const all: Record<string, [Tab, string | Html, string]> = {
+    board: ['board', 'Board', '/board'], pipeline: ['pipeline', 'Pipeline', '/pipeline'], me: ['me', 'My day', '/me'], jobs: ['jobs', 'Jobs', '/jobs'],
+    attention: ['attention', att, '/attention'], more: ['more', more, '/more'], job: ['job', 'This job', '/jobs/last'], stock: ['stock', 'Stock', '/stock'],
+  };
+  const row = p.role === 'doer' ? ['me', 'job', 'stock', 'more'] : p.role === 'viewer' ? ['board', 'pipeline', 'jobs', ...(p.can_stock ? ['stock'] : []), 'more'] : ['board', 'pipeline', 'attention', 'jobs', 'more'];
+  const tabs = row.map((k) => all[k]);
+  const wanted: Tab = opts.tab === 'coming-up' ? 'board' : opts.tab;
+  const current: Tab = tabs.some(([t]) => t === wanted) ? wanted : 'more';
   const flash = opts.flash ? (opts.flash.startsWith('!') ? html`<div class="notice bad" role="alert">${opts.flash.slice(1)}</div>` : html`<div class="notice ok" role="status">${opts.flash}</div>`) : '';
   return html`${head(opts.title)}<body>${previewBar()}<div class="wrap">
   <header class="top">
@@ -62,7 +64,7 @@ export function page(opts: { title: string; tab: Tab; person: Person; flash?: st
     </div>
     <div class="topright">
       <form method="get" action="/find" class="find" role="search"><input type="search" name="q" placeholder="Find a job" aria-label="Find a job by number, client or suburb" autocomplete="off"><button class="btn small" type="submit">Go</button></form>
-      <div class="who">${p.name} · ${ROLE_NAME[p.role]}
+      <div class="who"><span class="who-full">${p.name} · ${ROLE_NAME[p.role]}</span><span class="who-short">${p.name.split(' ')[0]}</span>
         <form method="post" action="/logout"><button class="linkbtn" type="submit">Sign out</button></form></div>
     </div>
   </header>
