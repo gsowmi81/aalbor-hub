@@ -63,6 +63,11 @@ describe('roles are enforced by the database', () => {
     expect(await refused(withPerson(doer, (db) => db.query(`delete from step_photos where step_id = $1`, [stepId])))).toMatch(/Doers/);
   });
 
+  it('refuses a Doer or a Viewer adding a file to a job', async () => {
+    expect(await refused(withPerson(doer, (db) => db.query(`insert into job_files (job_id, kind, version, name, content_type, size) values ($1, 'other', 1, 'x.pdf', 'application/pdf', 1)`, [jobId])))).toMatch(/Doers/);
+    expect(await refused(withPerson(viewer, (db) => db.query(`insert into job_files (job_id, kind, version, name, content_type, size) values ($1, 'other', 1, 'x.pdf', 'application/pdf', 1)`, [jobId])))).toMatch(/Viewers/);
+  });
+
   it('refuses a Doer changing dates, jobs or settings', async () => {
     expect(await refused(withPerson(doer, (db) => db.query(`update steps set start_date = '2026-11-04' where id = $1`, [stepId])))).toMatch(/Doers/);
     expect(await refused(withPerson(doer, (db) => db.query(`update jobs set client_name = 'Smith' where id = $1`, [jobId])))).toMatch(/Doers/);

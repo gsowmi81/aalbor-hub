@@ -66,7 +66,37 @@ export async function loadJob(id: number) {
   const steps = (await pool.query(`select ${STEP_COLS} from steps where job_id = $1 order by sort, id`, [id])).rows as (StepRow & { note: string })[];
   const rework = (await pool.query(
     `select r.*, p.name as raised_by_name from rework r left join people p on p.id = r.raised_by where r.job_id = $1 order by r.raised_at`, [id])).rows as ReworkFull[];
-  return { job, steps, rework, stepPhotos: await loadStepPhotos(id) };
+  return { job, steps, rework, stepPhotos: await loadStepPhotos(id), files: await loadJobFiles(id) };
+}
+
+/** A file on a job (George, 7 Nov 2026): the record; the bytes live in job_file_blobs. */
+export interface JobFile {
+  id: number;
+  job_id: number;
+  kind: string;
+  version: number;
+  name: string;
+  content_type: string;
+  size: number;
+  note: string;
+  added_by: number | null;
+  added_by_name: string | null;
+  added_at: string;
+}
+
+const FILE_SQL = `select f.id, f.job_id, f.kind, f.version, f.name, f.content_type, f.size, f.note, f.added_by, p.name as added_by_name, f.added_at
+  from job_files f left join people p on p.id = f.added_by`;
+
+export async function loadJobFiles(jobId: number): Promise<JobFile[]> {
+  return (await pool.query(`${FILE_SQL} where f.job_id = $1 order by f.kind, f.version desc, f.id desc`, [jobId])).rows;
+}
+
+/** The current (latest) file of each class on every job: job id → files. For My day and the board. */
+export async function loadCurrentFiles(): Promise<Map<number, JobFile[]>> {
+  const rows = (await pool.query(`${FILE_SQL} where f.version = (select max(g.version) from job_files g where g.job_id = f.job_id and g.kind = f.kind) order by f.job_id, f.kind`)).rows as JobFile[];
+  const out = new Map<number, JobFile[]>();
+  for (const r of rows) out.set(r.job_id, [...(out.get(r.job_id) ?? []), r]);
+  return out;
 }
 
 /** Install photos on a job's steps: step id → photo ids (George, 7 Nov 2026). */
@@ -108,7 +138,7 @@ export async function loadJobHistory(jobId: number, limit = 40): Promise<LogEntr
   return (await pool.query(
     `select table_name, record_id, action, person_name, changed_at, before, after, suggestion_id::int as suggestion_id from change_log
      where (table_name = 'jobs' and record_id = $1)
-        or (table_name in ('steps', 'rework') and coalesce(after->>'job_id', before->>'job_id') = $1)
+        or (table_name in ('steps', 'rework', 'job_files') and coalesce(after->>'job_id', before->>'job_id') = $1)
      order by id desc limit $2`,
     [String(jobId), limit],
   )).rows;

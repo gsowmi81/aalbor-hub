@@ -29,7 +29,7 @@
     var f = e.target;
     if (!f || attr(f, 'method', 'get').toLowerCase() !== 'post' || f.hasAttribute('data-plain') || busy) return;
     if (!window.fetch || !window.DOMParser || !window.FormData) return;
-    if (f.querySelector('input[type=file]') && !f.hasAttribute('data-photos')) return;
+    if (f.querySelector('input[type=file]') && !f.hasAttribute('data-photos') && !f.hasAttribute('data-files')) return;
     e.preventDefault();
     busy = true;
     var submitter = e.submitter;

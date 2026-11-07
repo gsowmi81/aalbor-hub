@@ -35,6 +35,7 @@ migrations/008_*.sql        suggestions.decided_by_token; token and Editors may 
 migrations/009_*.sql        the preview round: steps.pinned, people.areas, jobs.drawings_url, app_settings.board_message
 migrations/010_*.sql        round two: labour_centres + capacity_adjustments (hours), issues + issue_types + issue_photos (flags), people.email_digest, digest_runs
 migrations/011_*.sql        round three: steps.gaps_adjusted + steps.site_clean and step_photos (install done with photos)
+migrations/012_*.sql        files on a job: job_files (classed, versioned, logged) + job_file_blobs (the bytes, guarded only)
 src/config.ts               every setting, from the environment
 src/db/pool.ts              withPerson() / withSystem() / withToken(): the only ways to write
 src/db/queries.ts           reads, history, syncStepSet()
@@ -49,10 +50,10 @@ src/web/auth.ts             emailed-link sign-in, sessions, role courtesy checks
 src/web/routes.ts           every screen and form handler
 src/web/api.ts              /api for the bot: Bearer token, rate limit, call log, suggestions email
 src/web/export.ts           spreadsheet download
-src/web/upload.ts           multipart forms (photos on a flag), busboy
+src/web/upload.ts           multipart forms (photos on a flag, files on a job), busboy
 src/web/nudges.ts           the emails: overdue, your week, flags, materials in; the 7 am scheduler and digest_runs
 src/views/*.ts              the screens: comingUp.ts is the Board, attention.ts, pipeline.ts, me.ts (My day, and one job from the job sheet), job.ts, jobs.ts (the Gantt), load.ts,
-                            reschedule.ts, items.ts (overdue and decision items shared by Attention and the job), issues.ts (flags), install.ts (install done with photos),
+                            reschedule.ts, items.ts (overdue and decision items shared by Attention and the job), issues.ts (flags), install.ts (install done with photos), files.ts (files on a job),
                             sheet.ts (the printable job sheet with its QR code), other.ts (New job, Rework, More, Find, Settings);
                             public/hub.css is the mock-up's look
 docs/preview.md             the preview copy on Render: set-up, data rules, cutover
@@ -91,6 +92,7 @@ test/                       vitest: dates, checks, schedule, permissions, sugges
 - **Install done with photos** (George, 7 Nov 2026; R13). Ticking the standard Install cabinets step (`asksOnDone()`) opens a small form instead of a plain tick: gaps adjusted? site left clean? and up to three photos. `POST /steps/:id/done` takes multipart then; the answers are `steps.gaps_adjusted` and `steps.site_clean` (in the change log, so History says "ticked done (gaps adjusted yes, site left clean no)"), photos are `step_photos` (bytea, guarded, not logged, served at `/steps/:id/photos/:pid`). Unticking clears the answers and keeps the photos. Doers may set the two answers and add photos (`hub_guard`). Shown under the step on the job and on My day; the Monday email tells Editors "Installs finished last week" with the answers and the photo count (`installsDone()`).
 - **Job sheet** (George, 7 Nov 2026; R12): `/jobs/:id/sheet` is one printable page (`sheet.ts`, its own document, not the layout): number, client, suburb, finish, days, scope, every standard step with a tick box, and a QR code (`qrcode-generator`, no dependencies) that opens `/me?job=:id`: that job's open steps for whoever scanned it, each with Done and Flag, whatever their areas (`jobDayPage()` in `me.ts`). Linked from the job's pills ("Job sheet ↗"). No cabinet count: the hub doesn't hold one.
 - **Where a new job lands** (George, 7 Nov 2026; R7). The proposal on New job shows the factory and install weeks the job lands in with hours booked before and after it against hours available (`weekHours()` in `checks.ts`; `Landing` in `other.ts`). When the job clashes, `proposalFor()` tries the same anchor one to twelve weeks later and offers the first with room as "Use the next week with room: <date>", a button that re-posts the form with `use_week`; the route moves the date worked from and shows the new proposal without saving. None in twelve weeks says so.
+- **Files on a job** (George, 7 Nov 2026). The plans themselves, not a link: `job_files` (job, `kind` = contract_plans / production_plans / other, `version`, name, type, size, note, who, when) with the bytes in `job_file_blobs`. The record is in the change log (History says "File added, Production plans v2: name (note)"); the bytes are guarded only. A new file of a class gets the next version for that job and class; the latest is current and the earlier ones are shown as superseded under "Earlier versions" (`currentFiles()` in `files.ts`). Editors add (`POST /jobs/:id/files`, multipart up to 25 MB, any type) and remove (logged; removing the current one makes the one before current again); everyone opens them at `/jobs/:id/files/:fid` (inline for PDF and images, a download otherwise). Shown on the job (Files panel, and pills at the top for the current of each class), on My day and the job view from the sheet, and named on the job sheet. `jobs.drawings_url` stays as an optional folder link ("Drawings folder ↗"). Stored in Postgres like the photos (the live database has a 15 GB disk); move to R2 only if volume says so.
 - **Who ticks what** (George, 28 Oct 2026): Christine ticks Materials ordered; a shared factory sign-in (Doer) ticks Materials in, Doors back from painting and Delivery; Gus and Phil are Doers; Angela and Michael are Viewers.
 
 ## Run it locally

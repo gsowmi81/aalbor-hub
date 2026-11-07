@@ -16,7 +16,9 @@ import { pipelinePage } from '../views/pipeline.js';
 import { jobDayPage, myDayPage } from '../views/me.js';
 import { jobSheet } from '../views/sheet.js';
 import { asksOnDone } from '../views/install.js';
-import { loadStepPhotos } from '../db/queries.js';
+import { loadStepPhotos, loadCurrentFiles, loadJobFiles } from '../db/queries.js';
+import { FILE_KINDS } from '../views/files.js';
+import { FILE_LIMITS } from './upload.js';
 import { weekHours } from '../domain/checks.js';
 import { mondayOf } from '../domain/dates.js';
 import type { Landing } from '../views/other.js';
@@ -196,10 +198,10 @@ export function routes(): express.Router {
     if (jobId && !job) throw new UserError("That job isn't in the hub.");
     if (job) {
       // From the job sheet's QR code (George, 7 Nov 2026): this job's open steps, whoever's they are.
-      const body = jobDayPage({ person: me(req), today: today(), jobs: all.jobs, steps: all.steps, message, types, issues: issues.filter((i) => i.job_id === job.id), stepPhotos: await loadStepPhotos(job.id) }, job);
+      const body = jobDayPage({ person: me(req), today: today(), jobs: all.jobs, steps: all.steps, message, types, issues: issues.filter((i) => i.job_id === job.id), stepPhotos: await loadStepPhotos(job.id), files: await loadCurrentFiles() }, job);
       return res.send(page({ title: 'My day', tab: 'me', person: me(req), flash: takeFlash(req, res), body, sub: me(req).name }).value);
     }
-    const body = myDayPage({ person: me(req), today: today(), jobs: all.jobs, steps: all.steps, message, types, issues: issues.filter((i) => i.responsible === me(req).id || i.raised_by === me(req).id) });
+    const body = myDayPage({ person: me(req), today: today(), jobs: all.jobs, steps: all.steps, message, types, issues: issues.filter((i) => i.responsible === me(req).id || i.raised_by === me(req).id), files: await loadCurrentFiles() });
     res.send(page({ title: 'My day', tab: 'me', person: me(req), flash: takeFlash(req, res), body, sub: me(req).name }).value);
   });
 
@@ -363,7 +365,50 @@ export function routes(): express.Router {
     const id = idParam(req);
     const data = await loadJob(id);
     if (!data) throw new UserError("That job isn't in the hub.");
-    res.send(jobSheet(data.job, data.steps, `${config.appUrl}/me?job=${id}`, me(req).name, today()).value);
+    res.send(jobSheet(data.job, data.steps, `${config.appUrl}/me?job=${id}`, me(req).name, today(), data.files).value);
+  });
+
+  // ---------- Files on a job (George, 7 Nov 2026): Editors add and remove, everyone opens ----------
+
+  r.post('/jobs/:id/files', editor, async (req, res) => {
+    const jobId = idParam(req);
+    const { fields, files } = await readMultipart(req, FILE_LIMITS);
+    const back = localPath(fields.back) ? fields.back : `/jobs/${jobId}#files`;
+    const kind = String(fields.kind ?? '');
+    if (!FILE_KINDS.some((k) => k.key === kind)) throw new UserError('Say what the file is: contract plans, production plans or other.');
+    const note = String(fields.note ?? '').trim().slice(0, 120);
+    if (!(await pool.query('select 1 from jobs where id = $1', [jobId])).rowCount) throw new UserError("That job isn't in the hub.");
+    const f = files[0];
+    if (!f) throw new UserError('Choose the file.');
+    const name = (f.name || 'file').replace(/[\\/]/g, '_').slice(0, 160);
+    const version = await withPerson(me(req).id, async (db) => {
+      const v = (await db.query('select coalesce(max(version), 0) + 1 as v from job_files where job_id = $1 and kind = $2', [jobId, kind])).rows[0].v as number;
+      const id = (await db.query('insert into job_files (job_id, kind, version, name, content_type, size, note) values ($1, $2, $3, $4, $5, $6, $7) returning id',
+        [jobId, kind, v, name, f.contentType, f.bytes.length, note])).rows[0].id;
+      await db.query('insert into job_file_blobs (file_id, bytes) values ($1, $2)', [id, f.bytes]);
+      return v;
+    });
+    const label = FILE_KINDS.find((k) => k.key === kind)!.label;
+    flash(res, `${label} v${version} added${version > 1 ? `; v${version - 1} is now superseded` : ''}.`);
+    res.redirect(back);
+  });
+
+  r.get('/jobs/:id/files/:fid', async (req, res) => {
+    const f = (await pool.query('select f.name, f.content_type, b.bytes from job_files f join job_file_blobs b on b.file_id = f.id where f.id = $1 and f.job_id = $2', [Number(req.params.fid), idParam(req)])).rows[0];
+    if (!f) return res.status(404).send('No such file.');
+    const inline = f.content_type === 'application/pdf' || f.content_type.startsWith('image/');
+    res.setHeader('Content-Type', f.content_type);
+    res.setHeader('Cache-Control', 'private, max-age=86400');
+    res.setHeader('Content-Disposition', `${inline ? 'inline' : 'attachment'}; filename="${String(f.name).replace(/["\r\n]/g, '_')}"`);
+    res.send(f.bytes);
+  });
+
+  r.post('/jobs/:id/files/:fid/delete', editor, async (req, res) => {
+    const jobId = idParam(req);
+    const r2 = await withPerson(me(req).id, (db) => db.query('delete from job_files where id = $1 and job_id = $2 returning kind, version', [Number(req.params.fid), jobId]));
+    if (!r2.rowCount) throw new UserError('That file has already gone.');
+    flash(res, `${FILE_KINDS.find((k) => k.key === r2.rows[0].kind)?.label ?? 'File'} v${r2.rows[0].version} removed.`);
+    res.redirect(backTo(req, `/jobs/${jobId}#files`));
   });
 
   r.get('/steps/:id/photos/:pid', async (req, res) => {

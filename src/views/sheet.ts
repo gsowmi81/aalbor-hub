@@ -6,7 +6,9 @@ import { html, Html, raw } from "../web/html.js";
 import { fmtLong, fmtRange } from '../domain/dates.js';
 import { KINDS, StepKind } from '../domain/steps.js';
 import { jobTitle, StepRow, stepLabel } from '../domain/checks.js';
-import type { FullJob } from '../db/queries.js';
+import type { FullJob, JobFile } from '../db/queries.js';
+import { currentFiles, fileKindLabel } from './files.js';
+import { sydneyDate } from '../domain/dates.js';
 
 export function qrSvg(text: string): Html {
   const qr = qrcode(0, 'M');
@@ -15,7 +17,8 @@ export function qrSvg(text: string): Html {
   return raw(qr.createSvgTag({ cellSize: 4, margin: 0, scalable: true }));
 }
 
-export function jobSheet(job: FullJob, steps: StepRow[], url: string, printedBy: string, printedOn: string): Html {
+export function jobSheet(job: FullJob, steps: StepRow[], url: string, printedBy: string, printedOn: string, files: JobFile[] = []): Html {
+  const plans = currentFiles(files).filter((f) => f.kind !== 'other');
   const std = steps.filter((s) => s.kind !== 'rework' && !s.label);
   const finish = [job.door_finish === 'polyurethane' ? 'Polyurethane doors' : 'Melamine doors', job.has_painting ? 'Painting' : 'No painting', job.has_stone ? 'Stone' : 'No stone'];
   const row = (s: StepRow) => html`<tr><td>${stepLabel(s)}</td><td>${s.start_date ? fmtRange(s.start_date, s.end_date) : '—'}</td><td>${s.owner || KINDS[s.kind as StepKind].owner}</td><td class="tick">${s.done_at ? '✓' : ''}</td></tr>`;
@@ -39,6 +42,7 @@ export function jobSheet(job: FullJob, steps: StepRow[], url: string, printedBy:
   td { padding: 7px 6px; border-bottom: 1px solid #ccc; vertical-align: top; }
   td.tick { width: 48px; font-size: 20px; text-align: center; border: 1px solid #14171C; border-bottom: 1px solid #14171C; }
   .foot { display: flex; justify-content: space-between; margin-top: 18px; font-size: 12px; color: #555; }
+  .plans { font-size: 13px; margin: 0 0 10px; display: flex; flex-direction: column; gap: 2px; }
   .notes { margin-top: 14px; border: 1px dashed #999; border-radius: 8px; min-height: 90px; padding: 8px; font-size: 12px; color: #777; }
   .print { position: fixed; right: 16px; bottom: 16px; padding: 12px 18px; font: 600 15px inherit; background: #14171C; color: #fff; border: 0; border-radius: 10px; cursor: pointer; }
   @media print { .print { display: none; } body { padding: 0; } }
@@ -54,6 +58,7 @@ export function jobSheet(job: FullJob, steps: StepRow[], url: string, printedBy:
 </div>
 <div class="pills">${finish.map((f) => html`<span class="pill">${f}</span>`)}<span class="pill">Factory ${job.factory_days} ${job.factory_days === 1 ? 'day' : 'days'}</span><span class="pill">Install ${job.install_days} ${job.install_days === 1 ? 'day' : 'days'}</span></div>
 ${job.scope ? html`<div class="scope">${job.scope}</div>` : ''}
+${plans.length ? html`<div class="plans">${plans.map((f) => html`<div><strong>${fileKindLabel(f.kind)} v${f.version}</strong> · ${f.name}${f.note ? ` · ${f.note}` : ''} · added ${fmtLong(sydneyDate(f.added_at))}</div>`)}</div>` : ''}
 <table><thead><tr><th>Step</th><th>When</th><th>Who</th><th>Done</th></tr></thead><tbody>${std.map(row)}</tbody></table>
 <div class="notes">Notes on the floor</div>
 <div class="foot"><span>Printed by ${printedBy}, ${fmtLong(printedOn)}</span><span>${url}</span></div>

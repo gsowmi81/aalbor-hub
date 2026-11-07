@@ -615,7 +615,7 @@ describe('the preview round (George, 7 Nov 2026)', () => {
     const base = { client_name: job.client_name, factory_days: '2', install_days: '3', status: 'live' };
     await req('POST', `/jobs/${job.id}/details`, 'George', { ...base, drawings_url: 'https://www.dropbox.com/sh/abc' });
     expect((await one('select drawings_url from jobs where id = $1', [job.id])).drawings_url).toBe('https://www.dropbox.com/sh/abc');
-    expect((await req('GET', `/jobs/${job.id}`, 'Phil')).text).toContain('Drawings ↗');
+    expect((await req('GET', `/jobs/${job.id}`, 'Phil')).text).toContain('Drawings folder ↗');
     const bad = await req('POST', `/jobs/${job.id}/details`, 'George', { ...base, drawings_url: 'ftp://nope' });
     expect(bad.status).toBe(302);
     expect((await one('select drawings_url from jobs where id = $1', [job.id])).drawings_url).toBe('https://www.dropbox.com/sh/abc');
@@ -799,6 +799,64 @@ describe('round three of the preview (George, 7 Nov 2026)', () => {
     expect(await one(`select 1 from jobs where client_name = 'Room Test'`)).toBeUndefined();
     const a = await one(`select id from capacity_adjustments where reason = 'Test shutdown'`);
     await req('POST', `/settings/adjustments/${a.id}/delete`, 'George', {});
+  });
+});
+
+describe('files on a job (George, 7 Nov 2026)', () => {
+  const pdf = Buffer.from('%PDF-1.4\n1 0 obj << /Type /Catalog >> endobj\ntrailer << /Root 1 0 R >>\n%%EOF\n');
+  const upload = (jobId: number, who: string, fields: Record<string, string>, name = 'plans.pdf', type = 'application/pdf', bytes: Buffer = pdf) => {
+    const boundary = 'hubfiles';
+    const part = (n: string, v: string) => `--${boundary}\r\nContent-Disposition: form-data; name="${n}"\r\n\r\n${v}\r\n`;
+    const body = Buffer.concat([Buffer.from(Object.entries(fields).map(([k, v]) => part(k, v)).join('')),
+      Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${name}"\r\nContent-Type: ${type}\r\n\r\n`), bytes, Buffer.from(`\r\n--${boundary}--\r\n`)]);
+    return fetch(base + `/jobs/${jobId}/files`, { method: 'POST', headers: { Origin: base, Cookie: `hub_session=${tokens[who]}`, 'Content-Type': `multipart/form-data; boundary=${boundary}` }, body, redirect: 'manual' });
+  };
+
+  it('lets an Editor add classed files; a second of the same class becomes v2 and the first is superseded', async () => {
+    const job = await one(`select id from jobs where client_name = 'Greg Steven'`);
+    expect((await upload(job.id, 'Christine', { kind: 'contract_plans', note: 'Signed 02 Oct' })).status).toBe(302);
+    expect((await upload(job.id, 'Christine', { kind: 'production_plans', note: 'Rev B' })).status).toBe(302);
+    expect((await upload(job.id, 'Christine', { kind: 'production_plans', note: 'Rev C, after check measure' }, 'plans-revC.pdf')).status).toBe(302);
+    const rows = (await pool.query('select kind, version, name, note, added_by, size from job_files where job_id = $1 order by kind, version', [job.id])).rows;
+    expect(rows.map((r) => [r.kind, r.version, r.name])).toEqual([['contract_plans', 1, 'plans.pdf'], ['production_plans', 1, 'plans.pdf'], ['production_plans', 2, 'plans-revC.pdf']]);
+    expect(rows[0].added_by).toBe(ids.Christine);
+    expect(rows[0].size).toBe(pdf.length);
+    const page = (await req('GET', `/jobs/${job.id}`, 'Angela')).text;
+    expect(page).toContain('Production plans v2 ↗');
+    expect(page).toContain('Contract plans v1 ↗');
+    expect(page).toContain('Earlier versions (1)');
+    expect(page).toContain('v1 · superseded');
+    expect(page).toContain('File added, Production plans v2: plans-revC.pdf (Rev C, after check measure)');
+    // Everyone opens them, inline for a PDF
+    const v2 = rows[2];
+    const f = await one('select id from job_files where job_id = $1 and kind = $2 and version = 2', [job.id, 'production_plans']);
+    const dl = await fetch(base + `/jobs/${job.id}/files/${f.id}`, { headers: { Cookie: `hub_session=${tokens.Angela}` } });
+    expect(dl.status).toBe(200);
+    expect(dl.headers.get('content-type')).toBe('application/pdf');
+    expect(dl.headers.get('content-disposition')).toContain('inline');
+    expect(Buffer.from(await dl.arrayBuffer()).equals(pdf)).toBe(true);
+    expect(v2.note).toBe('Rev C, after check measure');
+    // My day and the sheet point at the current plans
+    expect((await req('GET', `/me?job=${job.id}`, 'Phil')).text).toContain(`/jobs/${job.id}/files/${f.id}`);
+    expect((await req('GET', `/jobs/${job.id}/sheet`, 'Phil')).text).toContain('Production plans v2');
+  });
+
+  it('refuses files from Doers and Viewers, needs a class, and lets an Editor remove one (kept in History)', async () => {
+    const job = await one(`select id from jobs where client_name = 'Greg Steven'`);
+    expect((await upload(job.id, 'Phil', { kind: 'other' })).status).toBe(403);
+    expect((await upload(job.id, 'Angela', { kind: 'other' })).status).toBe(403);
+    const bad = await upload(job.id, 'Christine', { kind: '' });
+    expect(bad.status).toBe(302); // sent back with the message, nothing added
+    expect(Number((await one('select count(*) from job_files where job_id = $1', [job.id])).count)).toBe(3);
+    const f = await one('select id from job_files where job_id = $1 and kind = $2 and version = 2', [job.id, 'production_plans']);
+    const r = await req('POST', `/jobs/${job.id}/files/${f.id}/delete`, 'Christine', { back: `/jobs/${job.id}#files` });
+    expect(r.status).toBe(302);
+    expect(await one('select 1 from job_files where id = $1', [f.id])).toBeUndefined();
+    expect(await one('select 1 from job_file_blobs where file_id = $1', [f.id])).toBeUndefined();
+    const page = (await req('GET', `/jobs/${job.id}`, 'Christine')).text;
+    expect(page).toContain('Production plans v1 ↗'); // v1 is current again
+    expect(page).toContain('File removed, Production plans v2: plans-revC.pdf');
+    expect((await req('GET', `/jobs/${job.id}/files/${f.id}`, 'Christine')).status).toBe(404);
   });
 });
 

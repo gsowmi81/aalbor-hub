@@ -4,9 +4,10 @@ import { BOARD_ROWS, KINDS, StepKind, FLOW, REWORK_AREAS, REWORK_CATEGORIES, REW
 import { currentStep, Decision, jobTitle, lastDate, nextUp, planRow, StepRow, stepLabel } from '../domain/checks.js';
 import { canSqueeze } from './reschedule.js';
 import { can, Person } from '../web/auth.js';
-import type { FullJob, IssueRow, IssueType, LogEntry, ReworkFull, Responsible } from '../db/queries.js';
+import type { FullJob, IssueRow, IssueType, JobFile, LogEntry, ReworkFull, Responsible } from '../db/queries.js';
 import { flagForm, issuesPanel } from './issues.js';
 import { asksOnDone, installDoneForm, installSummary } from './install.js';
+import { currentFiles, fileKindLabel, fileLink, filesPanel } from './files.js';
 import { ANCHORS, AnchorKind, Template } from '../domain/schedule.js';
 import { decisionFields } from './items.js';
 
@@ -38,6 +39,8 @@ export interface JobPageData {
   fromFlag: { id: number; note: string } | null;
   /** Install photos by step (George, 7 Nov 2026). */
   stepPhotos: Map<number, number[]>;
+  /** Files on the job, every version (George, 7 Nov 2026). */
+  files: JobFile[];
 }
 
 const STATUS = { live: 'Live', on_hold: 'On hold', complete: 'Complete', cancelled: 'Cancelled' } as Record<string, string>;
@@ -159,7 +162,7 @@ export function jobPage(d: JobPageData): Html {
     <div class="eyebrow">Job ${job.job_number ?? '(no number)'} · site start ${job.site_start ? fmtLong(job.site_start) : 'not set'}</div>
     <h2 style="font-size:24px">${jobTitle(job)}</h2>
     ${job.scope ? html`<p class="muted">${job.scope}</p>` : ''}
-    <div class="pills">${pills}${job.drawings_url ? html`<a class="pill link" href="${job.drawings_url}" target="_blank" rel="noopener">Drawings ↗</a>` : ''}<a class="pill link" href="/jobs/${job.id}/sheet" target="_blank" rel="noopener" title="One page for the trolley, with a QR code that opens this job on a phone">Job sheet ↗</a></div>
+    <div class="pills">${pills}${currentFiles(d.files).map((f) => fileLink(f, 'pill link'))}${job.drawings_url ? html`<a class="pill link" href="${job.drawings_url}" target="_blank" rel="noopener">Drawings folder ↗</a>` : ''}<a class="pill link" href="/jobs/${job.id}/sheet" target="_blank" rel="noopener" title="One page for the trolley, with a QR code that opens this job on a phone">Job sheet ↗</a></div>
   </div>
 
   <div class="next"><span class="eyebrow">Next up</span><b>${next ? stepLabel(next) : 'No dates set'}</b><span>${next ? `${fmtRange(next.start_date, next.end_date)} · ${next.owner || KINDS[next.kind].owner}` : 'Add dates below'}</span></div>
@@ -196,6 +199,7 @@ export function jobPage(d: JobPageData): Html {
       </div></details>` : ''}
   </section>
 
+  ${filesPanel({ jobId: job.id, files: d.files, person, back: `/jobs/${job.id}#files` })}
   ${issuesPanel({ jobId: job.id, issues: d.issues, person, types: d.issueTypes, back: `/jobs/${job.id}#flags` })}
   ${editor ? tasksPanel(d, std.filter((s) => s.label)) : ''}
   ${reworkPanel(d, rw)}
@@ -371,7 +375,7 @@ export function jobFields(j: Partial<FullJob> & { template?: string | null }, op
     <label class="checkline"><input type="checkbox" name="has_stone" value="1"${j.has_stone !== false ? html` checked` : ''}> Stone benchtops</label>
     ${opts.forNew ? '' : html`<label class="f">Status<select name="status">${Object.entries(STATUS).map(([k, l]) => html`<option value="${k}"${j.status === k ? html` selected` : ''}>${l}</option>`)}</select></label>
     <label class="checkline"><input type="checkbox" name="at_risk" value="1"${j.at_risk ? html` checked` : ''}> At risk</label>`}
-    <label class="f wide">Drawings link (a Dropbox, OneDrive or Buildertrend folder)<input name="drawings_url" type="url" inputmode="url" value="${v(j.drawings_url)}" placeholder="https://…"></label>
+    <label class="f wide">Drawings folder link (optional; the plans themselves go under Files on the job)<input name="drawings_url" type="url" inputmode="url" value="${v(j.drawings_url)}" placeholder="https://…"></label>
     <label class="f wide">Rooms and scope<textarea name="scope">${v(j.scope)}</textarea></label>
     <label class="f wide">Notes<textarea name="notes">${v(j.notes)}</textarea></label>
     <p class="muted small wide">No phone numbers, emails or street addresses here. They stay in Buildertrend.</p>
@@ -410,6 +414,11 @@ function show(v: unknown): string {
 }
 
 export function describe(e: LogEntry, stepName: (id: string) => string): string {
+  if (e.table_name === 'job_files') {
+    const f = (e.after ?? e.before ?? {}) as { kind?: string; version?: number; name?: string; note?: string };
+    const label = `${fileKindLabel(f.kind ?? '')} v${f.version ?? '?'}: ${f.name ?? 'a file'}${f.note ? ` (${f.note})` : ''}`;
+    return e.action === 'insert' ? `File added, ${label}` : e.action === 'delete' ? `File removed, ${label}` : `File changed, ${label}`;
+  }
   const what = e.table_name === 'jobs' ? 'Job' : e.table_name === 'rework' ? 'Rework' : stepName(e.record_id);
   if (e.action === 'insert') return `${what} added`;
   if (e.action === 'delete') return `${what} removed`;

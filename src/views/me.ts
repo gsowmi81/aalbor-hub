@@ -5,7 +5,8 @@ import { html, Html } from '../web/html.js';
 import { addDays, fmtRange, fmtShort, Iso, mondayOf } from '../domain/dates.js';
 import { KINDS, PEOPLE_AREAS, rowOf } from '../domain/steps.js';
 import { jobTitle, lastDate, StepRow, stepLabel } from '../domain/checks.js';
-import type { FullJob, IssueRow, IssueType } from '../db/queries.js';
+import type { FullJob, IssueRow, IssueType, JobFile } from '../db/queries.js';
+import { fileLink } from './files.js';
 import { can, Person } from '../web/auth.js';
 import { flagForm, issueItem } from './issues.js';
 import { asksOnDone, installDoneForm, installSummary } from './install.js';
@@ -21,6 +22,8 @@ export interface MyDayData {
   issues: IssueRow[];
   /** Install photos by step, for the job view. */
   stepPhotos?: Map<number, number[]>;
+  /** The current file of each class on every job (George, 7 Nov 2026). */
+  files?: Map<number, JobFile[]>;
 }
 
 /** Is this step one of mine: in an area I work in, or with my name on it. */
@@ -42,7 +45,7 @@ function stepRow(s: StepRow, j: FullJob, d: MyDayData, back: string, late: boole
       ${showJob ? html`<a class="me-job" href="/jobs/${j.id}#s-${s.id}">${jobTitle(j)}</a>` : ''}
       <div class="me-step">${s.kind === 'rework' ? html`<span style="color:var(--rw);font-weight:700">Rework · </span>` : ''}${stepLabel(s)}${s.owner && s.owner !== KINDS[s.kind].owner ? html` <span class="muted small">· ${s.owner}</span>` : ''}</div>
       <div class="muted small">${s.start_date ? fmtRange(s.start_date, s.end_date) : 'No date yet'}${s.done_at ? ' · done' : over ? html` · <span class="nodate">${late ? 'overdue' : 'running late'}</span>` : ''}${s.start_date && !s.confirmed && !s.done_at ? ' · provisional' : ''}${s.pinned ? ' · pinned' : ''}</div>
-      ${showJob && j.drawings_url ? html`<a class="small" href="${j.drawings_url}" target="_blank" rel="noopener">Drawings ↗</a>` : ''}
+      ${showJob ? html`<div class="me-files">${(d.files?.get(j.id) ?? []).map((f) => fileLink(f))}${j.drawings_url ? html`<a class="small" href="${j.drawings_url}" target="_blank" rel="noopener">Drawings folder ↗</a>` : ''}</div>` : ''}
       ${installSummary(s, d.stepPhotos?.get(s.id) ?? [])}
     </div>
     ${canTick ? html`<div class="me-acts">${done}${flagForm({ jobId: j.id, stepId: s.id, types: d.types, back, label: 'Flag' })}</div>` : ''}
@@ -92,6 +95,7 @@ export function jobDayPage(d: MyDayData, job: FullJob): Html {
       <div class="eyebrow">Job ${job.job_number ?? '(no number)'} · from the job sheet</div>
       <h2 style="font-size:22px">${jobTitle(job)}</h2>
       <div class="muted small">Every open step on this job, in order. Tap Done on the one you've finished. <a href="/me">Back to My day</a> · <a href="/jobs/${job.id}">The whole job</a></div>
+      ${(d.files?.get(job.id) ?? []).length || job.drawings_url ? html`<div class="me-files">${(d.files?.get(job.id) ?? []).map((f) => fileLink(f, 'btn small'))}${job.drawings_url ? html`<a class="btn small" href="${job.drawings_url}" target="_blank" rel="noopener">Drawings folder ↗</a>` : ''}</div>` : ''}
     </div>
     ${d.issues.length ? html`<section class="panel" style="gap:4px"><div class="row"><h2>Flagged</h2><span class="muted small">${d.issues.length}</span></div>${d.issues.map((i) => issueItem(i, d.person, back))}</section>` : ''}
     <section class="panel" style="gap:4px"><div class="row"><h2>To do</h2><span class="muted small">${open.length || ''}</span></div>

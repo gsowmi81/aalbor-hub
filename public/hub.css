@@ -335,3 +335,15 @@ fieldset.yn label { display: inline-flex; gap: 6px; align-items: center; font-si
 .me-acts details.me-install .popbody { position: absolute; left: 0; right: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px; z-index: 5; box-shadow: 0 8px 24px rgba(0,0,0,0.18); }
 .me-row.done { opacity: .7; }
 .landing { display: flex; flex-direction: column; gap: 4px; padding: 8px 10px; background: var(--bg); border-radius: 10px; margin: 4px 0; }
+
+/* Files on a job (George, 7 Nov 2026). */
+.file-group { display: flex; flex-direction: column; gap: 4px; padding: 6px 0; border-top: 1px solid var(--line); }
+.file-head { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
+.file { display: flex; gap: 10px; align-items: flex-start; justify-content: space-between; padding: 4px 0 4px 10px; border-left: 3px solid var(--line); }
+.file.cur { border-left-color: var(--fac); }
+.file.old { opacity: .75; }
+.file-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.file-main a { color: var(--fg); }
+.file-old { padding-left: 10px; }
+.file-none { padding-left: 10px; }
+.me-files { display: flex; flex-wrap: wrap; gap: 4px 10px; }
