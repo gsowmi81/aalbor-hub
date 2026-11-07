@@ -9,6 +9,7 @@ Rules:
 
 - Its data is a throwaway copy. Nothing ticked or moved there is real. The team keeps using hub.aalborkitchens.com.au.
 - Every page carries a yellow "Preview copy" bar and every email it sends starts with "[Preview]" (`HUB_PREVIEW=1`).
+- Every nudge email (7 am overdue, Monday week, flags, materials in) goes to the suggestions email address instead of the person, with a line saying who it was for, so nobody on the team gets preview mail. Settings → Emails shows what today's run would be and can send it now.
 - It must have `RESEND_API_KEY` set. Without it the hub prints the sign-in link on the page, which is fine on a
   laptop and a hole on a public address.
 - The Buildertrend bot never posts to it. Don't make an API token on it.

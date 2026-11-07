@@ -105,7 +105,7 @@ export function comingUp(d: ComingUpData): Html {
     .filter((c) => (row === 'factory' && c.row === 'factory' && c.period === mon)
       || (row === 'install' && c.row === 'install' && c.period === mon)
       || (row === 'measure' && c.row === 'measure' && c.period >= mon && c.period <= fri))
-    .map((c) => html`<span class="tag warn" title="${c.decision.fact}">${c.row === 'measure' ? `${fmtShort(c.period).slice(0, 3)}: ${c.booked} of ${c.limit}` : `${c.booked} of ${c.limit} days`}</span>`);
+    .map((c) => html`<a class="tag warn" href="/load" title="${c.decision.fact}" style="text-decoration:none">${c.row === 'measure' ? `${fmtShort(c.period).slice(0, 3)}: ${c.booked} of ${c.limit}` : `${c.booked} of ${c.limit} days`}</a>`);
 
   // Week board, wide screens.
   let board = html`<div></div>${DOW.map((name, i) => {

@@ -112,7 +112,7 @@ function loginPage(opts: { email?: string; next?: string; message?: string; devL
     <h1>Sign in</h1>
     ${opts.message ? html`<p class="notice">${opts.message}</p>` : html`<p class="muted">Type your work email. We'll email you a link that signs you in on this phone or computer for ${SESSION_DAYS} days.</p>`}
     ${opts.devLink ? html`<p class="notice">Local test mode, no email sent: <a href="${opts.devLink}">open the sign-in link</a></p>` : ''}
-    <form method="post" action="/login" class="stack">
+    <form method="post" action="/login" class="stack" data-plain>
       <input type="hidden" name="next" value="${opts.next ?? '/'}">
       <label for="email">Email</label>
       <input id="email" name="email" type="email" autocomplete="email" inputmode="email" required value="${opts.email ?? ''}">
@@ -159,7 +159,7 @@ export function authRoutes(): Router {
     res.send(bare('Sign in', html`
       <div class="eyebrow">Aalbor Kitchens · Production Hub</div>
       <h1>Sign in</h1>
-      <form method="post" action="/auth/verify" class="stack">
+      <form method="post" action="/auth/verify" class="stack" data-plain>
         <input type="hidden" name="t" value="${t}">
         <input type="hidden" name="next" value="${safeNext(req.query.next)}">
         <button class="btn primary" type="submit">Sign in to the Aalbor Hub</button>

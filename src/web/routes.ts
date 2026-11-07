@@ -15,7 +15,12 @@ import { attentionPage } from '../views/attention.js';
 import { pipelinePage } from '../views/pipeline.js';
 import { myDayPage } from '../views/me.js';
 import { morePage, findPage } from '../views/other.js';
-import { appSetting, findJobs } from '../db/queries.js';
+import { appSetting, findJobs, loadCapacity, loadIssue, loadIssues, loadIssueTypes } from '../db/queries.js';
+import { loadByDay } from '../domain/checks.js';
+import { loadPage } from '../views/load.js';
+import { issueItem } from '../views/issues.js';
+import { readMultipart } from './upload.js';
+import { dailyNudges, deliverAll, flagNudges, lastRuns, materialsInNudges, runDaily } from './nudges.js';
 import { checkUrl } from '../db/edits.js';
 import { PEOPLE_AREAS } from '../domain/steps.js';
 import { allJobs } from '../views/jobs.js';
@@ -28,6 +33,7 @@ import { applyOrder, decide, loadSuggestions, PRIORITIES, STATUSES, Action, Outc
 import { jobPanel, pendingPanel, suggestionSettings, suggestionsPage } from '../views/suggestions.js';
 import { hashToken, newToken } from './api.js';
 import type { FullJob } from '../db/queries.js';
+import { config } from '../config.js';
 
 export { UserError };
 
@@ -99,9 +105,9 @@ async function storedDecisions(): Promise<Map<string, StoredDecision>> {
 }
 
 async function board() {
-  const [all, rules, cal, stored] = await Promise.all([loadEverything(), loadRules(), loadCalendar(), storedDecisions()]);
+  const [all, rules, cal, stored, cap, issues] = await Promise.all([loadEverything(), loadRules(), loadCalendar(), storedDecisions(), loadCapacity(), loadIssues({ open: true })]);
   const t = today();
-  return { ...all, rules, cal, stored, t, decisions: needsDecision(all.jobs, all.steps, all.rework, rules, cal, t) };
+  return { ...all, rules, cal, stored, cap, issues, t, decisions: needsDecision(all.jobs, all.steps, all.rework, rules, cal, t, cap) };
 }
 
 
@@ -151,7 +157,7 @@ export function routes(): express.Router {
     const body = comingUp({
       person: me(req), today: b.t, week, brand: brandOf(req), jobs: b.jobs, steps: b.steps, rework: b.rework,
       overdue: overdue(b.jobs, b.steps, b.t), decisions: b.decisions, stored: b.stored,
-      capacity: capacity(b.jobs, b.steps, b.rules, b.cal, b.t), cal: b.cal,
+      capacity: capacity(b.jobs, b.steps, b.rules, b.cal, b.t, b.cap), cal: b.cal,
       suggestionsPanel: pendingPanel(await loadSuggestions({ status: 'pending' })),
       message: await appSetting('board_message'),
     });
@@ -162,12 +168,12 @@ export function routes(): express.Router {
 
   /** Overdue steps plus decisions still open: the count on the Attention tab. */
   function attentionCount(b: Awaited<ReturnType<typeof board>>): number {
-    return overdue(b.jobs, b.steps, b.t).length + b.decisions.filter((x) => b.stored.get(x.key)?.fingerprint !== x.fingerprint).length;
+    return overdue(b.jobs, b.steps, b.t).length + b.decisions.filter((x) => b.stored.get(x.key)?.fingerprint !== x.fingerprint).length + b.issues.length;
   }
 
   r.get('/attention', async (req, res) => {
     const b = await board();
-    const body = attentionPage({ person: me(req), today: b.t, jobs: b.jobs, steps: b.steps, overdue: overdue(b.jobs, b.steps, b.t), decisions: b.decisions, stored: b.stored });
+    const body = attentionPage({ person: me(req), today: b.t, jobs: b.jobs, steps: b.steps, overdue: overdue(b.jobs, b.steps, b.t), decisions: b.decisions, stored: b.stored, issues: b.issues });
     res.send(page({ title: 'Attention', tab: 'attention', person: me(req), flash: takeFlash(req, res), body, attention: attentionCount(b) }).value);
   });
 
@@ -178,9 +184,16 @@ export function routes(): express.Router {
   });
 
   r.get('/me', async (req, res) => {
-    const [all, message] = await Promise.all([loadEverything(), appSetting('board_message')]);
-    const body = myDayPage({ person: me(req), today: today(), jobs: all.jobs, steps: all.steps, message });
+    const [all, message, types, issues] = await Promise.all([loadEverything(), appSetting('board_message'), loadIssueTypes(), loadIssues({ open: true })]);
+    const body = myDayPage({ person: me(req), today: today(), jobs: all.jobs, steps: all.steps, message, types, issues: issues.filter((i) => i.responsible === me(req).id || i.raised_by === me(req).id) });
     res.send(page({ title: 'My day', tab: 'me', person: me(req), flash: takeFlash(req, res), body, sub: me(req).name }).value);
+  });
+
+  r.get('/load', async (req, res) => {
+    const b = await board();
+    const from = addDays(b.t, -((new Date(`${b.t}T00:00:00Z`).getUTCDay() + 6) % 7));
+    const body = loadPage({ from, today: b.t, rows: loadByDay(b.jobs, b.steps, b.rules, b.cal, b.cap, from, 6), jobs: b.jobs, hoursPerDay: b.rules.hours_per_day });
+    res.send(page({ title: 'Load', tab: 'more', person: me(req), flash: takeFlash(req, res), body, attention: attentionCount(b), sub: 'Hours booked against hours available, the next six weeks' }).value);
   });
 
   r.get('/more', async (req, res) => {
@@ -229,7 +242,7 @@ export function routes(): express.Router {
     const anchor: AnchorKind = values.anchor !== 'site_start' && values.anchor_date ? values.anchor : 'site_start';
     const anchorDate = anchor === 'site_start' ? values.site_start : values.anchor_date;
     if (!anchorDate) return { proposal: null, clashes: [], site_start: null, workedOut: false };
-    const [rules, cal, all, tpl] = await Promise.all([loadRules(), loadCalendar(), loadEverything(), templateFor(values)]);
+    const [rules, cal, all, tpl, cap] = await Promise.all([loadRules(), loadCalendar(), loadEverything(), templateFor(values), loadCapacity()]);
     const t = (await loadTemplates()).find((x) => x.key === values.template) ?? tpl;
     const planned = proposeFromAnchor({ ...values, added_on: today(), install_weeks: t.install_weeks }, anchor, anchorDate, rules, cal);
     const proposal = planned.steps;
@@ -237,7 +250,7 @@ export function routes(): express.Router {
     // Capacity with this job added, keeping only warnings that involve it.
     const ghost = { id: -1, job_number: values.job_number, brand: values.brand, client_name: values.client_name || 'This job', suburb: values.suburb, door_finish: values.door_finish, has_painting: values.has_painting, has_stone: values.has_stone, site_start: values.site_start, factory_days: values.factory_days, install_days: values.install_days, status: 'live', at_risk: false };
     const ghostSteps: StepRow[] = proposal.map((p, i) => ({ id: -1 - i, job_id: -1, kind: p.kind, rework_id: null, label: '', start_date: p.start_date, end_date: p.end_date, confirmed: false, owner: '', done_at: null }));
-    const clashes = capacity([...all.jobs, ghost], [...all.steps, ...ghostSteps], rules, cal, today()).filter((c) => c.jobIds.includes(-1));
+    const clashes = capacity([...all.jobs, ghost], [...all.steps, ...ghostSteps], rules, cal, today(), cap).filter((c) => c.jobIds.includes(-1));
     return { proposal, clashes, site_start: planned.site_start, workedOut: !givenSite || planned.site_start !== givenSite };
   }
 
@@ -295,8 +308,59 @@ export function routes(): express.Router {
       pool.query('select name from people where active order by name'),
     ]);
     const suggestionsPanel = jobPanel(await loadSuggestions({ status: 'pending', jobId: id }), me(req).role === 'editor', id);
-    const body = jobPage({ person: me(req), today: b.t, ...data, list, history, decisions, templates, responsible, peopleNames: people.rows.map((p) => p.name), suggestionsPanel });
-    res.send(page({ title: 'One job', tab: 'job', person: me(req), flash: takeFlash(req, res), body }).value);
+    const [issues, issueTypes] = await Promise.all([loadIssues({ jobId: id }), loadIssueTypes()]);
+    const flagId = Number(req.query.flag) || null;
+    const fromFlag = flagId ? issues.find((i) => i.id === flagId) : undefined;
+    const body = jobPage({ person: me(req), today: b.t, ...data, list, history, decisions, templates, responsible, peopleNames: people.rows.map((p) => p.name), suggestionsPanel,
+      issues, issueTypes, fromFlag: fromFlag ? { id: fromFlag.id, note: fromFlag.note } : null });
+    res.send(page({ title: 'One job', tab: 'job', person: me(req), flash: takeFlash(req, res), body, attention: attentionCount(b) }).value);
+  });
+
+  // ---------- Flag a problem (Doers and Editors; George, 7 Nov 2026) ----------
+
+  r.post('/issues', doer, async (req, res) => {
+    const { fields, files } = await readMultipart(req);
+    const jobId = Number(fields.job_id);
+    const stepId = Number(fields.step_id) || null;
+    const note = String(fields.note ?? '').trim().slice(0, 300);
+    const type = String(fields.type ?? '');
+    const back = localPath(fields.back) ? fields.back : `/jobs/${jobId}#flags`;
+    if (!jobId || !(await pool.query('select 1 from jobs where id = $1', [jobId])).rowCount) throw new UserError("That job isn't in the hub.");
+    if (!(await loadIssueTypes()).some((t) => t.key === type && t.active)) throw new UserError("Pick what's wrong.");
+    if (!note) throw new UserError('Add one line on the problem.');
+    const id = await withPerson(me(req).id, async (db) => {
+      const r2 = await db.query('insert into issues (job_id, step_id, type_key, note) values ($1, $2, $3, $4) returning id', [jobId, stepId, type, note]);
+      for (const f of files) await db.query('insert into issue_photos (issue_id, content_type, bytes, size) values ($1, $2, $3, $4)', [r2.rows[0].id, f.contentType, f.bytes, f.bytes.length]);
+      return r2.rows[0].id as number;
+    });
+    const issue = await loadIssue(id);
+    const sent = issue ? await deliverAll(await flagNudges(issue)) : 0;
+    flash(res, `Flag sent${issue?.responsible_name ? ` to ${issue.responsible_name}` : ''}${sent ? ` (${sent} ${sent === 1 ? 'email' : 'emails'})` : ''}. It stays on Attention until it's fixed.`);
+    res.redirect(back);
+  });
+
+  r.post('/issues/:id/status', doer, async (req, res) => {
+    const id = idParam(req);
+    const status = ['open', 'looking', 'fixed'].includes(String(req.body.status)) ? String(req.body.status) : 'open';
+    const note = String(req.body.note ?? '').trim().slice(0, 300);
+    const i = await loadIssue(id);
+    if (!i) throw new UserError('That flag has gone.');
+    // Postgres checks the same thing; this is the clear page.
+    if (me(req).role !== 'editor' && i.responsible !== me(req).id && i.raised_by !== me(req).id) throw new UserError('Only the person responsible, whoever raised it, or an Editor can change a flag.');
+    await withPerson(me(req).id, (db) => db.query('update issues set status = $2, close_note = case when $2 = $3 then $4 else close_note end where id = $1', [id, status, 'fixed', note]));
+    flash(res, status === 'fixed' ? 'Flag marked fixed.' : status === 'looking' ? "Marked as being looked at." : 'Flag reopened.');
+    res.redirect(backTo(req, '/attention'));
+  });
+
+  r.get('/issues/:id/photos/:pid', async (req, res) => {
+    const id = idParam(req);
+    const pid = Number(req.params.pid);
+    const ph = (await pool.query('select content_type, bytes from issue_photos where id = $1 and issue_id = $2', [pid, id])).rows[0];
+    if (!ph) return res.status(404).send('No such photo.');
+    res.setHeader('Content-Type', ph.content_type);
+    res.setHeader('Cache-Control', 'private, max-age=86400');
+    res.setHeader('Content-Disposition', 'inline');
+    res.send(ph.bytes);
   });
 
   // ---------- Job changes (Editors) ----------
@@ -489,7 +553,14 @@ export function routes(): express.Router {
   r.post('/steps/:id/done', doer, async (req, res) => {
     const id = idParam(req);
     const done = req.body.done === '1';
+    const s = (await pool.query(`select s.id, s.job_id, s.kind, s.rework_id, s.rework_area, s.label, s.start_date, s.end_date, s.confirmed, s.owner, s.done_at, s.pinned, s.hours,
+      j.client_name, j.suburb from steps s join jobs j on j.id = s.job_id where s.id = $1`, [id])).rows[0];
+    if (!s) throw new UserError('That step has gone.');
     await withPerson(me(req).id, (db) => setStepDone(db, id, done));
+    // Materials in, ticked: the factory hears straight away (George, 7 Nov 2026).
+    if (done && !s.done_at && s.kind === 'materials_in' && !s.label) {
+      await deliverAll(await materialsInNudges(s, { id: s.job_id, client_name: s.client_name, suburb: s.suburb }));
+    }
     res.redirect(backTo(req));
   });
 
@@ -601,8 +672,11 @@ export function routes(): express.Router {
     const start = me(req).role === 'editor' ? date(req.body.start, 'Start') : null;
     const [rules, cal] = await Promise.all([loadRules(), loadCalendar()]);
     const plan = new Map((start ? proposeRework(areas, start, hours, rules, cal) : []).map((p) => [p.area, p]));
+    const flagId = Number(req.body.flag_id) || null;
     await withPerson(me(req).id, async (db) => {
       const id = (await db.query('insert into rework (job_id, cause, note) values ($1, $2, $3) returning id', [jobId, cause, note.slice(0, 200)])).rows[0].id;
+      // Raised from a flag (George, 7 Nov 2026): the flag is answered by the rework.
+      if (flagId) await db.query(`update issues set rework_id = $2, status = 'fixed', close_note = 'Rework raised' where id = $1 and job_id = $3 and status <> 'fixed'`, [flagId, id, jobId]);
       for (const [i, a] of REWORK_AREAS.filter((x) => areas.includes(x.kind)).entries()) {
         const p = plan.get(a.kind);
         await db.query(
@@ -830,21 +904,87 @@ export function routes(): express.Router {
   // ---------- Settings (Editors) ----------
 
   async function settingsBody(req: Request, newTok?: { name: string; token: string }) {
-    const [settings, blocked, people, email, tokens, calls] = await Promise.all([
+    const [settings, blocked, people, email, tokens, calls, cap, issueTypes, runs] = await Promise.all([
       pool.query('select key, value, label from settings order by sort'),
       loadBlocked(),
-      pool.query('select id, name, email, role, active, is_owner, areas from people order by active desc, role, name'),
+      pool.query('select id, name, email, role, active, is_owner, areas, email_digest from people order by active desc, role, name'),
       pool.query(`select value from app_settings where key = 'suggestions_email'`),
       me(req).is_owner ? pool.query(`select t.id, t.name, t.created_at, p.name as created_by_name, t.last_used_at, t.revoked_at from api_tokens t left join people p on p.id = t.created_by order by t.revoked_at nulls first, t.id desc`) : null,
       me(req).is_owner ? pool.query(`select c.at, c.method, c.path, c.status, c.items, t.name as token_name from api_calls c left join api_tokens t on t.id = c.token_id order by c.id desc limit 30`) : null,
+      loadCapacity(),
+      loadIssueTypes(),
+      lastRuns(8),
     ]);
     const extra = suggestionSettings({ email: email.rows[0]?.value ?? '', isOwner: me(req).is_owner, tokens: tokens?.rows ?? [], calls: calls?.rows ?? [], newToken: newTok });
-    return settingsPage({ settings: settings.rows, blocked, people: people.rows, today: today(), templates: await loadTemplates(), viewerIsOwner: me(req).is_owner, extra, message: await appSetting('board_message') });
+    return settingsPage({ settings: settings.rows, blocked, people: people.rows, today: today(), templates: await loadTemplates(), viewerIsOwner: me(req).is_owner, extra, message: await appSetting('board_message'),
+      cap, issueTypes, runs, preview: config.preview, nudgeTo: config.preview ? await appSetting('suggestions_email') : null });
   }
 
   r.get('/settings', editor, async (req, res) => {
     const body = await settingsBody(req);
     res.send(page({ title: 'Settings', tab: 'settings', person: me(req), flash: takeFlash(req, res), body }).value);
+  });
+
+  // Capacity in hours per area (George, 7 Nov 2026).
+  const hoursOf2 = (v: unknown, what: string) => {
+    const n = Number(String(v ?? '').trim());
+    if (!Number.isFinite(n) || n < 0 || n > 200) throw new UserError(`${what}: hours must be a number from 0 to 200.`);
+    return Math.round(n * 10) / 10;
+  };
+  r.post('/settings/centres/:key', editor, async (req, res) => {
+    const key = String(req.params.key);
+    const cap = await loadCapacity();
+    const c = cap.centres.find((x) => x.key === key);
+    if (!c) throw new UserError('No such area.');
+    const h = (['mon', 'tue', 'wed', 'thu', 'fri'] as const).map((d) => hoursOf2(req.body[d], `${c.label} ${d}`));
+    await withPerson(me(req).id, (db) => db.query('update labour_centres set mon = $2, tue = $3, wed = $4, thu = $5, fri = $6 where key = $1', [key, ...h]));
+    flash(res, `${c.label}: ${h.reduce((a, b) => a + b, 0)} hours a week. Warnings use it from now on.`);
+    res.redirect('/settings#capacity');
+  });
+  r.post('/settings/adjustments', editor, async (req, res) => {
+    const cap = await loadCapacity();
+    const centre = String(req.body.centre ?? '');
+    if (!cap.centres.some((c) => c.key === centre)) throw new UserError('Pick the area.');
+    const from = date(req.body.from, 'From');
+    const to = date(req.body.to, 'To') ?? from;
+    if (!from || !to || to < from) throw new UserError('Check the dates.');
+    const hours = hoursOf2(req.body.hours, 'Hours a day');
+    const reason = String(req.body.reason ?? '').trim().slice(0, 120);
+    if (!reason) throw new UserError('Add a reason, e.g. Phil on leave.');
+    await withPerson(me(req).id, (db) => db.query('insert into capacity_adjustments (centre, from_day, to_day, hours, reason) values ($1, $2, $3, $4, $5)', [centre, from, to, hours, reason]));
+    flash(res, `${reason}: ${hours} h a day from ${fmtLong(from)} to ${fmtLong(to)}.`);
+    res.redirect('/settings#capacity');
+  });
+  r.post('/settings/adjustments/:id/delete', editor, async (req, res) => {
+    await withPerson(me(req).id, (db) => db.query('delete from capacity_adjustments where id = $1', [idParam(req)]));
+    flash(res, 'Adjustment removed.');
+    res.redirect('/settings#capacity');
+  });
+
+  // Who looks after each kind of flagged problem.
+  r.post('/settings/flag-types/:key', editor, async (req, res) => {
+    const key = String(req.params.key);
+    const who = Number(req.body.responsible) || null;
+    if (who && !(await pool.query('select 1 from people where id = $1 and active', [who])).rowCount) throw new UserError('Pick a person on the list.');
+    const r2 = await withPerson(me(req).id, (db) => db.query('update issue_types set responsible = $2, active = $3 where key = $1 returning label', [key, who, req.body.active === '1']));
+    if (!r2.rowCount) throw new UserError('No such flag type.');
+    flash(res, `${r2.rows[0].label} saved.`);
+    res.redirect('/settings#flags');
+  });
+
+  // Emails: what today's run would send, and send it now.
+  r.get('/settings/emails', editor, async (req, res) => {
+    const list = await dailyNudges(today());
+    const to = config.preview ? await appSetting('suggestions_email') : null;
+    const body = html`<section class="panel"><div class="row"><h2>What the 7 am run would send today</h2><span class="muted small">${list.length} ${list.length === 1 ? 'email' : 'emails'}${to ? html` · on the preview every one goes to ${to}` : ''}</span></div>
+      ${list.length ? list.map((n) => html`<div class="item stack"><div><strong>${n.subject}</strong> <span class="muted small">to ${n.to.name} (${n.to.email})</span></div><div class="small">${n.lines.map((l) => html`<div>${l}</div>`)}</div></div>`) : html`<p class="muted">Nothing to send today: no one has a step that went overdue${new Date(`${today()}T00:00:00Z`).getUTCDay() === 1 ? ' and no one has steps this week' : ''}.</p>`}
+      <div class="acts"><form method="post" action="/settings/emails/run"><button class="btn primary" type="submit">Send these now</button></form><a class="btn" href="/settings#emails">Back to Settings</a></div></section>`;
+    res.send(page({ title: 'Emails', tab: 'settings', person: me(req), flash: takeFlash(req, res), body }).value);
+  });
+  r.post('/settings/emails/run', editor, async (_req, res) => {
+    const n = await runDaily(today(), true);
+    flash(res, `${n ?? 0} ${n === 1 ? 'email' : 'emails'} sent.`);
+    res.redirect('/settings#emails');
   });
 
   r.post('/settings/message', editor, async (req, res) => {
@@ -960,8 +1100,8 @@ export function routes(): express.Router {
     if (!name) throw new UserError('Add a name.');
     const email = emailOf(req.body.email);
     if ((await pool.query('select 1 from people where email = $1', [email])).rowCount) throw new UserError(`${email} is already on the list.`);
-    await withPerson(me(req).id, (db) => db.query('insert into people (name, email, role, is_owner, areas) values ($1, $2, $3, $4, $5)',
-      [name, email, roleOf(req.body.role), me(req).is_owner && req.body.is_owner === '1', areasOf(req.body.areas)]));
+    await withPerson(me(req).id, (db) => db.query('insert into people (name, email, role, is_owner, areas, email_digest) values ($1, $2, $3, $4, $5, $6)',
+      [name, email, roleOf(req.body.role), me(req).is_owner && req.body.is_owner === '1', areasOf(req.body.areas), req.body.email_digest !== '0']));
     flash(res, `${name} added. They can sign in at ${req.protocol}://${req.get('host')} with ${email}.`);
     res.redirect('/settings');
   });
@@ -976,8 +1116,8 @@ export function routes(): express.Router {
     // Only owners see or change the Owner tick; for anyone else it stays as it was.
     const isOwner = me(req).is_owner ? req.body.is_owner === '1' : current.is_owner;
     if (id === me(req).id && me(req).is_owner && !isOwner) throw new UserError("You can't take away your own Owner access. Ask the other owner.");
-    await withPerson(me(req).id, (db) => db.query('update people set name = $2, email = $3, role = $4, active = $5, is_owner = $6, areas = $7 where id = $1',
-      [id, String(req.body.name ?? '').trim(), emailOf(req.body.email), role, active, isOwner, areasOf(req.body.areas)]));
+    await withPerson(me(req).id, (db) => db.query('update people set name = $2, email = $3, role = $4, active = $5, is_owner = $6, areas = $7, email_digest = $8 where id = $1',
+      [id, String(req.body.name ?? '').trim(), emailOf(req.body.email), role, active, isOwner, areasOf(req.body.areas), req.body.email_digest === '1']));
     flash(res, 'Saved.');
     res.redirect('/settings');
   });

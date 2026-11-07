@@ -5,6 +5,8 @@ import { fmtShort, Iso } from '../domain/dates.js';
 import { Decision, jobTitle, JobRow, StepRow } from '../domain/checks.js';
 import { Person } from '../web/auth.js';
 import { decidedItem, decisionItem, ItemContext, overdueItem, StoredDecision } from './items.js';
+import type { IssueRow } from '../db/queries.js';
+import { issueItem } from './issues.js';
 
 export interface AttentionData {
   person: Person;
@@ -14,6 +16,7 @@ export interface AttentionData {
   overdue: StepRow[];
   decisions: Decision[];
   stored: Map<string, StoredDecision>;
+  issues: IssueRow[];
 }
 
 export function attentionPage(d: AttentionData): Html {
@@ -30,7 +33,7 @@ export function attentionPage(d: AttentionData): Html {
   for (const x of pending) if (x.jobId) groupFor(x.jobId).decisions.push(x);
   const general = pending.filter((x) => !x.jobId);
   const ordered = [...groups.values()].sort((a, b) => installOf(a.job.id).localeCompare(installOf(b.job.id)) || a.job.client_name.localeCompare(b.job.client_name));
-  const total = d.overdue.length + pending.length;
+  const total = d.overdue.length + pending.length + d.issues.length;
 
   const summary = (g: { job: JobRow; overdue: StepRow[]; decisions: Decision[] }) => {
     const parts = [g.overdue.length ? `${g.overdue.length} overdue` : '', g.decisions.length ? `${g.decisions.length} to decide` : ''].filter(Boolean).join(' · ');
@@ -41,10 +44,12 @@ export function attentionPage(d: AttentionData): Html {
 
   return html`
   <div class="tiles">
+    <a class="tile${d.issues.length ? ' over' : ''}" href="#flags"><b>${d.issues.length}</b><span>Flagged</span><small>Problems from the floor</small></a>
     <a class="tile over" href="#jobs"><b>${d.overdue.length}</b><span>Overdue</span><small>Date passed, not ticked</small></a>
     <a class="tile warn" href="#jobs"><b>${pending.length}</b><span>To decide</span><small>${general.length ? `${general.length} about capacity` : 'Dates and clashes'}</small></a>
     <a class="tile" href="#decided"><b>${decided.length}</b><span>Decided</span><small>OK'd as is</small></a>
   </div>
+  ${d.issues.length ? html`<section class="panel" id="flags" style="gap:4px"><div class="row"><h2>Flagged problems</h2><span class="muted small">Newest first. Fixed ones drop off.</span></div>${d.issues.map((i) => issueItem(i, d.person, '/attention#flags'))}</section>` : ''}
   <section class="panel" id="jobs">
     <div class="row"><h2>${total ? `${ordered.length} ${ordered.length === 1 ? 'job needs' : 'jobs need'} a look` : 'Nothing needs a look'}</h2><span class="muted small">Soonest install first. Tap a job to see its items.</span></div>
     ${ordered.map((g, i) => html`<details class="att"${i < 2 ? html` open` : ''}>${summary(g)}

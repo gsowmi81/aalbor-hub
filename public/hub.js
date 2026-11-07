@@ -17,6 +17,84 @@
   }
   if (document.readyState === 'complete') restore(); else window.addEventListener('load', restore);
 
+  // A tick, a move or a flag changes the page in place (George, 7 Nov 2026): the form posts by
+  // fetch, the hub answers with the usual redirect, and the new page's content replaces this
+  // one's without a reload, so the scroll position and the phone's keyboard state stay put.
+  // A redirect somewhere else is followed; a page that isn't a redirect (a form with a
+  // mistake) is shown whole. Without this file every form still works the ordinary way.
+  var busy = false;
+  document.addEventListener('submit', function (e) {
+    var f = e.target;
+    if (!f || (f.method || '').toLowerCase() !== 'post' || f.hasAttribute('data-plain') || busy) return;
+    if (!window.fetch || !window.DOMParser || !window.FormData) return;
+    if (f.querySelector('input[type=file]') && !f.hasAttribute('data-photos')) return;
+    e.preventDefault();
+    busy = true;
+    var submitter = e.submitter;
+    if (submitter) submitter.disabled = true;
+    var ready = f.hasAttribute('data-photos') ? withShrunkPhotos(f) : Promise.resolve(new FormData(f));
+    ready.then(function (data) {
+      if (submitter && submitter.name) data.append(submitter.name, submitter.value);
+      var body = f.enctype === 'multipart/form-data' ? data : new URLSearchParams(data);
+      return fetch(f.action, { method: 'POST', body: body, credentials: 'same-origin', headers: { 'X-Hub-Live': '1' } });
+    }).then(function (r) {
+      var url = new URL(r.url, location.href);
+      if (r.redirected && url.pathname !== location.pathname) { location.href = r.url; return; }
+      return r.text().then(function (html) {
+        if (!r.redirected) { document.open(); document.write(html); document.close(); return; }
+        var doc = new DOMParser().parseFromString(html, 'text/html');
+        var fresh = doc.querySelector('.wrap'), mine = document.querySelector('.wrap');
+        if (!fresh || !mine) { location.reload(); return; }
+        var y = window.scrollY;
+        mine.replaceWith(fresh);
+        if (url.hash && url.hash !== location.hash) history.replaceState(null, '', url.pathname + url.search + url.hash);
+        init();
+        window.scrollTo(0, y);
+        var target = url.hash && document.querySelector(url.hash);
+        if (target && (target.getBoundingClientRect().top < 0 || target.getBoundingClientRect().bottom > window.innerHeight)) target.scrollIntoView({ block: 'center' });
+      });
+    }).catch(function () { f.setAttribute('data-plain', ''); busy = false; if (submitter) submitter.disabled = false; f.requestSubmit ? f.requestSubmit(submitter || undefined) : f.submit(); })
+      .then(function () { busy = false; if (submitter) submitter.disabled = false; });
+  });
+
+  // Photos on a flag: shrunk on the phone to 1600px JPEG before they go up (a 5 MB photo becomes ~300 KB).
+  function withShrunkPhotos(f) {
+    var data = new FormData(f);
+    var input = f.querySelector('input[type=file]');
+    if (!input || !input.files || !input.files.length || !window.createImageBitmap) return Promise.resolve(data);
+    data.delete(input.name);
+    var files = Array.prototype.slice.call(input.files, 0, 4);
+    return Promise.all(files.map(function (file) {
+      if (!/^image\//.test(file.type)) return file;
+      return createImageBitmap(file).then(function (bmp) {
+        var scale = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
+        var c = document.createElement('canvas');
+        c.width = Math.round(bmp.width * scale); c.height = Math.round(bmp.height * scale);
+        c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+        return new Promise(function (res) { c.toBlob(function (b) { res(b ? new File([b], file.name.replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' }) : file); }, 'image/jpeg', 0.82); });
+      }).catch(function () { return file; });
+    })).then(function (list) { list.forEach(function (file) { data.append(input.name, file, file.name); }); return data; });
+  }
+
+  // Everything below binds to elements on the page, so it runs again after an in-place update.
+  function init() {
+  // "Flag" on a step opens the job's flag form for that step.
+  document.querySelectorAll('a[data-flag-step]').forEach(function (a) {
+    a.addEventListener('click', function (e) {
+      var panel = document.getElementById('flags');
+      var box = panel && panel.querySelector('details.flag');
+      if (!box) return;
+      e.preventDefault();
+      var form = box.querySelector('form');
+      var hidden = form.querySelector('input[name=step_id]');
+      if (!hidden) { hidden = document.createElement('input'); hidden.type = 'hidden'; hidden.name = 'step_id'; form.appendChild(hidden); }
+      hidden.value = a.getAttribute('data-flag-step');
+      box.open = true;
+      box.scrollIntoView({ block: 'center' });
+      var note = form.querySelector('input[name=note]'); if (note) note.focus();
+    });
+  });
+
   // After a drag (George, 6 Nov 2026): a small box asks what happens to the rest of the job,
   // then saves straight away, confirmed. "See every date first" opens the full Reschedule screen.
   // A move that makes a new clash goes to the Reschedule screen instead of saving.
@@ -243,4 +321,6 @@
     }, 300);
   }
   form.addEventListener('change', refresh);
+  }
+  init();
 })();

@@ -20,6 +20,8 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@types/busboy": "1.5.4",
+    "busboy": "1.6.0",
     "exceljs": "4.4.0",
     "express": "5.1.0",
     "pg": "8.16.3"

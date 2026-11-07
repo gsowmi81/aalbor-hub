@@ -1,7 +1,8 @@
 import { html, Html } from '../web/html.js';
 import { fmtLong, fmtRange, fmtShort, Iso, sydneyDate } from '../domain/dates.js';
 import { KINDS, PEOPLE_AREAS, ProposedStep } from '../domain/steps.js';
-import { CapacityWarning } from '../domain/checks.js';
+import { CapacityInput, CapacityWarning } from '../domain/checks.js';
+import type { IssueType } from '../db/queries.js';
 import type { FullJob, ReworkFull } from '../db/queries.js';
 import type { AnchorKind, Template } from '../domain/schedule.js';
 import { can, Person } from '../web/auth.js';
@@ -121,6 +122,7 @@ export function morePage(d: { person: Person; waiting: number }): Html {
   const link = (href: string, title: string, sub: string, badge?: number) => html`<a class="tile" href="${href}"><span>${title}${badge ? html` <span class="badge" aria-label="${badge} waiting">${badge}</span>` : ''}</span><small>${sub}</small></a>`;
   return html`<div class="tiles more">
     ${link('/rework', 'Rework', 'Raise it, date it, the monthly tally')}
+    ${link('/load', 'Load', 'Hours booked against hours available, six weeks')}
     ${link('/suggestions', 'Suggestions', 'What the Buildertrend bot found', d.waiting)}
     ${editor ? link('/jobs/new', 'New job', 'One date, every other date proposed') : ''}
     ${editor ? link('/settings', 'Settings', 'Capacities, job types, blocked days, people') : ''}
@@ -143,12 +145,17 @@ export function findPage(d: { q: string; jobs: { id: number; job_number: string 
 export function settingsPage(d: {
   settings: { key: string; value: number; label: string }[];
   blocked: { id: number; day: Iso; scope: string; reason: string }[];
-  people: { id: number; name: string; email: string; role: string; active: boolean; is_owner: boolean; areas: string[] }[];
+  people: { id: number; name: string; email: string; role: string; active: boolean; is_owner: boolean; areas: string[]; email_digest: boolean }[];
   today: Iso;
   templates: Template[];
   viewerIsOwner: boolean;
   /** The one-line message shown on My day and the board. */
   message: string;
+  cap: CapacityInput;
+  issueTypes: IssueType[];
+  runs: { day: Iso; kind: string; sent: number; ran_at: string }[];
+  preview: boolean;
+  nudgeTo: string | null;
   /** Suggestions email and, for owners, API tokens (views/suggestions.ts). */
   extra?: Html;
 }): Html {
@@ -163,7 +170,46 @@ export function settingsPage(d: {
     </form>
     <span class="muted small">One line everyone sees at the top of My day and the board. Leave it empty to show nothing.</span></section>
 
-  <section class="panel"><h2>Capacities and default durations</h2>
+  <section class="panel" id="capacity"><h2>Capacity, in hours a day</h2>
+    <p class="muted small">Jobman's labour centre. A kitchen's factory or install day counts as the hours below ("Hours in a factory or install day"); a rework task counts its own hours. The hub warns when a week's bookings pass the hours available, and <a href="/load">Load</a> shows the next six weeks day by day.</p>
+    ${d.cap.centres.map((c) => html`<form method="post" action="/settings/centres/${c.key}" class="inline" style="padding-top:8px;border-top:1px solid var(--line)">
+      <strong style="flex:1 1 120px">${c.label}</strong>
+      ${(['mon', 'tue', 'wed', 'thu', 'fri'] as const).map((k) => html`<label class="f" style="width:72px">${k.charAt(0).toUpperCase() + k.slice(1)}<input name="${k}" inputmode="decimal" value="${c[k]}" required pattern="[0-9]+([.][0-9])?"></label>`)}
+      <span class="muted small">= ${Math.round((c.mon + c.tue + c.wed + c.thu + c.fri) * 10) / 10} h a week</span>
+      <button class="btn small" type="submit">Save</button></form>`)}
+    <h3 style="margin-top:12px">Leave, shutdowns and extra hands</h3>
+    <p class="muted small">A period with different hours a day in one area: 0 for a shutdown, less for someone on leave, more for an extra pair of hands. Public holidays and blocked days are already 0.</p>
+    <form method="post" action="/settings/adjustments" class="fixgrid">
+      <label class="f">Area<select name="centre">${d.cap.centres.map((c) => html`<option value="${c.key}">${c.label}</option>`)}</select></label>
+      <label class="f">From<input type="date" name="from" required></label>
+      <label class="f">To (optional)<input type="date" name="to"></label>
+      <label class="f">Hours a day<input name="hours" inputmode="decimal" required pattern="[0-9]+([.][0-9])?" placeholder="e.g. 8"></label>
+      <label class="f">Reason<input name="reason" required placeholder="e.g. Phil on leave"></label>
+      <button class="btn primary" type="submit" style="align-self:end">Add</button>
+    </form>
+    ${d.cap.adjustments.length ? html`<div class="tbl"><table><thead><tr><th>Area</th><th>From</th><th>To</th><th class="num">Hours a day</th><th>Reason</th><th></th></tr></thead><tbody>
+      ${d.cap.adjustments.filter((a) => a.to_day >= d.today).map((a) => html`<tr><td>${d.cap.centres.find((c) => c.key === a.centre)?.label ?? a.centre}</td><td>${fmtShort(a.from_day)}</td><td>${fmtShort(a.to_day)}</td><td class="num">${a.hours}</td><td>${a.reason}</td>
+        <td><form method="post" action="/settings/adjustments/${a.id}/delete"><button class="btn small danger" type="submit">Remove</button></form></td></tr>`)}
+    </tbody></table></div>` : ''}
+  </section>
+
+  <section class="panel" id="flags"><h2>Flagged problems: who looks after what</h2>
+    <p class="muted small">Anyone who can tick can flag a problem from My day or a step. The flag goes by email to the person here and to the Editors, and sits on Attention until it's marked fixed.</p>
+    <div class="tbl"><table><thead><tr><th>Problem</th><th>Looked after by</th><th>In the list</th><th></th></tr></thead><tbody>
+      ${d.issueTypes.map((t) => html`<tr><td colspan="4" style="padding:0;border:0"><form method="post" action="/settings/flag-types/${t.key}" style="display:grid;grid-template-columns:minmax(160px,1.2fr) minmax(160px,1fr) 100px auto;gap:8px;padding:8px 10px;border-bottom:1px solid var(--line);align-items:center;min-width:560px">
+        <strong>${t.label}</strong>
+        <select name="responsible" aria-label="Looked after by"><option value="">Editors only</option>${d.people.filter((p) => p.active && p.role !== 'viewer').map((p) => html`<option value="${p.id}"${t.responsible === p.id ? html` selected` : ''}>${p.name}</option>`)}</select>
+        <label class="checkline" style="font-weight:400"><input type="checkbox" name="active" value="1"${t.active ? html` checked` : ''}> Yes</label>
+        <button class="btn small" type="submit">Save</button></form></td></tr>`)}
+    </tbody></table></div></section>
+
+  <section class="panel" id="emails"><h2>Emails</h2>
+    <p class="muted small">Every weekday at 7 am Sydney time the hub emails whoever owns a step that went overdue the day before, and on Mondays everyone gets their week. A flag emails the person who looks after it and the Editors as it's raised; Materials in, ticked, emails the factory. Untick "Emails" on a person below to leave them out.${d.preview && d.nudgeTo ? html` <strong>On this preview copy every one of these goes to ${d.nudgeTo} instead of the person.</strong>` : ''}</p>
+    <div class="acts"><a class="btn" href="/settings/emails">See what today's run would send</a></div>
+    ${d.runs.length ? html`<div class="tbl"><table><thead><tr><th>Day</th><th class="num">Sent</th><th>Ran at</th></tr></thead><tbody>${d.runs.map((r) => html`<tr><td>${fmtShort(r.day)}</td><td class="num">${r.sent}</td><td>${new Intl.DateTimeFormat('en-AU', { timeZone: 'Australia/Sydney', hour: '2-digit', minute: '2-digit', hour12: false, day: '2-digit', month: 'short' }).format(new Date(r.ran_at))}</td></tr>`)}</tbody></table></div>` : html`<p class="muted small">No runs yet.</p>`}
+  </section>
+
+  <section class="panel"><h2>Default durations and limits</h2>
     <form method="post" action="/settings/values" class="stack">
       <div class="formgrid">${d.settings.map((s) => html`<label class="f">${s.label}<input type="number" name="${s.key}" value="${s.value}" min="0" max="200" required></label>`)}</div>
       <div class="acts"><button class="btn primary" type="submit">Save settings</button></div>
@@ -202,16 +248,17 @@ export function settingsPage(d: {
 
   <section class="panel"><h2>People</h2>
     <p class="muted small">Only these addresses can sign in. Editors change anything; Doers tick steps and raise rework; Viewers look. Switch someone off rather than deleting them, so the history keeps their name.${d.viewerIsOwner ? ' Owners (you see this column because you are one) also see who was responsible for each rework; only an owner can make someone an owner.' : ''} Areas are the board rows a person works in: their steps make up My day.</p>
-    <div class="tbl"><table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Can sign in</th>${d.viewerIsOwner ? html`<th>Owner</th>` : ''}<th></th></tr></thead><tbody>
+    <div class="tbl"><table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Can sign in</th>${d.viewerIsOwner ? html`<th>Owner</th>` : ''}<th>Emails</th><th></th></tr></thead><tbody>
       ${d.people.map((p) => {
         const locked = p.is_owner && !d.viewerIsOwner;
-        const cols = d.viewerIsOwner ? 'minmax(120px,1fr) minmax(180px,1.5fr) 120px 110px 90px auto' : 'minmax(120px,1fr) minmax(180px,1.5fr) 120px 110px auto';
+        const cols = d.viewerIsOwner ? 'minmax(120px,1fr) minmax(180px,1.5fr) 120px 110px 90px 90px auto' : 'minmax(120px,1fr) minmax(180px,1.5fr) 120px 110px 90px auto';
         const dis = locked ? html` disabled` : '';
-        return html`<tr><td colspan="${d.viewerIsOwner ? 6 : 5}" style="padding:0;border:0"><form method="post" action="/settings/people/${p.id}" style="display:grid;grid-template-columns:${cols};gap:8px;padding:8px 10px;border-bottom:1px solid var(--line);align-items:center;min-width:${d.viewerIsOwner ? 740 : 640}px">
+        return html`<tr><td colspan="${d.viewerIsOwner ? 7 : 6}" style="padding:0;border:0"><form method="post" action="/settings/people/${p.id}" style="display:grid;grid-template-columns:${cols};gap:8px;padding:8px 10px;border-bottom:1px solid var(--line);align-items:center;min-width:${d.viewerIsOwner ? 830 : 730}px">
         <input name="name" value="${p.name}" required aria-label="Name"${dis}><input name="email" type="email" value="${p.email}" required aria-label="Email"${dis}>
         <select name="role" aria-label="Role"${dis}>${['editor', 'doer', 'viewer'].map((r) => html`<option value="${r}"${p.role === r ? html` selected` : ''}>${cap(r)}</option>`)}</select>
         <label class="checkline" style="font-weight:400"><input type="checkbox" name="active" value="1"${p.active ? html` checked` : ''}${dis}> Yes</label>
         ${d.viewerIsOwner ? html`<label class="checkline" style="font-weight:400" title="Owners see who was responsible for each rework"><input type="checkbox" name="is_owner" value="1"${p.is_owner ? html` checked` : ''}> Yes</label>` : ''}
+        <label class="checkline" style="font-weight:400" title="Nudges and flags by email"><input type="checkbox" name="email_digest" value="1"${p.email_digest ? html` checked` : ''}${dis}> Yes</label>
         ${locked ? html`<span class="muted small">Only an owner can change this person.</span>` : html`<button class="btn small" type="submit">Save</button>`}
         <div class="areas" style="grid-column:1 / -1"><span class="muted small">Areas:</span>${PEOPLE_AREAS.map((a) => html`<label class="checkline small" style="min-height:28px;font-weight:400"><input type="checkbox" name="areas" value="${a.area}"${p.areas.includes(a.area) ? html` checked` : ''}${dis}> ${a.label}</label>`)}</div></form></td></tr>`;
       })}

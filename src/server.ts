@@ -9,6 +9,7 @@ import { backTo, flash, routes, UserError } from './web/routes.js';
 import { bare } from './views/layout.js';
 import { apiRoutes } from './web/api.js';
 import { html } from './web/html.js';
+import { startScheduler } from './web/nudges.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = [path.resolve(here, '../public'), path.resolve(here, '../../public')].find((d) => fs.existsSync(d))!;
@@ -55,4 +56,5 @@ export function createApp(): express.Express {
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
   createApp().listen(config.port, () => console.log(`Aalbor Hub on ${config.appUrl} (port ${config.port})`));
+  startScheduler();
 }

@@ -57,7 +57,7 @@ describe('roles are enforced by the database', () => {
   it('refuses a Doer changing dates, jobs or settings', async () => {
     expect(await refused(withPerson(doer, (db) => db.query(`update steps set start_date = '2026-11-04' where id = $1`, [stepId])))).toMatch(/Doers/);
     expect(await refused(withPerson(doer, (db) => db.query(`update jobs set client_name = 'Smith' where id = $1`, [jobId])))).toMatch(/Doers/);
-    expect(await refused(withPerson(doer, (db) => db.query(`update settings set value = 9 where key = 'factory_kitchens_per_week'`)))).toMatch(/Doers/);
+    expect(await refused(withPerson(doer, (db) => db.query(`update settings set value = 9 where key = 'hours_per_day'`)))).toMatch(/Doers/);
     expect(await refused(withPerson(doer, (db) => db.query(`delete from steps where id = $1`, [stepId])))).toMatch(/Doers/);
   });
 

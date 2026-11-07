@@ -1,7 +1,7 @@
 // Overdue, Needs a decision and capacity. Pure functions over jobs and steps as
 // loaded from the database, so they can be tested without one.
 
-import { Calendar, fmtShort, Iso, mondayOf, addDays, fmtRange } from './dates.js';
+import { Calendar, fmtShort, Iso, mondayOf, addDays, dayOfWeek } from './dates.js';
 import { KINDS, Rules, DEFAULT_RULES, StepKind, FLOW } from './steps.js';
 import { PlanRow, violations } from './schedule.js';
 
@@ -174,6 +174,7 @@ export function needsDecision(
   rulesIn: Rules,
   cal: Calendar,
   today: Iso,
+  cap?: CapacityInput,
 ): Decision[] {
   const rules = { ...DEFAULT_RULES, ...rulesIn };
   const out: Decision[] = [];
@@ -275,7 +276,7 @@ export function needsDecision(
     });
   }
 
-  out.push(...capacity(jobs, steps, rules, cal, today).map((c) => c.decision));
+  out.push(...capacity(jobs, steps, rules, cal, today, cap).map((c) => c.decision));
   return out;
 }
 
@@ -283,61 +284,162 @@ export interface CapacityWarning {
   row: 'factory' | 'install' | 'measure';
   /** Monday of the week, or the day for check measures. */
   period: Iso;
+  /** Job-days (hours ÷ hours_per_day) for factory and install; a count for check measures. */
   booked: number;
   limit: number;
   jobIds: number[];
   decision: Decision;
 }
 
+/** Hours available each weekday in an area (Jobman's labour centre; George, 7 Nov 2026). */
+export interface LabourCentre {
+  key: 'factory' | 'install';
+  label: string;
+  mon: number;
+  tue: number;
+  wed: number;
+  thu: number;
+  fri: number;
+}
+
+/** A period with different hours: a shutdown (0), someone on leave, an extra pair of hands. */
+export interface CapacityAdjustment {
+  id?: number;
+  centre: string;
+  from_day: Iso;
+  to_day: Iso;
+  hours: number;
+  reason: string;
+}
+
+export interface CapacityInput {
+  centres: LabourCentre[];
+  adjustments: CapacityAdjustment[];
+}
+
 /**
- * Factory and install load per week in job-days, against kitchens a week × default days.
- * Check measures per day against the daily limit. Looks from this week forward.
+ * Before migration 010 capacity was kitchens a week × default days; the same numbers as hours
+ * spread over five days. Used when no centres are given (tests, and as a fallback).
  */
-export function capacity(jobs: JobRow[], steps: StepRow[], rulesIn: Rules, cal: Calendar, today: Iso): CapacityWarning[] {
+export function centresFromRules(rulesIn: Rules): CapacityInput {
+  const r = { ...DEFAULT_RULES, ...rulesIn };
+  const spread = (perWeek: number): Omit<LabourCentre, 'key' | 'label'> => {
+    const h = Math.round((perWeek * r.hours_per_day) / 5 * 10) / 10;
+    return { mon: h, tue: h, wed: h, thu: h, fri: h };
+  };
+  return {
+    centres: [
+      { key: 'factory', label: 'Factory', ...spread(r.factory_kitchens_per_week * r.default_factory_days) },
+      { key: 'install', label: 'Install crew', ...spread(r.install_kitchens_per_week * r.default_install_days) },
+    ],
+    adjustments: [],
+  };
+}
+
+/** Hours available in a centre on a day: 0 on weekends, holidays and blocked days; an adjustment's hours in its period. */
+export function availableHours(c: LabourCentre, adjustments: CapacityAdjustment[], d: Iso, cal: Calendar): number {
+  if (!cal.isWorkingDay(d, KINDS[c.key].scope)) return 0;
+  const a = adjustments.find((x) => x.centre === c.key && x.from_day <= d && d <= x.to_day);
+  if (a) return a.hours;
+  return [0, c.mon, c.tue, c.wed, c.thu, c.fri, 0][dayOfWeek(d)];
+}
+
+export interface DayLoad {
+  day: Iso;
+  available: number;
+  booked: number;
+  jobIds: number[];
+  /** Why the day has no hours, when it is not a weekend. */
+  closed: string | null;
+}
+
+/**
+ * Hours booked in a centre each day: a kitchen's factory or install day is hours_per_day hours;
+ * a rework task spreads its hours over its working days. Live jobs only, standard steps and
+ * rework tasks in that area.
+ */
+export function bookedHours(kind: 'factory' | 'install', jobs: JobRow[], steps: StepRow[], rulesIn: Rules, cal: Calendar, from: Iso, to: Iso): Map<Iso, { hours: number; jobs: Set<number> }> {
   const rules = { ...DEFAULT_RULES, ...rulesIn };
+  const live = new Set(jobs.filter((j) => j.status === 'live').map((j) => j.id));
+  const scope = KINDS[kind].scope;
+  const out = new Map<Iso, { hours: number; jobs: Set<number> }>();
+  for (const s of steps) {
+    const rework = s.kind === 'rework' && s.rework_area === kind;
+    if ((s.kind !== kind && !rework) || s.label || !s.start_date || !live.has(s.job_id)) continue;
+    const end = s.end_date ?? s.start_date;
+    if (end < from || s.start_date > to) continue;
+    const total = cal.workingDaysWithin(s.start_date, end, s.start_date, end, scope);
+    const perDay = rework && s.hours && total ? s.hours / total : rules.hours_per_day;
+    for (let d = s.start_date; d <= end; d = addDays(d, 1)) {
+      if (d < from || d > to || !cal.isWorkingDay(d, scope)) continue;
+      const e = out.get(d) ?? out.set(d, { hours: 0, jobs: new Set() }).get(d)!;
+      e.hours = Math.round((e.hours + perDay) * 10) / 10;
+      e.jobs.add(s.job_id);
+    }
+  }
+  return out;
+}
+
+/** The load chart: each centre, each working day from a Monday for n weeks. */
+export function loadByDay(jobs: JobRow[], steps: StepRow[], rulesIn: Rules, cal: Calendar, cap: CapacityInput, from: Iso, weeks: number): { centre: LabourCentre; days: DayLoad[] }[] {
+  const to = addDays(from, weeks * 7 - 1);
+  return cap.centres.map((c) => {
+    const booked = bookedHours(c.key, jobs, steps, rulesIn, cal, from, to);
+    const days: DayLoad[] = [];
+    for (let d = from; d <= to; d = addDays(d, 1)) {
+      if (dayOfWeek(d) === 0 || dayOfWeek(d) === 6) continue;
+      const b = booked.get(d);
+      days.push({ day: d, available: availableHours(c, cap.adjustments, d, cal), booked: b?.hours ?? 0, jobIds: [...(b?.jobs ?? [])], closed: cal.whyNotWorking(d, KINDS[c.key].scope) });
+    }
+    return { centre: c, days };
+  });
+}
+
+/**
+ * Factory and install load per week in hours against the centre's hours (George, 7 Nov 2026),
+ * shown as job-days so the team's language still works. Check measures per day against the
+ * daily limit. Looks from this week forward.
+ */
+export function capacity(jobs: JobRow[], steps: StepRow[], rulesIn: Rules, cal: Calendar, today: Iso, capIn?: CapacityInput): CapacityWarning[] {
+  const rules = { ...DEFAULT_RULES, ...rulesIn };
+  const cap = capIn ?? centresFromRules(rules);
   const live = new Map(jobs.filter((j) => j.status === 'live').map((j) => [j.id, j]));
   const from = mondayOf(today);
   const out: CapacityWarning[] = [];
+  const hpd = Math.max(1, rules.hours_per_day);
+  const days = (h: number) => Math.round((h / hpd) * 10) / 10;
 
-  const weekly = (kind: 'factory' | 'install', limit: number, label: string) => {
-    const scope = KINDS[kind].scope;
-    const weeks = new Map<Iso, { days: number; jobs: Set<number> }>();
-    for (const s of steps) {
-      // Rework factory and install tasks count too, by their hours (George, 6 Nov 2026).
-      const rework = s.kind === 'rework' && s.rework_area === kind;
-      if ((s.kind !== kind && !rework) || !s.start_date || !live.has(s.job_id)) continue;
-      const end = s.end_date ?? s.start_date;
-      if (end < from) continue;
-      // A job-day per working day; a rework task with hours spreads them over its working days.
-      const total = cal.workingDaysWithin(s.start_date, end, s.start_date, end, scope);
-      const perDay = rework && s.hours && total ? s.hours / Math.max(1, rules.hours_per_day) / total : 1;
-      for (let w = mondayOf(s.start_date); w <= end; w = addDays(w, 7)) {
-        if (w < from) continue;
-        const n = cal.workingDaysWithin(s.start_date, end, w, addDays(w, 4), scope);
-        if (!n) continue;
-        const e = weeks.get(w) ?? weeks.set(w, { days: 0, jobs: new Set() }).get(w)!;
-        e.days = Math.round((e.days + n * perDay) * 10) / 10;
-        e.jobs.add(s.job_id);
+  for (const c of cap.centres) {
+    const last = steps.reduce((m, s) => ((s.kind === c.key || (s.kind === 'rework' && s.rework_area === c.key)) && s.start_date ? (lastDate(s)! > m ? lastDate(s)! : m) : m), from);
+    const to = addDays(mondayOf(last), 6);
+    const booked = bookedHours(c.key, jobs, steps, rules, cal, from, to);
+    for (let w = from; w <= to; w = addDays(w, 7)) {
+      let hours = 0;
+      let avail = 0;
+      const ids = new Set<number>();
+      for (let i = 0; i < 5; i++) {
+        const d = addDays(w, i);
+        avail += availableHours(c, cap.adjustments, d, cal);
+        const b = booked.get(d);
+        if (b) { hours += b.hours; b.jobs.forEach((j) => ids.add(j)); }
       }
-    }
-    for (const [w, e] of [...weeks].sort()) {
-      if (e.days <= limit) continue;
-      const names = [...e.jobs].map((id) => live.get(id)!.client_name).join(', ');
+      hours = Math.round(hours * 10) / 10;
+      if (hours <= avail) continue;
+      const names = [...ids].map((id) => live.get(id)!.client_name).join(', ');
+      const label = c.key === 'factory' ? 'Factory overbooked' : 'Install crew overbooked';
       out.push({
-        row: kind, period: w, booked: e.days, limit, jobIds: [...e.jobs],
+        row: c.key, period: w, booked: days(hours), limit: days(avail), jobIds: [...ids],
         decision: {
-          key: `cap:${kind}:${w}`, jobId: null, title: `${label} · week of ${fmtShort(w)}`,
-          fact: `${e.days} ${kind} days booked against ${limit} (${names}).`,
+          key: `cap:${c.key}:${w}`, jobId: null, title: `${label} · week of ${fmtShort(w)}`,
+          fact: `${hours} h booked against ${avail} h (${days(hours)} ${c.key} days against ${days(avail)}: ${names}).`,
           ask: 'Move a job to another week, or OK the extra load.',
           okText: 'Extra load OK',
           fields: [],
-          fingerprint: fp([e.days, limit, [...e.jobs].sort()]),
+          fingerprint: fp([hours, avail, [...ids].sort()]),
         },
       });
     }
-  };
-  weekly('factory', rules.factory_kitchens_per_week * rules.default_factory_days, 'Factory overbooked');
-  weekly('install', rules.install_kitchens_per_week * rules.default_install_days, 'Install crew overbooked');
+  }
 
   const perDay = new Map<Iso, number[]>();
   for (const s of steps) {

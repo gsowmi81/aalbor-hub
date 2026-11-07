@@ -3,7 +3,7 @@
 import { pool, Db, withPerson } from './pool.js';
 import type { PlanRow, Template } from '../domain/schedule.js';
 import { Calendar, BlockedDay } from '../domain/dates.js';
-import type { JobRow, ReworkRow, StepRow } from '../domain/checks.js';
+import type { CapacityAdjustment, CapacityInput, JobRow, LabourCentre, ReworkRow, StepRow } from '../domain/checks.js';
 import { DEFAULT_RULES, FLOW, kindsFor, Rules, StepKind, KINDS } from '../domain/steps.js';
 
 export interface FullJob extends JobRow {
@@ -110,6 +110,79 @@ export async function syncStepSet(db: Db, jobId: number): Promise<void> {
   for (const s of have) {
     if (!want.has(s.kind) && !s.done_at) await db.query('delete from steps where id = $1', [s.id]);
   }
+}
+
+// ---------- Capacity in hours (George, 7 Nov 2026) ----------
+
+export async function loadCapacity(): Promise<CapacityInput> {
+  const [c, a] = await Promise.all([
+    pool.query('select key, label, mon, tue, wed, thu, fri from labour_centres order by sort'),
+    pool.query('select id, centre, from_day, to_day, hours, reason from capacity_adjustments order by from_day, id'),
+  ]);
+  const num = (r: Record<string, unknown>) => ({ ...r, mon: Number(r.mon), tue: Number(r.tue), wed: Number(r.wed), thu: Number(r.thu), fri: Number(r.fri) });
+  return { centres: c.rows.map(num) as LabourCentre[], adjustments: a.rows.map((r) => ({ ...r, hours: Number(r.hours) })) as CapacityAdjustment[] };
+}
+
+// ---------- Flagged problems (George, 7 Nov 2026) ----------
+
+export interface IssueType {
+  key: string;
+  label: string;
+  responsible: number | null;
+  responsible_name: string | null;
+  sort: number;
+  active: boolean;
+}
+
+export interface IssueRow {
+  id: number;
+  job_id: number;
+  step_id: number | null;
+  type_key: string;
+  type_label: string;
+  responsible: number | null;
+  responsible_name: string | null;
+  note: string;
+  raised_by: number | null;
+  raised_by_name: string | null;
+  raised_at: string;
+  status: 'open' | 'looking' | 'fixed';
+  closed_at: string | null;
+  closed_by_name: string | null;
+  close_note: string;
+  rework_id: number | null;
+  client_name: string;
+  suburb: string;
+  step_kind: string | null;
+  step_label: string | null;
+  photo_ids: number[];
+}
+
+export async function loadIssueTypes(): Promise<IssueType[]> {
+  return (await pool.query(`select t.key, t.label, t.responsible, p.name as responsible_name, t.sort, t.active
+    from issue_types t left join people p on p.id = t.responsible order by t.sort`)).rows;
+}
+
+const ISSUE_SQL = `select i.id, i.job_id, i.step_id, i.type_key, t.label as type_label, t.responsible, rp.name as responsible_name,
+    i.note, i.raised_by, p.name as raised_by_name, i.raised_at, i.status, i.closed_at, cp.name as closed_by_name, i.close_note, i.rework_id,
+    j.client_name, j.suburb, s.kind as step_kind, s.label as step_label,
+    coalesce((select array_agg(ph.id order by ph.id) from issue_photos ph where ph.issue_id = i.id), '{}') as photo_ids
+  from issues i join issue_types t on t.key = i.type_key join jobs j on j.id = i.job_id
+  left join people p on p.id = i.raised_by left join people rp on rp.id = t.responsible left join people cp on cp.id = i.closed_by
+  left join steps s on s.id = i.step_id`;
+
+/** Flags, open ones first then newest, optionally for one job or open only. */
+export async function loadIssues(opts: { jobId?: number; open?: boolean; limit?: number } = {}): Promise<IssueRow[]> {
+  const where: string[] = [];
+  const params: unknown[] = [];
+  if (opts.jobId) { params.push(opts.jobId); where.push(`i.job_id = $${params.length}`); }
+  if (opts.open) where.push(`i.status <> 'fixed'`);
+  params.push(opts.limit ?? 200);
+  return (await pool.query(`${ISSUE_SQL} ${where.length ? `where ${where.join(' and ')}` : ''} order by i.status = 'fixed', i.raised_at desc limit $${params.length}`, params)).rows;
+}
+
+export async function loadIssue(id: number): Promise<IssueRow | undefined> {
+  return (await pool.query(`${ISSUE_SQL} where i.id = $1`, [id])).rows[0];
 }
 
 // ---------- Templates and scheduling ----------

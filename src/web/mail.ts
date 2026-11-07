@@ -24,6 +24,23 @@ export async function sendSignInEmail(to: string, name: string, link: string): P
   return 'sent';
 }
 
+/** Any other email the hub sends (nudges, flags): one recipient, plain text and a simple HTML body. */
+export async function sendEmail(to: string, subject: string, text: string, htmlBody: string): Promise<'sent' | 'logged'> {
+  const subj = `${config.preview ? '[Preview] ' : ''}${subject}`;
+  if (!config.resendApiKey) {
+    if (config.production) throw new Error('Email is not set up: RESEND_API_KEY is missing on Render.');
+    console.log(`[email to ${to}] ${subj}\n${text}`);
+    return 'logged';
+  }
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${config.resendApiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from: config.mailFrom, to: [to], subject: subj, text, html: htmlBody }),
+  });
+  if (!res.ok) throw new Error(`Resend refused the email (${res.status}): ${await res.text()}`);
+  return 'sent';
+}
+
 /** One email per batch of suggestions (none for a batch of info-only rows). */
 export async function sendSuggestionsEmail(to: string, n: { urgent: number; normal: number; info: number }, source: string, link: string): Promise<'sent' | 'logged'> {
   const total = n.urgent + n.normal + n.info;

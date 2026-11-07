@@ -4,7 +4,8 @@ import { BOARD_ROWS, KINDS, StepKind, FLOW, REWORK_AREAS, REWORK_CATEGORIES, REW
 import { currentStep, Decision, jobTitle, lastDate, nextUp, planRow, StepRow, stepLabel } from '../domain/checks.js';
 import { canSqueeze } from './reschedule.js';
 import { can, Person } from '../web/auth.js';
-import type { FullJob, LogEntry, ReworkFull, Responsible } from '../db/queries.js';
+import type { FullJob, IssueRow, IssueType, LogEntry, ReworkFull, Responsible } from '../db/queries.js';
+import { flagForm, issuesPanel } from './issues.js';
 import { ANCHORS, AnchorKind, Template } from '../domain/schedule.js';
 import { decisionFields } from './items.js';
 
@@ -29,6 +30,11 @@ export interface JobPageData {
   peopleNames: string[];
   /** Bot suggestions waiting on this job (views/suggestions.ts). */
   suggestionsPanel?: Html;
+  /** Flagged problems on this job and the types to flag with (George, 7 Nov 2026). */
+  issues: IssueRow[];
+  issueTypes: IssueType[];
+  /** "Raise rework for this" from a flag: opens the raise form with the note filled in. */
+  fromFlag: { id: number; note: string } | null;
 }
 
 const STATUS = { live: 'Live', on_hold: 'On hold', complete: 'Complete', cancelled: 'Cancelled' } as Record<string, string>;
@@ -97,9 +103,13 @@ function stepRow(s: Step, d: JobPageData, std: Step[]): Html {
   const pin = editor && !on && s.start_date
     ? html`<form method="post" action="/steps/${s.id}/pin" class="pinform"><input type="hidden" name="pinned" value="${s.pinned ? '0' : '1'}"><input type="hidden" name="back" value="/jobs/${job.id}#s-${s.id}"><button class="linkbtn small" type="submit">${s.pinned ? 'Unpin' : 'Pin'}</button></form>`
     : '';
+  const openFlags = d.issues.filter((i) => i.step_id === s.id && i.status !== 'fixed').length;
+  const flag = can(person, 'doer') && !on
+    ? html`<a class="linkbtn small" href="#flags" data-flag-step="${s.id}">${openFlags ? `${openFlags} flagged` : 'Flag'}</a>`
+    : openFlags ? html`<a class="small" href="#flags">${openFlags} flagged</a>` : '';
   return html`<div class="${cls}" id="s-${s.id}">${tickBtn}
     <div class="st-main"><div class="st-top"><strong>${stepLabel(s)}</strong><span class="muted small">${s.owner || KINDS[s.kind].owner}</span></div>
-      <div class="st-when">${dateEl}${pills}${pin}</div></div>
+      <div class="st-when">${dateEl}${pills}${pin}${flag}</div></div>
   </div>`;
 }
 
@@ -181,6 +191,7 @@ export function jobPage(d: JobPageData): Html {
       </div></details>` : ''}
   </section>
 
+  ${issuesPanel({ jobId: job.id, issues: d.issues, person, types: d.issueTypes, back: `/jobs/${job.id}#flags` })}
   ${editor ? tasksPanel(d, std.filter((s) => s.label)) : ''}
   ${reworkPanel(d, rw)}
   ${editor ? detailsPanel(job, d.templates) : html`<section class="panel"><h2>Notes</h2><p>${job.notes || 'No notes.'}</p></section>`}
@@ -275,7 +286,7 @@ function reworkPanel(d: JobPageData, rwSteps: Step[]): Html {
         ${editor ? confirmDelete(`/rework/${r.id}/delete`, back, 'Delete this rework', `Delete this rework and its ${steps.length} ${steps.length === 1 ? 'task' : 'tasks'}? Use this for rework raised by mistake. The change log keeps a record.`) : ''}
       </div>`;
     })}
-    ${can(d.person, 'doer') ? raiseForm(d.job.id, back, undefined, d.person, d.peopleNames) : ''}
+    ${can(d.person, 'doer') ? raiseForm(d.job.id, back, undefined, d.person, d.peopleNames, d.fromFlag) : ''}
   </section>`;
 }
 
@@ -303,15 +314,15 @@ export function responsibleBlock(reworkId: number, r: Responsible | undefined, b
   </div>`;
 }
 
-export function raiseForm(jobId: number | null, back: string, jobs?: { id: number; job_number?: string | null; client_name: string; suburb: string }[], person?: Person, names: string[] = []): Html {
+export function raiseForm(jobId: number | null, back: string, jobs?: { id: number; job_number?: string | null; client_name: string; suburb: string }[], person?: Person, names: string[] = [], fromFlag: { id: number; note: string } | null = null): Html {
   const editor = !!person && can(person, 'editor');
   const key = jobId ?? 'any';
-  return html`<details class="pop"${jobId ? '' : html` open`}><summary class="btn">Raise rework</summary>
-    <form class="popbody" method="post" action="/rework"><input type="hidden" name="back" value="${back}">
+  return html`<details class="pop"${jobId && !fromFlag ? '' : html` open`}><summary class="btn">Raise rework</summary>
+    <form class="popbody" method="post" action="/rework"><input type="hidden" name="back" value="${back}">${fromFlag ? html`<input type="hidden" name="flag_id" value="${fromFlag.id}">` : ''}
       ${jobId ? html`<input type="hidden" name="job_id" value="${jobId}">`
         : html`<label class="f">Job<select name="job_id" required><option value="">Pick a job</option>${(jobs ?? []).map((j) => html`<option value="${j.id}">${[j.job_number, j.client_name, j.suburb].filter(Boolean).join(' · ')}</option>`)}</select></label>`}
       <label class="f">Cause<select name="cause" required><option value="">Pick a cause</option>${CAUSES.map((c) => html`<option value="${c}">${cap(c)}</option>`)}</select></label>
-      <label class="f">What happened (one line)<input name="note" required maxlength="200" placeholder="e.g. Sink cabinet must be rebuilt"></label>
+      <label class="f">What happened (one line)<input name="note" required maxlength="200" placeholder="e.g. Sink cabinet must be rebuilt" value="${fromFlag?.note.slice(0, 200) ?? ''}"></label>
       <fieldset class="stack rwtasks">
         <legend>What needs doing</legend>
         ${REWORK_AREAS.map((a) => html`<div class="rwtask"><label class="checkline"><input type="checkbox" name="task_${a.kind}" value="1"> ${a.label}</label>

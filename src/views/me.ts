@@ -4,8 +4,9 @@ import { html, Html } from '../web/html.js';
 import { addDays, fmtRange, fmtShort, Iso, mondayOf } from '../domain/dates.js';
 import { KINDS, PEOPLE_AREAS, rowOf } from '../domain/steps.js';
 import { jobTitle, lastDate, StepRow, stepLabel } from '../domain/checks.js';
-import type { FullJob } from '../db/queries.js';
+import type { FullJob, IssueRow, IssueType } from '../db/queries.js';
 import { can, Person } from '../web/auth.js';
+import { flagForm, issueItem } from './issues.js';
 
 export interface MyDayData {
   person: Person;
@@ -13,6 +14,9 @@ export interface MyDayData {
   jobs: FullJob[];
   steps: StepRow[];
   message: string;
+  types: IssueType[];
+  /** Open flags this person raised or looks after. */
+  issues: IssueRow[];
 }
 
 /** Is this step one of mine: in an area I work in, or with my name on it. */
@@ -48,7 +52,8 @@ export function myDayPage(d: MyDayData): Html {
         <div class="muted small">${fmtRange(s.start_date, s.end_date)}${over ? html` · <span class="nodate">${late ? 'overdue' : 'running late'}</span>` : ''}${s.confirmed ? '' : ' · provisional'}${s.pinned ? ' · pinned' : ''}</div>
         ${j.drawings_url ? html`<a class="small" href="${j.drawings_url}" target="_blank" rel="noopener">Drawings ↗</a>` : ''}
       </div>
-      ${canTick ? html`<form method="post" action="/steps/${s.id}/done"><input type="hidden" name="done" value="1"><input type="hidden" name="back" value="/me#c-${s.id}"><button class="btn primary" type="submit" aria-label="${stepLabel(s)} for ${j.client_name}: done">Done</button></form>` : ''}
+      ${canTick ? html`<div class="me-acts"><form method="post" action="/steps/${s.id}/done"><input type="hidden" name="done" value="1"><input type="hidden" name="back" value="/me#c-${s.id}"><button class="btn primary" type="submit" aria-label="${stepLabel(s)} for ${j.client_name}: done">Done</button></form>
+        ${flagForm({ jobId: j.id, stepId: s.id, types: d.types, back: `/me#c-${s.id}`, label: 'Flag' })}</div>` : ''}
     </div>`;
   };
   const section = (title: string, list: StepRow[], empty: string, late = false) => html`<section class="panel" style="gap:4px">
@@ -60,6 +65,7 @@ export function myDayPage(d: MyDayData): Html {
     ${d.message ? html`<div class="me-msg" role="note">${d.message}</div>` : ''}
     ${!d.person.areas.length ? html`<div class="notice">Your areas aren't set yet, so this only shows steps with your name on them. Ask George or Christine to tick your areas in Settings → People.</div>`
       : html`<p class="muted small">${fmtShort(d.today)} · your areas: ${areas.join(', ')}. Tap Done when a step is finished; it leaves this list and the office sees it straight away.</p>`}
+    ${d.issues.length ? html`<section class="panel" style="gap:4px"><div class="row"><h2>Flags for you</h2><span class="muted small">${d.issues.length}</span></div>${d.issues.map((i) => issueItem(i, d.person, '/me'))}</section>` : ''}
     ${overdue.length ? section('Overdue', overdue, '', true) : ''}
     ${section('Today', todayList, 'Nothing on today.')}
     ${section('Later this week', thisWeek, 'Nothing more this week.')}

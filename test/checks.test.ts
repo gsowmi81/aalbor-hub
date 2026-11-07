@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Calendar } from '../src/domain/dates.js';
-import { capacity, JobRow, needsDecision, overdue, StepRow } from '../src/domain/checks.js';
+import { availableHours, capacity, CapacityInput, JobRow, loadByDay, needsDecision, overdue, StepRow } from '../src/domain/checks.js';
 import { DEFAULT_RULES, StepKind } from '../src/domain/steps.js';
 
 const cal = new Calendar([]);
@@ -146,6 +146,45 @@ describe('capacity', () => {
     const steps = jobs.map((j, i) => step(j.id, 'factory', `2026-11-0${2 + i}`));
     expect(capacity(jobs, steps, { ...DEFAULT_RULES, factory_kitchens_per_week: 1 }, cal, TODAY)).toHaveLength(1);
     expect(capacity(jobs, steps, { ...DEFAULT_RULES, factory_kitchens_per_week: 3 }, cal, TODAY)).toHaveLength(0);
+  });
+});
+
+describe('capacity in hours per area (George, 7 Nov 2026)', () => {
+  const cap = (): CapacityInput => ({
+    centres: [{ key: 'factory', label: 'Factory', mon: 8, tue: 8, wed: 8, thu: 8, fri: 8 }, { key: 'install', label: 'Install crew', mon: 8, tue: 8, wed: 8, thu: 8, fri: 8 }],
+    adjustments: [],
+  });
+  it('uses the hours of each weekday, nothing on weekends, holidays or blocked days', () => {
+    const c = cap().centres[0];
+    expect(availableHours(c, [], '2026-11-02', cal)).toBe(8);
+    expect(availableHours(c, [], '2026-11-07', cal)).toBe(0);
+    const blocked = new Calendar([{ day: '2026-11-03', scope: 'factory', reason: 'Clean-out' }]);
+    expect(availableHours(c, [], '2026-11-03', blocked)).toBe(0);
+  });
+  it('an adjustment replaces the hours for its period', () => {
+    const c = cap().centres[0];
+    const adj = [{ centre: 'factory', from_day: '2026-11-04', to_day: '2026-11-05', hours: 0, reason: 'Shutdown' }];
+    expect(availableHours(c, adj, '2026-11-04', cal)).toBe(0);
+    expect(availableHours(c, adj, '2026-11-06', cal)).toBe(8);
+  });
+  it('warns in hours and job-days: five factory days against 40 h is fine, a shutdown makes it over', () => {
+    const jobs = [job(1), job(2), job(3)];
+    const steps = [step(1, 'factory', '2026-11-02', '2026-11-03'), step(2, 'factory', '2026-11-04', '2026-11-05'), step(3, 'factory', '2026-11-06')];
+    expect(capacity(jobs, steps, DEFAULT_RULES, cal, TODAY, cap())).toHaveLength(0);
+    const c = cap();
+    c.adjustments = [{ centre: 'factory', from_day: '2026-11-06', to_day: '2026-11-06', hours: 0, reason: 'Off' }];
+    const w = capacity(jobs, steps, DEFAULT_RULES, cal, TODAY, c);
+    expect(w.map((x) => [x.row, x.period, x.booked, x.limit])).toEqual([['factory', '2026-11-02', 5, 4]]);
+    expect(w[0].decision.fact).toContain('40 h booked against 32 h');
+  });
+  it('the load chart gives every working day with what is booked and who', () => {
+    const jobs = [job(1)];
+    const steps = [step(1, 'factory', '2026-11-02', '2026-11-03')];
+    const rows = loadByDay(jobs, steps, DEFAULT_RULES, cal, cap(), '2026-11-02', 1);
+    expect(rows[0].days.map((d) => [d.day, d.booked, d.available])).toEqual([
+      ['2026-11-02', 8, 8], ['2026-11-03', 8, 8], ['2026-11-04', 0, 8], ['2026-11-05', 0, 8], ['2026-11-06', 0, 8],
+    ]);
+    expect(rows[0].days[0].jobIds).toEqual([1]);
   });
 });
 

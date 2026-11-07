@@ -630,6 +630,98 @@ describe('the preview round (George, 7 Nov 2026)', () => {
   });
 });
 
+describe('round two of the preview (George, 7 Nov 2026)', () => {
+  it('capacity is in hours per area, seeded from the old settings, and the load page renders', async () => {
+    const f = await one(`select mon, tue, wed, thu, fri from labour_centres where key = 'factory'`);
+    expect(Number(f.mon)).toBe(6.4); // 2 kitchens × 2 days × 8 h over 5 days
+    expect(await one(`select 1 from settings where key = 'factory_kitchens_per_week'`)).toBeUndefined();
+    expect((await req('GET', '/load', 'Phil')).status).toBe(200);
+    await req('POST', '/settings/centres/factory', 'George', { mon: '8', tue: '8', wed: '8', thu: '8', fri: '4' });
+    expect(Number((await one(`select fri from labour_centres where key = 'factory'`)).fri)).toBe(4);
+    const r = await req('POST', '/settings/adjustments', 'George', { centre: 'factory', from: '2027-01-04', to: '2027-01-08', hours: '0', reason: 'Shutdown' });
+    expect(r.status).toBe(302);
+    const a = await one(`select id, hours from capacity_adjustments where reason = 'Shutdown'`);
+    expect(Number(a.hours)).toBe(0);
+    const load = await req('GET', '/load', 'George');
+    expect(load.text).toContain('Factory');
+    await req('POST', `/settings/adjustments/${a.id}/delete`, 'George', {});
+    expect(await one(`select 1 from capacity_adjustments where id = $1`, [a.id])).toBeUndefined();
+  });
+
+  it('lets a Doer flag a problem with a photo; it reaches Attention, the job and the person responsible', async () => {
+    const job = await one(`select id from jobs where client_name = 'Greg Steven'`);
+    const step = await one(`select id from steps where job_id = $1 and kind = 'factory'`, [job.id]);
+    await req('POST', '/settings/flag-types/materials_short', 'George', { responsible: String(ids.Gus), active: '1' });
+    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64');
+    const boundary = 'hubtest';
+    const part = (name: string, value: string) => `--${boundary}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`;
+    const body = Buffer.concat([
+      Buffer.from(part('job_id', String(job.id)) + part('step_id', String(step.id)) + part('type', 'materials_short') + part('note', 'Short two sheets of Classic White') + part('back', `/jobs/${job.id}#flags`)),
+      Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="photo"; filename="x.png"\r\nContent-Type: image/png\r\n\r\n`), png, Buffer.from(`\r\n--${boundary}--\r\n`),
+    ]);
+    const res = await fetch(base + '/issues', { method: 'POST', headers: { Origin: base, Cookie: `hub_session=${tokens.Phil}`, 'Content-Type': `multipart/form-data; boundary=${boundary}` }, body, redirect: 'manual' });
+    expect(res.status).toBe(302);
+    const i = await one(`select id, raised_by, status, type_key from issues where note = 'Short two sheets of Classic White'`);
+    expect(i.raised_by).toBe(ids.Phil);
+    expect(i.status).toBe('open');
+    const photo = await one(`select id, size, content_type from issue_photos where issue_id = $1`, [i.id]);
+    expect(photo.size).toBe(png.length);
+    expect((await req('GET', `/issues/${i.id}/photos/${photo.id}`, 'Angela')).type).toBe('image/png');
+    const att = await req('GET', '/attention', 'Christine');
+    expect(att.text).toContain('Short two sheets of Classic White');
+    expect(att.text).toContain('Gus looks after these');
+    expect((await req('GET', `/jobs/${job.id}`, 'Angela')).text).toContain('Short two sheets of Classic White');
+    // Gus is responsible, so he can move it along; Angela (Viewer) cannot; the database agrees.
+    expect((await req('GET', '/me', 'Gus')).text).toContain('Flags for you');
+    expect((await req('POST', `/issues/${i.id}/status`, 'Angela', { status: 'fixed' })).status).toBe(403);
+    await req('POST', `/issues/${i.id}/status`, 'Gus', { status: 'looking' });
+    expect((await one('select status from issues where id = $1', [i.id])).status).toBe('looking');
+    await req('POST', `/issues/${i.id}/status`, 'Gus', { status: 'fixed', note: 'Boards came in' });
+    const fixed = await one('select status, close_note, closed_by from issues where id = $1', [i.id]);
+    expect(fixed).toEqual({ status: 'fixed', close_note: 'Boards came in', closed_by: ids.Gus });
+    expect((await req('GET', '/attention', 'Christine')).text).not.toContain('Short two sheets of Classic White');
+  });
+
+  it('refuses a flag without a type or a note, and a Doer changing a flag that is not theirs', async () => {
+    const job = await one(`select id from jobs where client_name = 'Greg Steven'`);
+    expect((await req('POST', '/issues', 'Phil', { job_id: String(job.id), type: 'other', note: '' })).status).toBe(302);
+    expect(await one(`select 1 from issues where job_id = $1 and type_key = 'other'`, [job.id])).toBeUndefined();
+    await req('POST', '/issues', 'Gus', { job_id: String(job.id), type: 'site_not_ready', note: 'Tiler still on site' });
+    const i = await one(`select id from issues where note = 'Tiler still on site'`);
+    // Phil neither raised it nor looks after site problems.
+    const r = await req('POST', `/issues/${i.id}/status`, 'Phil', { status: 'fixed' });
+    expect(r.status).toBe(302);
+    expect((await one('select status from issues where id = $1', [i.id])).status).toBe('open');
+    // Raising rework for it (Editor) answers the flag.
+    await req('POST', '/rework', 'George', { job_id: String(job.id), cause: 'install', note: 'Tiler still on site', flag_id: String(i.id) });
+    const after = await one('select status, close_note, rework_id from issues where id = $1', [i.id]);
+    expect(after.status).toBe('fixed');
+    expect(after.close_note).toBe('Rework raised');
+    expect(after.rework_id).not.toBeNull();
+  });
+
+  it('shows what the 7 am emails would be, sends them once a day, and leaves people who opted out', async () => {
+    const preview = await req('GET', '/settings/emails', 'George');
+    expect(preview.status).toBe(200);
+    expect(preview.text).toContain('What the 7 am run would send today');
+    await req('POST', `/settings/people/${ids.Phil}`, 'George', { name: 'Phil', email: 'phil@test.au', role: 'doer', active: '1', areas: 'factory', email_digest: '0' });
+    expect((await one('select email_digest from people where id = $1', [ids.Phil])).email_digest).toBe(false);
+    const run = await req('POST', '/settings/emails/run', 'George', {});
+    expect(run.status).toBe(302);
+    const today = todaySydney();
+    expect(await one(`select kind from digest_runs where day = $1`, [today])).toEqual({ kind: 'daily' });
+    await req('POST', `/settings/people/${ids.Phil}`, 'George', { name: 'Phil', email: 'phil@test.au', role: 'doer', active: '1', areas: 'factory', email_digest: '1' });
+  });
+
+  it('ticking Materials in tells the factory without breaking the tick', async () => {
+    const s = await one(`select s.id from steps s join jobs j on j.id = s.job_id where j.client_name = 'Jenny Vassiniotis' and s.kind = 'materials_in'`);
+    const r = await req('POST', `/steps/${s.id}/done`, 'Christine', { done: '1', back: '/board' });
+    expect(r.status).toBe(302);
+    expect((await one('select done_at from steps where id = $1', [s.id])).done_at).not.toBeNull();
+    await req('POST', `/steps/${s.id}/done`, 'Christine', { done: '0', back: '/board' });
+  });
+});
+
 describe('export', () => {
   it('downloads a spreadsheet', async () => {
     const r = await fetch(`${base}/export.xlsx`, { headers: { Cookie: `hub_session=${tokens.Angela}` } });
