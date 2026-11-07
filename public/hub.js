@@ -3,9 +3,11 @@
   // Keep your place: after a tick, save or delete, the page comes back where you were,
   // not at the top. (Without this file, the form's #anchor still lands near the item.)
   var KEY = 'hub-scroll';
+  // A field named action, method or enctype shadows the form's own property (New job has buttons named action), so read the attributes.
+  function attr(f, name, dflt) { var v = f.getAttribute(name); return (v === null || v === '') ? dflt : v; }
   document.addEventListener('submit', function (e) {
     var f = e.target;
-    if (!f || (f.method || '').toLowerCase() !== 'post') return;
+    if (!f || attr(f, 'method', 'get').toLowerCase() !== 'post') return;
     try { sessionStorage.setItem(KEY, JSON.stringify({ path: location.pathname, y: window.scrollY, t: Date.now() })); } catch (err) {}
   }, true);
   function restore() {
@@ -25,7 +27,7 @@
   var busy = false;
   document.addEventListener('submit', function (e) {
     var f = e.target;
-    if (!f || (f.method || '').toLowerCase() !== 'post' || f.hasAttribute('data-plain') || busy) return;
+    if (!f || attr(f, 'method', 'get').toLowerCase() !== 'post' || f.hasAttribute('data-plain') || busy) return;
     if (!window.fetch || !window.DOMParser || !window.FormData) return;
     if (f.querySelector('input[type=file]') && !f.hasAttribute('data-photos')) return;
     e.preventDefault();
@@ -35,8 +37,9 @@
     var ready = f.hasAttribute('data-photos') ? withShrunkPhotos(f) : Promise.resolve(new FormData(f));
     ready.then(function (data) {
       if (submitter && submitter.name) data.append(submitter.name, submitter.value);
-      var body = f.enctype === 'multipart/form-data' ? data : new URLSearchParams(data);
-      return fetch(f.action, { method: 'POST', body: body, credentials: 'same-origin', headers: { 'X-Hub-Live': '1' } });
+      var body = attr(f, 'enctype', '') === 'multipart/form-data' ? data : new URLSearchParams(data);
+      var action = new URL(attr(f, 'action', location.href), location.href).href;
+      return fetch(action, { method: 'POST', body: body, credentials: 'same-origin', headers: { 'X-Hub-Live': '1' } });
     }).then(function (r) {
       var url = new URL(r.url, location.href);
       if (r.redirected && url.pathname !== location.pathname) { location.href = r.url; return; }
