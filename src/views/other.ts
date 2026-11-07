@@ -152,6 +152,7 @@ export function morePage(d: { person: Person; waiting: number }): Html {
     ${editor ? link('/jobs/new', 'New job', 'One date, every other date proposed') : ''}
     ${editor ? link('/settings', 'Settings', 'People, capacity, job types, blocked days, emails') : ''}
     ${link('/export.xlsx', 'Spreadsheet', 'Download jobs, steps and rework')}
+    ${link('/help', 'Manual', 'How the hub works, screen by screen')}
   </div>`;
 }
 

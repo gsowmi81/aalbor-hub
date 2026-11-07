@@ -1236,3 +1236,23 @@ describe('fixes 2 and 4 (George, 7 Nov 2026)', () => {
     expect(undo).toBe('');
   });
 });
+
+describe('the manual (George, 7 Nov 2026)', () => {
+  it('serves every page in the contents, the whole thing on one page, and links from the screens', async () => {
+    const index = (await req('GET', '/help', 'Phil')).text;
+    expect(index).toContain('href="/help/factory"');
+    const links = [...index.matchAll(/href="\/help\/([a-z-]+)"/g)].map((m) => m[1]);
+    expect(links.length).toBeGreaterThan(30);
+    for (const s of new Set(links)) {
+      if (s === 'all') continue;
+      const r = await req('GET', `/help/${s}`, 'Phil');
+      expect([s, r.status]).toEqual([s, 200]);
+      // Every link inside a page points at a page that exists.
+      for (const m of r.text.matchAll(/href="\/help\/([a-z-]+)"/g)) expect(links.concat('all')).toContain(m[1]);
+    }
+    expect((await req('GET', '/help/all', 'Angela')).text).toContain('id="moving-dates"');
+    expect((await req('GET', '/help/nothing-here', 'George')).status).toBe(404);
+    expect((await req('GET', '/pipeline', 'George')).text).toContain('href="/help/pipeline"');
+    expect((await req('GET', '/more', 'Phil')).text).toContain('href="/help"');
+  });
+});

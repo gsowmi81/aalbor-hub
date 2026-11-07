@@ -22,6 +22,7 @@ import { FILE_LIMITS } from './upload.js';
 import { newTvKey } from './tv.js';
 import { readinessByJob, stockRoutes } from './stock.js';
 import { siteRoutes, siteScope } from './site.js';
+import { helpRoutes } from './help.js';
 import { loadInstallers, loadSiteLinks, loadSiteLogs } from '../db/site.js';
 import { loadItems, loadMaterials, loadOnHand, loadOrders, stockContext } from '../db/stock.js';
 import { allocatedByItem, readiness } from '../domain/stock.js';
@@ -164,6 +165,7 @@ export function routes(): express.Router {
   r.use(siteScope);
   r.use(stockRoutes());
   r.use(siteRoutes());
+  r.use(helpRoutes());
 
   // ---------- Screens ----------
 

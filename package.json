@@ -17,7 +17,8 @@
     "import:notion:dev": "tsx scripts/import-notion.ts",
     "seed:suggestions:dev": "tsx scripts/seed-suggestions.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "manual": "tsx scripts/build-manual.ts"
   },
   "dependencies": {
     "@types/busboy": "1.5.4",

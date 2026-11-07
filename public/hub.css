@@ -461,3 +461,29 @@ textarea { min-height: 80px; padding: 10px; resize: vertical; }
 .notice.undo { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .panel.owners { max-width: 100%; }
 .tbl { max-width: 100%; }
+/* The manual (/help). */
+.manual { max-width: 980px; width: 100%; margin: 0 auto; }
+.manual.two { grid-template-columns: 240px minmax(0, 1fr); gap: 24px; }
+.manual-side { position: sticky; top: 12px; font-size: 14px; }
+.manual-toc { display: flex; flex-direction: column; gap: 12px; }
+.manual-part ul { list-style: none; padding: 0; margin: 4px 0 0; display: flex; flex-direction: column; gap: 2px; }
+.manual-part a { color: var(--fg); text-decoration: none; display: block; padding: 4px 8px; border-radius: 6px; }
+.manual-part a[aria-current="page"] { background: var(--today-bg); color: var(--today-fg); }
+.manual-page { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 20px 24px; min-width: 0; }
+.manual-page h1 { font-size: 26px; margin: 0 0 8px; }
+.manual-page h2 { font-size: 18px; margin: 20px 0 6px; }
+.manual-page h3 { font-size: 15px; margin: 14px 0 4px; }
+.manual-page p, .manual-page li { font-size: 15px; line-height: 1.5; }
+.manual-page ul, .manual-page ol { padding-left: 22px; margin: 6px 0; }
+.manual-page li { margin: 3px 0; }
+.manual-page .note { background: var(--warn-bg); color: var(--warn-fg); border: 1px solid var(--warn-line); border-radius: 8px; padding: 10px 14px; margin: 10px 0; font-size: 14px; }
+.manual-page code { font: 13px var(--mono); background: var(--shade); padding: 1px 5px; border-radius: 4px; }
+.manual-page .tbl { margin: 8px 0; }
+.manual-page td, .manual-page th { vertical-align: top; }
+.manual-foot { display: flex; justify-content: space-between; gap: 8px; margin-top: 20px; padding-top: 12px; border-top: 1px solid var(--line); }
+.manual-all .manual-page { margin-bottom: 14px; }
+.manual-parth { font-size: 22px; margin: 24px 0 10px; }
+.manual > .manual-toc { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 16px; }
+.manual > p, .manual > .note { font-size: 15px; line-height: 1.5; }
+@media (max-width: 760px) { .manual.two { grid-template-columns: 1fr; } .manual-side { position: static; } .manual-side .manual-toc { display: none; } .manual-page { padding: 14px 16px; } }
+@media print { .top, .tabs, .manual-side, .manual-foot, .preview-bar, .guide { display: none !important; } .manual-page { border: 0; padding: 0; page-break-inside: avoid; } }

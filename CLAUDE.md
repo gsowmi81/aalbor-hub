@@ -8,6 +8,7 @@ Production planning (Phase 1, live) and stock control (Phase 2, not built yet) f
 - Setting it up on Render, email, domain and backups: `docs/setup.md`
 - The preview copy (a second Render service on the working branch, George, 7 Nov 2026): `docs/preview.md`
 - Jobman teardown and step-change recommendations, 6 Nov 2026: `docs/jobman-review.html` (phone copy https://claude.ai/artifact/8QDv1FFbmtRwQtWSAGfubV)
+- The user manual, 7 Nov 2026: `docs/manual/*.md`, served in the hub at `/help` (More → Manual; the "?" line on a screen links to its page); `npm run manual` writes `docs/manual.html`, the one-file copy for review and printing. Change the manual in the same commit as the feature.
 - QA round and UX review, 7 Nov 2026: `docs/ux-review.html` (phone copy https://claude.ai/artifact/5X83SfoiA26qkBDMeir27y); the browser QA scripts are in `scripts/qa/`
 
 ## Never put these in the hub
@@ -59,6 +60,8 @@ src/web/stock.ts            the stock routes (mounted by routes.ts), readinessBy
 src/db/site.ts              site links, the site log, link-only installers (reads)
 src/web/site.ts             the site page routes (/site, /site/go/:token in auth.ts), siteScope() (a job-link session reaches its site page and nothing else), installer links
 src/views/site.ts           the installer's site page (its own document) and the Site section on the job
+src/web/help.ts             /help: the manual from docs/manual/*.md (MANUAL is the contents); manualDocument() for the one-file copy
+src/web/markdown.ts         the small Markdown renderer the manual uses (headings, lists, tables, bold, code, links, "> " notes)
 src/web/tv.ts               /tv: the factory TV, opened with a link key instead of a sign-in (mounted before requireSignIn)
 src/web/api.ts              /api for the bot: Bearer token, rate limit, call log, suggestions email
 src/web/export.ts           spreadsheet download
@@ -71,6 +74,7 @@ src/views/*.ts              the screens: comingUp.ts is the Board, attention.ts,
                             sheet.ts (the printable job sheet with its QR code), stock.ts (the stock screens), materials.ts (the Materials panel on a job), tv.ts (the factory TV), other.ts (New job, Rework, More, Find);
                             public/hub.css is the mock-up's look
 docs/preview.md             the preview copy on Render: set-up, data rules, cutover
+scripts/build-manual.ts     docs/manual.html from docs/manual/*.md (npm run manual)
 scripts/import-notion.ts    one-off load of data/notion-snapshot-2026-10-28.json
 data/notion-stock-2026-11-07.csv  the Notion "Stock Items" database, read 7 Nov 2026; migration 013 seeds from it (generated, never edited by hand)
 scripts/seed-suggestions.ts example suggestions, local copies only (npm run seed:suggestions:dev)

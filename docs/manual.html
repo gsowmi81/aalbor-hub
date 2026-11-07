@@ -1,0 +1,727 @@
+<!doctype html><html lang="en-AU"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Aalbor Hub manual</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>/* Aalbor Hub. Look carried over from the approved mock-up (28 Oct 2026):
+   IBM Plex, one colour per board row, tiles, week board on wide screens and a day list on phones.
+   Every colour is a token; dark mode redefines the tokens only. */
+:root {
+  --bg:#F2F3F5; --surface:#FFFFFF; --line:#E3E5E9; --fg:#14171C; --muted:#555B66; --accent:#1D4ED8;
+  --over:#B93A0A; --over-bg:#FFF1E6; --over-line:#F6B98F; --warn-fg:#7A4206; --warn-bg:#FFF8E1; --warn-line:#F2CF6B;
+  --site:#075985; --site-bg:#E0F2FE; --site-line:#9ED3F5;
+  --fac:#5B21B6; --fac-bg:#EDE9FE; --fac-line:#C9B8FB;
+  --stone:#7C3A0E; --stone-bg:#FDF0D5; --stone-line:#EFCB86;
+  --office:#334155; --office-bg:#EEF1F5; --office-line:#CBD3DE;
+  --meas:#0F766E; --meas-bg:#DDF4F1; --meas-line:#8FD3CA; --drw:#3730A3; --drw-bg:#E6E8FB; --drw-line:#B4B9F0;
+  --ord:#3F6212; --ord-bg:#EAF4DA; --ord-line:#B5D58A; --rw:#9F1239; --rw-bg:#FFE4E6; --rw-line:#FDA4AF;
+  --today-bg:#14171C; --today-fg:#FFFFFF; --shade:#F2F3F5; --done-bg:#CBD5E1; --done-fg:#1F2937; --on-mark:#FFFFFF;
+  --ok:#166534; --ok-bg:#E7F6EC;
+  --m-cd:#475569; --m-cm:#0F766E; --m-dr:#3730A3; --m-mo:#3F6212; --m-mi:#4D7C0F; --m-f:#5B21B6; --m-p:#86198F; --m-pb:#A21CAF;
+  --m-dl:#0369A1; --m-in:#075985; --m-sm:#92400E; --m-si:#78350F; --m-rw:#9F1239;
+  --sans:'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif; --mono:'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root {
+  --bg:#111318; --surface:#1A1D24; --line:#2C313B; --fg:#E8EAED; --muted:#A4AAB5; --accent:#8AB4FF;
+  --over:#FF9A66; --over-bg:#3A2116; --over-line:#7A3A1C; --warn-fg:#F4C46A; --warn-bg:#33290F; --warn-line:#6B5520;
+  --site:#86CBF2; --site-bg:#10283A; --site-line:#1F4C69; --fac:#C6ABFF; --fac-bg:#251B3D; --fac-line:#45337A;
+  --stone:#EDB680; --stone-bg:#33240F; --stone-line:#6A4A1E; --office:#BCC6D4; --office-bg:#1F252E; --office-line:#3A4452;
+  --meas:#6FD8CB; --meas-bg:#0F2D2A; --meas-line:#1F5A53; --drw:#AEB4FF; --drw-bg:#1C1F45; --drw-line:#373C7A;
+  --ord:#B6DC7E; --ord-bg:#1E2B10; --ord-line:#3E5622; --rw:#FDA4AF; --rw-bg:#3B1219; --rw-line:#7A2433;
+  --today-bg:#E8EAED; --today-fg:#111318; --shade:#15181E; --done-bg:#3A4250; --done-fg:#E8EAED;
+  --ok:#86EFAC; --ok-bg:#12291A; color-scheme: dark } }
+
+* { box-sizing: border-box; }
+html { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--sans); font-size: 15px; line-height: 1.45; }
+a { color: var(--accent); }
+.wrap { max-width: 1180px; margin: 0 auto; padding-block: 20px 56px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 18px; }
+.wrap.narrow { max-width: 480px; padding-top: 48px; }
+h1, h2, h3 { text-wrap: balance; margin: 0; }
+h1 { font-size: 30px; line-height: 1.1; font-weight: 700; letter-spacing: -0.01em; }
+h2 { font-size: 19px; font-weight: 700; }
+h3 { font-size: 15px; }
+p { margin: 0; }
+.eyebrow { font-size: 12px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+.top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 8px 16px; }
+.who { font-size: 13px; color: var(--muted); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.who form { display: inline; }
+.who-short { display: none; }
+.linkbtn { background: none; border: 0; padding: 0; color: var(--accent); font: inherit; text-decoration: underline; cursor: pointer; }
+.preview-bar { background: var(--warn-bg); color: var(--warn-fg); border-bottom: 1px solid var(--warn-line); padding: 8px max(16px, env(safe-area-inset-left, 0px)); font-size: 13px; font-weight: 600; text-align: center; }
+.preview-bar a { color: inherit; }
+.notice { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; font-size: 14px; }
+.notice.ok { background: var(--ok-bg); border-color: transparent; color: var(--ok); font-weight: 600; }
+.notice.bad { background: var(--over-bg); border-color: var(--over-line); color: var(--over); font-weight: 600; }
+.tabs { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+.tabs a { flex: 1 1 auto; text-align: center; min-height: 44px; display: flex; align-items: center; justify-content: center; padding: 0 14px; border-radius: 8px; color: var(--fg); text-decoration: none; font-weight: 600; font-size: 15px; }
+.tabs a[aria-current="page"] { background: var(--today-bg); color: var(--today-fg); }
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+.tile { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border-radius: 10px; background: var(--surface); border: 1px solid var(--line); color: var(--fg); text-decoration: none; min-width: 0; }
+.tile b { font-size: 28px; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.tile span { font-size: 14px; font-weight: 600; }
+.tile small { font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tile.over { background: var(--over-bg); border-color: var(--over-line); } .tile.over b { color: var(--over); }
+.tile.warn { background: var(--warn-bg); border-color: var(--warn-line); } .tile.warn b { color: var(--warn-fg); }
+.sum { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 3px; }
+.sum div { display: flex; flex-direction: column; align-items: center; padding: 2px 0 3px; border-radius: 6px; background: var(--lb); border: 1px solid var(--ll); min-width: 0; }
+.sum strong { font-size: 20px; line-height: 1.1; font-variant-numeric: tabular-nums; color: var(--fg); }
+.tile .sum span { font-size: 10px; font-weight: 600; color: var(--muted); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.seg { display: inline-flex; flex-wrap: wrap; padding: 4px; background: var(--bg); border-radius: 10px; gap: 4px; }
+.seg a { min-height: 40px; display: inline-flex; align-items: center; padding: 0 14px; border-radius: 8px; color: var(--muted); font: 600 14px var(--sans); text-decoration: none; }
+.seg a[aria-current="true"] { background: var(--surface); color: var(--fg); box-shadow: 0 1px 2px rgba(0,0,0,0.15); }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 14px; font-size: 13px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.sw { width: 14px; height: 14px; border-radius: 4px; border: 1px solid; display: inline-block; }
+.sw.prov { border-style: dashed; background: transparent !important; border-color: var(--muted) !important; }
+.lane-site { --l: var(--site); --lb: var(--site-bg); --ll: var(--site-line); }
+.lane-factory { --l: var(--fac); --lb: var(--fac-bg); --ll: var(--fac-line); }
+.lane-stone { --l: var(--stone); --lb: var(--stone-bg); --ll: var(--stone-line); }
+.lane-contract { --l: var(--office); --lb: var(--office-bg); --ll: var(--office-line); }
+.lane-measure { --l: var(--meas); --lb: var(--meas-bg); --ll: var(--meas-line); }
+.lane-drawings { --l: var(--drw); --lb: var(--drw-bg); --ll: var(--drw-line); }
+.lane-orders { --l: var(--ord); --lb: var(--ord-bg); --ll: var(--ord-line); }
+.lane-install { --l: var(--site); --lb: var(--site-bg); --ll: var(--site-line); }
+.lane-rework { --l: var(--rw); --lb: var(--rw-bg); --ll: var(--rw-line); }
+.sw[class*="lane-"] { background: var(--lb); border-color: var(--ll); }
+.chip { display: flex; flex-direction: column; gap: 1px; padding: 7px 9px; border-radius: 8px; background: var(--lb); border: 1px solid var(--ll); min-width: 0; font-size: 12px; color: var(--muted); text-decoration: none; }
+.chip strong { font-size: 13px; color: var(--fg); line-height: 1.25; overflow-wrap: anywhere; }
+.chip.prov { border-style: dashed; background: transparent; }
+/* Rework tasks: red, in their category's row (George, 6 Nov 2026). */
+.chip.rw { border: 2px solid var(--rw); background: var(--rw-bg); }
+.chip.rw > span:nth-of-type(1) { color: var(--rw); font-weight: 700; }
+.chip.rw.prov { border-style: dashed; background: var(--surface); }
+.chip.prov strong { color: var(--fg); font-weight: 500; }
+.chip.done { opacity: 0.9; }
+.chip.done strong { text-decoration: line-through; }
+.chip .flag { color: var(--over); font-weight: 600; }
+.tag { font-size: 11px; font-weight: 600; border: 1px dashed var(--muted); border-radius: 4px; padding: 0 4px; color: var(--muted); white-space: nowrap; }
+.tag.warn { border: 1px solid var(--warn-line); background: var(--warn-bg); color: var(--warn-fg); }
+.board { display: grid; grid-template-columns: 150px repeat(5, minmax(0, 1fr)); gap: 6px; position: relative; }
+/* Day headings stay on screen while you scroll down the board (George, 6 Nov 2026). */
+.board .dh { font-size: 13px; padding: 6px 8px; border-radius: 6px; color: var(--muted); position: sticky; top: 0; z-index: 3; background: var(--surface); box-shadow: 0 6px 0 var(--surface); }
+/* A line down between each day, through every row. */
+.board .daylines { position: absolute; top: 0; bottom: 0; left: 156px; right: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; pointer-events: none; z-index: 0; }
+.board .daylines i + i { border-left: 1px solid var(--line); margin-left: -3.5px; }
+.board .lh, .board .lc { position: relative; z-index: 1; }
+.board .dh.today { background: var(--today-bg); color: var(--today-fg); }
+.board .lh { font-weight: 700; font-size: 14px; padding-top: 8px; color: var(--l); grid-column: 1; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+.board .lc { grid-column: 2 / 7; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); grid-auto-flow: row dense; gap: 6px; padding-bottom: 10px; border-bottom: 1px solid var(--line); min-height: 48px; }
+.agenda { display: none; flex-direction: column; gap: 14px; }
+.agenda h3 { display: flex; gap: 8px; align-items: center; position: sticky; top: 0; z-index: 2; background: var(--surface); padding: 6px 0; }
+.agenda .today-pill { font-size: 12px; background: var(--today-bg); color: var(--today-fg); border-radius: 999px; padding: 1px 8px; }
+.agenda .list { display: flex; flex-direction: column; gap: 6px; }
+.agenda .lanelabel { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--l); }
+@media (max-width: 760px) { .board { display: none; } .agenda { display: flex; } }
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 18px; align-items: start; }
+.two > * { min-width: 0; }
+.item { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; padding: 10px 0; border-top: 1px solid var(--line); }
+.item .what { flex: 1 1 200px; min-width: 0; }
+.item .what > div:first-child { font-weight: 600; }
+.item.stack { flex-direction: column; align-items: stretch; gap: 6px; }
+.late { font-size: 13px; font-weight: 700; color: var(--over); background: var(--over-bg); border-radius: 999px; padding: 3px 10px; white-space: nowrap; }
+.btn { min-height: 44px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); font: 600 14px var(--sans); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
+.btn.primary { background: var(--today-bg); color: var(--today-fg); border-color: var(--today-bg); }
+.btn.small { min-height: 36px; padding: 0 10px; font-size: 13px; }
+.btn.danger { color: var(--over); }
+.ask { font-size: 14px; font-weight: 600; color: var(--accent); }
+.acts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.acts form { display: contents; }
+details.pop > summary { list-style: none; }
+details.pop > summary::-webkit-details-marker { display: none; }
+details.pop[open] > summary { background: var(--bg); }
+details.pop .popbody { flex-basis: 100%; display: flex; flex-direction: column; gap: 8px; padding-top: 8px; }
+.inline { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.fixgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+label.f { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 600; min-width: 0; }
+input, select, textarea { min-height: 44px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; font: 16px var(--sans); color: var(--fg); background: var(--surface); width: 100%; min-width: 0; }
+textarea { padding: 10px; min-height: 80px; }
+input[type="checkbox"], input[type="radio"] { width: 22px; height: 22px; min-height: 0; margin: 0; padding: 0; flex: none; accent-color: var(--fg); }
+.stack { display: flex; flex-direction: column; gap: 8px; }
+.formgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 12px; }
+.formgrid .wide { grid-column: 1 / -1; }
+.checkline { display: flex; align-items: center; gap: 10px; min-height: 44px; font-weight: 600; font-size: 14px; }
+.tl-box:focus-visible, .tbl:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tl-box { overflow: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); max-height: max(360px, calc(100vh - 170px)); max-height: max(360px, calc(100dvh - 170px)); }
+/* Week headings stay at the top, job names stay on the left (George, 6 Nov 2026). */
+.tl-head { position: sticky; top: 0; z-index: 8; background: var(--surface); }
+.tl-lab { position: sticky; left: 0; z-index: 7; background: var(--surface); }
+.tl { min-width: 1000px; }
+.tl-row { display: flex; border-bottom: 1px solid var(--line); height: 48px; }
+.tl-row:last-child { border-bottom: 0; }
+.tl-lab { width: 250px; flex: none; padding: 4px 12px; display: flex; flex-direction: column; justify-content: center; gap: 1px; min-width: 0; border-right: 1px solid var(--line); }
+@media (max-width: 760px) { .tl-lab { width: 150px; } }
+.tl-lab .n { display: flex; gap: 6px; align-items: center; min-width: 0; font-size: 14px; font-weight: 600; }
+.tl-lab .n a { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--fg); }
+.tl-lab .no { font: 600 11px var(--mono); color: var(--muted); }
+.tl-lab .note { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--muted); }
+.tl-lab .note.warn { color: var(--over); font-weight: 600; }
+.risk { font-size: 11px; font-weight: 700; color: var(--warn-fg); background: var(--warn-bg); border-radius: 4px; padding: 0 5px; white-space: nowrap; }
+.tl-track { flex: 1 1 auto; position: relative; }
+.tl-head { height: 34px; }
+.wk { position: absolute; top: 0; bottom: 0; border-left: 1px solid var(--line); padding: 8px 6px; font-size: 12px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+.we { position: absolute; top: 0; bottom: 0; background: var(--shade); }
+.gl { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--line); }
+.now { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--accent); z-index: 1; }
+.mk { position: absolute; height: 18px; min-width: 24px; border-radius: 4px; border: 1px solid var(--surface); color: var(--on-mark); font: 700 10px var(--mono); display: flex; align-items: center; justify-content: center; overflow: hidden; white-space: nowrap; z-index: 2; }
+.mk.prov { opacity: 0.55; }
+.mk.over { background: var(--over) !important; color: var(--on-mark); opacity: 1; }
+.mk.done { background: var(--done-bg) !important; color: var(--done-fg); opacity: 1; }
+.legend .mk { position: static; }
+.mk.drag { cursor: grab; touch-action: pan-x pan-y; }
+.mk.drag:hover, .mk.drag:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; z-index: 5; }
+.mk.dragging { cursor: grabbing; opacity: 0.85; z-index: 6; box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
+.chip.drag { position: relative; cursor: grab; touch-action: pan-y; user-select: none; -webkit-user-select: none; -webkit-user-drag: none; }
+.chip.drag:hover { outline: 2px solid var(--accent); outline-offset: 1px; }
+.chip.dragging { cursor: grabbing; z-index: 6; box-shadow: 0 4px 12px rgba(0,0,0,0.25); opacity: 0.95; }
+.chip .shift-badge { position: absolute; top: -20px; left: 4px; font: 700 11px var(--mono); color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; white-space: nowrap; }
+@media (max-width: 760px) { .board-hint { display: none; } }
+.mk .shift-badge { position: absolute; top: -18px; left: 0; font: 700 11px var(--mono); color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
+.job { max-width: 560px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+.pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.pill { font-size: 13px; font-weight: 600; padding: 3px 10px; border-radius: 999px; background: var(--office-bg); color: var(--fg); }
+.pill.warn { background: var(--warn-bg); color: var(--warn-fg); }
+.pill.over { background: var(--over-bg); color: var(--over); }
+.next { background: var(--today-bg); color: var(--today-fg); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 3px; }
+.next .eyebrow { color: inherit; opacity: 0.8; }
+.next b { font-size: 18px; }
+.field { display: flex; flex-direction: column; gap: 6px; padding: 10px 0; border-top: 1px solid var(--line); }
+.field .ftop { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.field .ftop label, .field .ftop strong { font-weight: 600; }
+.field .pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.field .nice { font-size: 13px; color: var(--muted); display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; align-items: center; }
+.field .nice label { display: inline-flex; gap: 6px; align-items: center; font-weight: 600; color: var(--fg); }
+.field.isprov .nice span:first-child { font-style: italic; }
+.nodate { color: var(--over); font-weight: 600; }
+.shift { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.shift form { display: contents; }
+.check { display: flex; align-items: center; gap: 12px; min-height: 44px; border: 0; border-top: 1px solid var(--line); background: none; width: 100%; padding: 0; color: var(--fg); font: 15px var(--sans); text-align: left; cursor: pointer; }
+.check:disabled { cursor: default; }
+.check .box { width: 22px; height: 22px; border: 2px solid var(--fg); border-radius: 5px; flex: none; display: inline-flex; align-items: center; justify-content: center; }
+.check.on .box { background: var(--fg); color: var(--bg); }
+.check .l { flex: 1 1 auto; }
+.check.on .l { color: var(--muted); text-decoration: line-through; }
+.kv { display: flex; justify-content: space-between; gap: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+.tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+tr:last-child td { border-bottom: 0; }
+th { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.owners { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; padding: 8px 10px; border: 1px dashed var(--muted); border-radius: 8px; background: var(--bg); }
+.owners.stack { flex-direction: column; align-items: stretch; }
+.hist { font-size: 13px; display: flex; flex-direction: column; }
+.hist div { padding: 6px 0; border-top: 1px solid var(--line); }
+.hist time { color: var(--muted); font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
+
+/* Suggestions: the count on the tab */
+.badge { display: inline-block; min-width: 20px; padding: 0 6px; margin-left: 4px; border-radius: 999px; background: var(--over); color: #fff; font-size: 12px; font-weight: 700; line-height: 20px; text-align: center; }
+.sugg input[type=text] { min-height: 36px; }
+
+/* After a drag: what happens to the rest of the job (George, 6 Nov 2026). */
+.movebox { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); width: min(460px, calc(100% - 32px)); z-index: 30; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 8px 28px rgba(0,0,0,0.25); padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.movebox .acts { gap: 6px; }
+.movebox .links { display: flex; gap: 16px; font-size: 14px; }
+.rwtasks { border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px 12px; margin: 0; min-width: 0; }
+.rwtasks legend { font-size: 13px; font-weight: 600; padding: 0 4px; }
+.rwtask { display: flex; flex-direction: column; gap: 4px; }
+.rwtask .hrs { margin-left: 32px; max-width: 200px; }
+
+/* The preview round (George, 7 Nov 2026): header search, the job timeline, My day, Attention, Pipeline. */
+.topright { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.find { display: flex; gap: 6px; }
+.find input { min-height: 36px; width: 170px; font-size: 14px; padding: 0 10px; }
+@media (max-width: 760px) { .topright { align-items: stretch; width: 100%; } .find input { width: auto; flex: 1 1 auto; } }
+.bar { height: 8px; border-radius: 999px; background: var(--bg); overflow: hidden; margin: 2px 0 6px; }
+.bar i { display: block; height: 100%; background: var(--meas); border-radius: 999px; }
+.step { display: flex; gap: 12px; align-items: flex-start; padding: 10px 0; border-top: 1px solid var(--line); }
+.step .check { width: auto; border: 0; min-height: 0; padding: 2px 0 0; flex: none; }
+.step .st-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.step .st-top { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; align-items: baseline; }
+.step .st-when { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; font-size: 14px; }
+.step.done .st-top strong { text-decoration: line-through; color: var(--muted); }
+.step.prov .datebtn, .step.prov .datetxt { font-style: italic; color: var(--muted); }
+.step.over .datebtn, .step.over .datetxt { color: var(--over); font-weight: 600; }
+.datebtn { color: var(--fg); font-weight: 600; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px; }
+.datebtn:hover { color: var(--accent); }
+.spill { font-size: 11px; font-weight: 700; border-radius: 999px; padding: 1px 8px; background: var(--office-bg); color: var(--office); text-transform: uppercase; letter-spacing: .04em; }
+.spill.prov { background: transparent; border: 1px dashed var(--muted); color: var(--muted); }
+.spill.over { background: var(--over-bg); color: var(--over); }
+.spill.done { background: var(--ok-bg); color: var(--ok); }
+.spill.pin { background: var(--warn-bg); color: var(--warn-fg); }
+.pinform { display: inline; }
+.linkbtn.small { font-size: 13px; }
+.pill.link { background: var(--accent); color: #fff; text-decoration: none; }
+.pill.link.over { background: var(--over); color: #fff; }
+.me-msg { background: var(--today-bg); color: var(--today-fg); border-radius: 12px; padding: 12px 16px; font-weight: 600; }
+.me-row { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); border-left: 4px solid var(--l); padding-left: 10px; }
+.me-row.rw { border-left-color: var(--rw); }
+.me-row .me-what { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.me-row .me-job { font-weight: 700; color: var(--fg); text-decoration: none; }
+.me-row .me-step { font-size: 15px; }
+.me-row .btn { min-width: 84px; }
+.att { border-top: 1px solid var(--line); }
+.att > summary { list-style: none; cursor: pointer; }
+.att > summary::-webkit-details-marker { display: none; }
+.att-sum { display: flex; justify-content: space-between; gap: 10px; align-items: center; padding: 12px 0; }
+.att-job { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.att-counts { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; align-items: center; }
+.att-body { padding: 0 0 8px 12px; border-left: 3px solid var(--line); margin-bottom: 8px; }
+.att-foot { padding-top: 8px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.tiles.more .tile span { font-size: 16px; }
+.areas { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; padding-top: 2px; }
+.pipe { min-width: 820px; }
+.pipe th, .pipe td { padding: 6px 6px; text-align: center; font-size: 13px; }
+.pipe th.pj, .pipe td.pj { text-align: left; position: sticky; left: 0; background: var(--surface); z-index: 2; min-width: 170px; max-width: 220px; }
+.pipe thead th { position: sticky; top: 0; background: var(--surface); z-index: 3; }
+.pipe thead th.pj { z-index: 4; }
+.pipe td.pj .n { display: flex; gap: 6px; align-items: center; min-width: 0; font-weight: 600; font-size: 14px; }
+.pipe td.pj .n a { color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pipe td.pj .no { font: 600 11px var(--mono); color: var(--muted); }
+.pipe td.pj .note { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pc { border-radius: 6px; font-variant-numeric: tabular-nums; }
+.pc a { display: block; color: inherit; text-decoration: none; padding: 6px 2px; font-weight: 600; }
+td.pc { padding: 2px; }
+td.pc.st-done { background: var(--done-bg); color: var(--done-fg); }
+td.pc.st-now { background: var(--meas-bg); color: var(--meas); }
+td.pc.st-later { background: var(--office-bg); color: var(--office); }
+td.pc.st-overdue { background: var(--over-bg); color: var(--over); }
+td.pc.st-undated { background: transparent; color: var(--muted); border: 1px dashed var(--line); }
+td.pc.st-na { background: transparent; color: var(--line); }
+td.pc.st-skipped { background: transparent; color: var(--muted); }
+.legend i.pc.st-skipped { background: transparent; }
+td.pc.cur { outline: 2px solid var(--fg); outline-offset: -2px; }
+.legend i.pc { width: 14px; height: 14px; border-radius: 4px; display: inline-block; border: 1px solid var(--line); }
+.legend i.pc.st-done { background: var(--done-bg); } .legend i.pc.st-now { background: var(--meas-bg); } .legend i.pc.st-later { background: var(--office-bg); }
+.legend i.pc.st-overdue { background: var(--over-bg); } .legend i.pc.st-undated { border-style: dashed; } .legend i.pc.st-na { background: transparent; }
+.movebox label.f { font-size: 13px; }
+
+/* Round two of the preview (George, 7 Nov 2026): flags, the load chart, settings rows. */
+.issue { border-left: 3px solid var(--over); padding-left: 10px; }
+.issue.st-fixed { border-left-color: var(--line); opacity: .8; }
+.issue.st-looking { border-left-color: var(--warn-fg); }
+.photos { display: flex; flex-wrap: wrap; gap: 6px; }
+.photos img { height: 96px; width: 128px; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); }
+.me-acts { display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
+.me-acts details.flag > summary { min-height: 32px; }
+.me-acts details.flag .popbody { position: absolute; left: 0; right: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px; z-index: 5; box-shadow: 0 8px 24px rgba(0,0,0,0.18); }
+.me-row { position: relative; }
+details.flag .popbody input[type=file] { padding: 8px; }
+.loadt { min-width: 760px; }
+.loadt th { text-align: center; }
+.loadt td.ldwk { text-align: left; white-space: nowrap; vertical-align: top; padding-top: 10px; }
+.loadt td.ld { vertical-align: top; min-width: 110px; }
+.loadt td.ld.today { outline: 2px solid var(--fg); outline-offset: -2px; border-radius: 6px; }
+.loadt td.ld.over { background: var(--over-bg); }
+.loadt td.ld.over .num { color: var(--over); font-weight: 700; }
+.loadt td.ld.closed { background: var(--shade); }
+.ldbar { height: 6px; background: var(--bg); border-radius: 999px; overflow: hidden; margin-bottom: 4px; }
+.ldbar i { display: block; height: 100%; background: var(--fac); }
+.ld.over .ldbar i { background: var(--over); }
+.ldjobs { display: block; font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
+.loadt td.ldw.over { color: var(--over); }
+.btn.small.primary { background: var(--today-bg); color: var(--today-fg); border-color: var(--today-bg); }
+
+/* Round three (George, 7 Nov 2026): install done with photos, the job view on My day, where a new job lands. */
+details.install > summary.check { cursor: pointer; }
+details.install[open] > summary.check { outline: 2px solid var(--fg); outline-offset: 2px; }
+details.install .popbody { flex-basis: 100%; }
+.step:has(details.install) { position: relative; }
+.step details.install .popbody { position: absolute; left: 0; right: 0; top: calc(100% - 6px); z-index: 6; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.18); }
+.inst-done { display: flex; flex-direction: column; gap: 6px; padding-top: 4px; }
+.inst-done .pills { gap: 4px; }
+fieldset.yn { border: 0; padding: 0; margin: 0; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+fieldset.yn legend { font-weight: 600; font-size: 13px; padding: 0 0 4px; }
+fieldset.yn label { display: inline-flex; gap: 6px; align-items: center; font-size: 14px; }
+.me-acts details.me-install > summary.check { display: inline-flex; align-items: center; justify-content: center; width: auto; height: auto; padding: 10px 16px; border-radius: 10px; background: var(--today-bg); color: var(--today-fg); font-weight: 600; border: 0; }
+.me-acts details.me-install .popbody { position: absolute; left: 0; right: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px; z-index: 5; box-shadow: 0 8px 24px rgba(0,0,0,0.18); }
+.me-row.done { opacity: .7; }
+.landing { display: flex; flex-direction: column; gap: 4px; padding: 8px 10px; background: var(--bg); border-radius: 10px; margin: 4px 0; }
+
+/* Files on a job (George, 7 Nov 2026). */
+.file-group { display: flex; flex-direction: column; gap: 4px; padding: 6px 0; border-top: 1px solid var(--line); }
+.file-head { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
+.file { display: flex; gap: 10px; align-items: flex-start; justify-content: space-between; padding: 4px 0 4px 10px; border-left: 3px solid var(--line); }
+.file.cur { border-left-color: var(--fac); }
+.file.old { opacity: .75; }
+.file-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.file-main a { color: var(--fg); }
+.file-old { padding-left: 10px; }
+.file-none { padding-left: 10px; }
+.me-files { display: flex; flex-wrap: wrap; gap: 4px 10px; }
+
+/* Stock (George, 7 Nov 2026). */
+.subtabs { margin-bottom: 4px; }
+table.demand td.num, table.items td.num, table.orders td.num, table.count td.num, table.mats td.num { text-align: right; white-space: nowrap; }
+th.num { text-align: right; }
+tr.gap td { background: var(--over-bg); }
+tr.low td { background: var(--warn-bg); }
+tr.grp td { background: var(--bg); font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); padding: 6px 10px; }
+tr.off td { opacity: .55; }
+tr.check td { background: var(--warn-bg); }
+tr.late td { background: var(--over-bg); }
+tr.ordered td { background: var(--ok-bg); }
+h3.supplier { margin: 12px 0 6px; font-size: 16px; }
+td.acts-cell { white-space: nowrap; }
+td.acts-cell details.pop { display: inline-block; position: relative; }
+td.acts-cell details.pop .popbody { position: absolute; right: 0; top: 100%; z-index: 6; width: 260px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.18); }
+td.acts-cell form { display: inline; }
+.mono { font-family: var(--mono); }
+.pc { position: relative; }
+.pc .rdy { position: absolute; right: 3px; top: 3px; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+.pc.rdy-ready .rdy { background: var(--ok); }
+.pc.rdy-short .rdy { background: var(--over); }
+.pc.rdy-waiting .rdy { background: var(--warn-fg); }
+
+/* Phones (George, 7 Nov 2026 QA round): a short header and the tabs as a bar along the bottom, where thumbs are. */
+@media (max-width: 760px) {
+  .wrap { padding-top: 10px; padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px)); gap: 12px; }
+  .top .eyebrow { display: none; }
+  .top h1 { font-size: 24px; }
+  .topright { flex-direction: row; align-items: center; gap: 8px; }
+  .who { margin-left: auto; }
+  .who-full { display: none; } .who-short { display: inline; }
+  .jobnav { top: 0; }
+  .subtabs .seg { display: flex; flex-wrap: nowrap; overflow-x: auto; max-width: 100%; scrollbar-width: none; }
+  .tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; border-radius: 0; border-width: 1px 0 0; padding: 4px 4px calc(4px + env(safe-area-inset-bottom, 0px)); flex-wrap: nowrap; gap: 2px; box-shadow: 0 -4px 16px rgba(0,0,0,0.08); }
+  .tabs a { flex: 1 1 0; min-width: 0; padding: 0 4px; font-size: 12px; min-height: 48px; flex-direction: column; gap: 2px; line-height: 1.1; }
+  .tabs a .badge { position: absolute; transform: translate(26px, -14px); }
+  .tabs a { position: relative; }
+  .notice.ok, .notice.bad { position: sticky; top: 8px; z-index: 15; box-shadow: 0 4px 14px rgba(0,0,0,0.12); }
+  .tiles .tile:has(.sum) { grid-column: 1 / -1; }
+  .legend { display: none; }
+  details.key > summary { cursor: pointer; font-size: 13px; color: var(--muted); }
+  details.key[open] .legend { display: flex; }
+}
+@media (min-width: 761px) { details.key > summary { display: none; } details.key .legend { display: flex; } }
+
+/* One job as sections (redesign B): a sticky strip of the job's parts, one shown at a time with script. */
+.jobnav { position: sticky; top: 0; z-index: 12; display: flex; gap: 4px; overflow-x: auto; background: var(--bg); padding: 6px 0; scrollbar-width: none; }
+.jobnav::-webkit-scrollbar { display: none; }
+.jobnav a { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 12px; border-radius: 999px; border: 1px solid transparent; color: var(--muted); font: 600 14px var(--sans); text-decoration: none; white-space: nowrap; }
+.jobnav a[aria-current="true"] { background: var(--surface); color: var(--fg); border-color: var(--line); box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+.jobnav a .n { font-size: 12px; font-variant-numeric: tabular-nums; background: var(--shade); color: var(--fg); border-radius: 999px; padding: 1px 7px; }
+.job > section[id] { scroll-margin-top: 60px; }
+.job > section[hidden] { display: none; }
+.smenu .tile small { white-space: normal; }
+/* Settings as pages (redesign C). */
+.smenu .tile em { font-style: normal; font-size: 13px; color: var(--fg); padding-top: 4px; }
+.smenu .tile.warn em { color: var(--over); }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 12px; }
+.card-form { border: 1px solid var(--line); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.card-form.off { opacity: 0.6; }
+.card-form .fixgrid { grid-template-columns: 1fr; }
+.switches { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.chip-check { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; font-size: 13px; cursor: pointer; }
+.chip-check:has(input:checked) { background: var(--today-bg); color: var(--today-fg); border-color: transparent; }
+.chip-check input { margin: 0; }
+
+/* Guidance that fades (redesign E): the line shows the first three visits, then folds into the "?". */
+.guide { display: flex; align-items: flex-start; gap: 8px; min-width: 0; }
+.guide .guide-text { flex: 1 1 auto; min-width: 0; }
+.guide-q { flex: 0 0 auto; width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); color: var(--muted); font: 700 13px var(--sans); cursor: pointer; padding: 0; line-height: 1; display: none; align-items: center; justify-content: center; }
+.guide-q:hover, .guide-q:focus-visible { color: var(--fg); border-color: var(--fg); }
+.guide.counted .guide-q { display: inline-flex; }
+.guide.folded .guide-text { display: none; }
+.guide.folded { justify-content: flex-end; }
+.row > .guide.folded { margin-left: auto; }
+@media (max-width: 760px) { .guide.board-hint { display: flex; } .guide.board-hint.folded { display: none; } }
+/* Phone versions of the wide screens (redesign D): a table marked .smc becomes a card list on phones. */
+@media (max-width: 760px) {
+  .tl-box.sm-flow { max-height: none; overflow: visible; }
+  table.smc { min-width: 0; width: 100%; display: block; }
+  table.smc thead { display: none; }
+  table.smc tbody { display: block; }
+  table.smc tr { display: flex; flex-wrap: wrap; gap: 4px 6px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  table.smc tr:last-child { border-bottom: 0; }
+  table.smc td { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border: 1px solid var(--line); border-radius: 6px; font-size: 13px; text-align: left; position: static; background: var(--surface); min-width: 0; max-width: 100%; }
+  table.smc td.full { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%; border: 0; padding: 0 0 4px; font-size: 15px; background: transparent; }
+  table.smc td[data-l]::before { content: attr(data-l); color: var(--muted); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .02em; white-space: nowrap; }
+  table.smc td.sm-hide { display: none; }
+  table.smc tr.grp { padding: 12px 12px 4px; }
+  table.smc tr.grp td { width: 100%; border: 0; padding: 0; background: transparent; font-weight: 700; }
+  table.smc td.num { justify-content: flex-start; }
+  table.smc td a { white-space: normal; }
+  .pipe td.pj.full { max-width: none; min-width: 0; }
+  .pipe td.pj.full .n a { white-space: normal; }
+  .pipe td.pc { outline: 0; }
+  .pipe td.pc.cur { outline: 2px solid var(--fg); outline-offset: -2px; }
+  .pipe td.pc a { padding: 0; }
+  .pipe td.pc .rdy { position: static; }
+  .count td input { width: 80px; }
+}
+/* The site log (George, 7 Nov 2026). */
+.slog-missing { border-left: 3px solid var(--over); padding-left: 10px; }
+.slog-finished { border-left: 3px solid var(--ok); padding-left: 10px; }
+.spill.warn { background: var(--warn-bg); color: var(--warn-fg); border-color: var(--warn-line); text-decoration: none; }
+.wrap.site .top h1 { font-size: 22px; }
+textarea { min-height: 80px; padding: 10px; resize: vertical; }
+.notice.undo { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.panel.owners { max-width: 100%; }
+.tbl { max-width: 100%; }
+/* The manual (/help). */
+.manual { max-width: 980px; width: 100%; margin: 0 auto; }
+.manual.two { grid-template-columns: 240px minmax(0, 1fr); gap: 24px; }
+.manual-side { position: sticky; top: 12px; font-size: 14px; }
+.manual-toc { display: flex; flex-direction: column; gap: 12px; }
+.manual-part ul { list-style: none; padding: 0; margin: 4px 0 0; display: flex; flex-direction: column; gap: 2px; }
+.manual-part a { color: var(--fg); text-decoration: none; display: block; padding: 4px 8px; border-radius: 6px; }
+.manual-part a[aria-current="page"] { background: var(--today-bg); color: var(--today-fg); }
+.manual-page { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 20px 24px; min-width: 0; }
+.manual-page h1 { font-size: 26px; margin: 0 0 8px; }
+.manual-page h2 { font-size: 18px; margin: 20px 0 6px; }
+.manual-page h3 { font-size: 15px; margin: 14px 0 4px; }
+.manual-page p, .manual-page li { font-size: 15px; line-height: 1.5; }
+.manual-page ul, .manual-page ol { padding-left: 22px; margin: 6px 0; }
+.manual-page li { margin: 3px 0; }
+.manual-page .note { background: var(--warn-bg); color: var(--warn-fg); border: 1px solid var(--warn-line); border-radius: 8px; padding: 10px 14px; margin: 10px 0; font-size: 14px; }
+.manual-page code { font: 13px var(--mono); background: var(--shade); padding: 1px 5px; border-radius: 4px; }
+.manual-page .tbl { margin: 8px 0; }
+.manual-page td, .manual-page th { vertical-align: top; }
+.manual-foot { display: flex; justify-content: space-between; gap: 8px; margin-top: 20px; padding-top: 12px; border-top: 1px solid var(--line); }
+.manual-all .manual-page { margin-bottom: 14px; }
+.manual-parth { font-size: 22px; margin: 24px 0 10px; }
+.manual > .manual-toc { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 16px; }
+.manual > p, .manual > .note { font-size: 15px; line-height: 1.5; }
+@media (max-width: 760px) { .manual.two { grid-template-columns: 1fr; } .manual-side { position: static; } .manual-side .manual-toc { display: none; } .manual-page { padding: 14px 16px; } }
+@media print { .top, .tabs, .manual-side, .manual-foot, .preview-bar, .guide { display: none !important; } .manual-page { border: 0; padding: 0; page-break-inside: avoid; } }
+
+body { background: var(--bg); color: var(--fg); font-family: var(--sans); margin: 0; }
+.manual { padding: 16px; }
+.manual-page { margin-bottom: 14px; }
+</style></head><body><div class="manual manual-all"><div class="eyebrow">Aalbor Kitchens · Production Hub</div><h1 id="the-aalbor-hub-manual">The Aalbor Hub manual</h1>
+<p>The hub is where Aalbor Kitchens plans production and keeps stock. It replaces Jobman for those two jobs and nothing else: quotes, invoices, purchase orders and client details stay in Buildertrend, Xero and Cabinet Vision.</p>
+<p>This manual is in three parts. <strong>Your week in the hub</strong> is one page per kind of person: what you open, when, and what you do there. <strong>The screens</strong> is the reference, one page per screen. <strong>How things are done</strong> follows a job, a rework, a flag or an order across screens.</p>
+<p>It lives in the hub itself (More → Manual, or the &quot;?&quot; on a screen) and changes with the hub, so it is never older than what you are looking at. Dates in it are examples.</p>
+<div class="note">If something on a screen doesn&#39;t match this manual, the manual is wrong. Tell George or Christine.</div><h1 class="manual-parth">Your week in the hub</h1><section class="manual-page" id="owner"><h1 id="the-owner-s-week">The owner&#39;s week</h1>
+<p>George and Gus. You see everything and can change everything. You are also the only two who see who was responsible for a rework.</p>
+<h2 id="every-day-two-minutes">Every day, two minutes</h2>
+<ol><li>Open <strong>Attention</strong>. The number on the tab is how many things need a human: flags, overdue steps, dates that break a rule, weeks that are overbooked, jobs short of materials. Work the list top to bottom; each item has its answer next to it (<strong>OK as is</strong>, <strong>Change dates</strong>, <strong>New date</strong>, <strong>Fixed</strong>).</li><li>Glance at the <strong>Board</strong> for the week. Faded cards are provisional dates nobody has confirmed yet. Red cards are rework.</li></ol>
+<h2 id="monday">Monday</h2>
+<ul><li>The Monday email lists everyone&#39;s week and the installs finished last week with their photos. Read it before the production meeting.</li><li><strong>Pipeline</strong> is the meeting screen: every live job in one row, soonest install first, the dark outline on the stage each job is at.</li><li><strong>Load</strong> shows the next six weeks of factory and install hours booked against hours available, day by day. A red day is overbooked.</li></ul>
+<h2 id="when-a-site-manager-signs-off-an-install">When a site manager signs off an install</h2>
+<p>Gus&#39;s My day shows <strong>Needs your sign-off</strong> when an installer has marked a job finished from their side. Inspect, then tap <strong>Done</strong>: gaps adjusted? site left clean? and your photos. That tick is the official completion; the installer&#39;s button is not.</p>
+<h2 id="monthly">Monthly</h2>
+<ul><li><strong>Rework</strong> has the monthly tally and, for owners only, <strong>Who was responsible</strong>. Record it on each rework as it closes; the tally is only as good as that.</li><li>Check <strong>Settings → People</strong>: who has signed in, who has no areas set (the menu says so), installers who should be switched off.</li></ul>
+<h2 id="only-owners-can">Only owners can</h2>
+<ul><li>Make someone an owner, or change an owner&#39;s record.</li><li>See and record who was responsible for a rework.</li><li>Make and revoke the Buildertrend bot&#39;s API tokens (Settings → Buildertrend bot).</li></ul></section><section class="manual-page" id="office"><h1 id="the-office-s-week-christine">The office&#39;s week (Christine)</h1>
+<p>You are the hub&#39;s editor. New jobs, every date, materials and the order list, the bot&#39;s suggestions and the settings are yours. Most of your week is the Board, Attention and the Suggestions screen.</p>
+<h2 id="every-morning">Every morning</h2>
+<ol><li><strong>Attention.</strong> Overdue steps and dates that break a rule, grouped by job, soonest install first. For an overdue step: <strong>New date</strong> opens the Reschedule screen with the rest of the job following. For a rule it can&#39;t keep: <strong>OK as is</strong> if the dates are right anyway, <strong>Change dates</strong> otherwise.</li><li><strong>Suggestions</strong> (More → Suggestions; the count is on the More tab). The Buildertrend bot posts what it found overnight: a date that doesn&#39;t match, a new job, a status change. <strong>Accept</strong> applies it and ticks the date Confirmed; <strong>Decline</strong> leaves the hub as it is; <strong>Buildertrend is wrong</strong> records that Buildertrend needs fixing, not the hub.</li><li>The <strong>Board</strong> for anything that moved. Drag a card sideways to move it to another day; the box asks what happens to the rest of the job.</li></ol>
+<h2 id="when-a-job-is-sold">When a job is sold</h2>
+<p>More → <strong>New job</strong>: job type, job number, client and suburb, and the one date you know (site start, or the install if that is what the client has been promised). <strong>Show proposed dates</strong> fills every other date from the job type&#39;s rules and shows which factory and install weeks the job lands in and how full they are. Save. Every date is provisional until you confirm it. See <a href="/help/job-start-to-finish">A job from start to finish</a>.</p>
+<h2 id="when-plans-arrive">When plans arrive</h2>
+<p>On the job, <strong>Files → Add a file</strong>: contract plans (what the client signed) or production plans (signed off, build from these). A new file of the same class becomes the current version; the old one stays as superseded. The job sheet and the installer&#39;s site page show the current ones.</p>
+<h2 id="materials-for-a-job">Materials for a job</h2>
+<p>Once the production plans are in, on the job&#39;s <strong>Materials</strong> section load the Cabinet Vision cut list (or type the lines), then <strong>Source</strong>: the hub takes free stock first, then stock already on order, and lists the rest on the order list by the date it must be ordered. See <a href="/help/materials">Materials for a job</a>.</p>
+<h2 id="monday-the-order-list">Monday: the order list</h2>
+<p>More → Stock → <strong>Order list</strong> is grouped by supplier. <strong>Ordered</strong> with the expected date when you place it; <strong>In</strong> when it arrives (a partial stays on order). <strong>Need and supply</strong> is the six-week view behind it. See <a href="/help/weekly-stock">The weekly stock cycle</a>.</p>
+<h2 id="ticks-you-own">Ticks you own</h2>
+<p>Materials ordered, on each job, once the order is placed. Confirmed, on each date, once it matches Buildertrend (moving a date confirms it for you).</p>
+<h2 id="settings-you-keep">Settings you keep</h2>
+<p>Blocked days (public holidays are loaded to 2028; add shutdowns and clean-outs), the office message on My day and the Board, flag types and who looks after them, installer links on each job.</p></section><section class="manual-page" id="factory"><h1 id="the-factory-s-week-phil-and-the-factory-sign-in">The factory&#39;s week (Phil and the factory sign-in)</h1>
+<p>You tick things done, count stock, pick materials, log offcuts and flag problems. You don&#39;t move dates: if a date is wrong, flag it and the office moves it.</p>
+<h2 id="every-day">Every day</h2>
+<p>Open the hub on the phone or the factory PC. It opens on <strong>My day</strong>: your steps overdue, today, later this week and next week, one <strong>Done</strong> button each. When a step is finished, tap <strong>Done</strong>. The office sees it straight away. If you ticked the wrong one, <strong>Undo</strong> is on the screen for ten seconds; after that, open the job and untick it.</p>
+<p>Your steps are the ones in your areas (Materials in, Factory, and Delivery sits with the factory). The shared factory sign-in ticks <strong>Materials in</strong>, <strong>Doors back from painting</strong> and <strong>Delivery</strong>.</p>
+<h2 id="the-tv-on-the-wall">The TV on the wall</h2>
+<p>The Factory TV shows this week and next: materials in, cut, painting, delivery and installs, by day. It refreshes itself. If it&#39;s blank, the link needs remaking in Settings; ask the office.</p>
+<h2 id="before-cutting-a-job">Before cutting a job</h2>
+<p>Open the job (This job, or scan the job sheet&#39;s QR code). <strong>Materials</strong> shows whether everything is on hand. <strong>Pick for the factory</strong> takes the lines off the shelf in the hub as you take them off the shelf in the factory. Check <strong>Offcuts</strong> first for colours we don&#39;t keep.</p>
+<h2 id="when-something-is-wrong">When something is wrong</h2>
+<p><strong>Flag</strong> on the step, or <strong>Flag a problem</strong> on the job: pick what&#39;s wrong, one line, photos. It goes by email to whoever looks after that kind of problem and sits on Attention until it&#39;s fixed. Materials short, a drawing query, something damaged, a machine problem.</p>
+<h2 id="when-a-job-needs-rework">When a job needs rework</h2>
+<p>More → <strong>Rework</strong> → Raise rework: the job, the cause, one line on what happened, and tick what needs doing (drawings, factory work with hours, delivery, install). The office dates it.</p>
+<h2 id="friday-the-count">Friday: the count</h2>
+<p>More → Stock → <strong>Count</strong>. The standing lines, with what the hub thinks is on the shelf. Type what you see; leave a box empty to skip it. <strong>Save the count</strong>. Each difference is logged with your name.</p>
+<h2 id="a-bin-running-low">A bin running low</h2>
+<p>Scan the bin&#39;s QR label and tap <strong>Running low</strong>. That puts the reorder quantity on the order list once; a second scan tells you it&#39;s already there.</p>
+<h2 id="offcuts">Offcuts</h2>
+<p>More → Stock → <strong>Offcuts</strong> → Log an offcut: the colour, size and where it is. <strong>Used</strong> when it&#39;s gone.</p></section><section class="manual-page" id="site-manager"><h1 id="the-site-manager-s-week">The site manager&#39;s week</h1>
+<p>You check measure, keep an eye on installs, raise rework for site problems and sign off each install. Gus runs the site teams.</p>
+<h2 id="every-day">Every day</h2>
+<p>The hub opens on <strong>My day</strong>: your check measures and installs overdue, today, this week and next, one <strong>Done</strong> button each. <strong>Flags for you</strong> are the problems you look after, three at a time, the rest on Attention.</p>
+<h2 id="check-measures">Check measures</h2>
+<p>Tick <strong>Done</strong> on the check measure when it&#39;s done. Add a note if the measure changed anything. If it changes the dates, flag it (drawing query) so the office moves them.</p>
+<h2 id="when-an-installer-says-they-re-finished">When an installer says they&#39;re finished</h2>
+<p><strong>Needs your sign-off</strong> at the top of My day lists installs the installer has marked finished from their side, with a link to their log and photos. Inspect. Then tap <strong>Done</strong>: gaps adjusted? site left clean? and your photos. That is the official completion; nothing else is.</p>
+<h2 id="something-wrong-on-site">Something wrong on site</h2>
+<p>Open the job (This job, or the job sheet&#39;s QR) and <strong>Flag a problem</strong> with photos, or raise rework: More → <strong>Rework</strong> → Raise rework, pick the job and the cause, tick what needs doing. The office dates it; it appears in red on the Board.</p>
+<h2 id="the-installer-s-link">The installer&#39;s link</h2>
+<p>Each job has a <strong>Site</strong> section with the installer&#39;s daily log, photos and anything they reported missing. The office makes and stops the links; ask Christine for one when a crew starts.</p></section><section class="manual-page" id="installer"><h1 id="installers">Installers</h1>
+<p>You don&#39;t sign in. The office sends you a link for the job. It opens the job&#39;s site page on your phone and nothing else. Keep the link; it works until the office stops it.</p>
+<h2 id="what-s-on-the-page">What&#39;s on the page</h2>
+<ul><li><strong>Plans</strong>: production plans are the ones to build from; contract plans are what the client signed.</li><li><strong>Install</strong>: the dates.</li><li><strong>Today&#39;s log</strong>: what happened today, with photos. Do this every day you&#39;re on site.</li><li><strong>Something missing or wrong?</strong>: one line and photos. It goes straight to the office and the site manager.</li><li><strong>Finished from your side</strong>: tap it when the install is done as far as you&#39;re concerned, with the finished photos. It is not the sign-off. A site manager inspects and signs it off; the page then says <strong>Signed off</strong>.</li><li><strong>The log</strong>: everything you&#39;ve written, newest first, and whether each missing item has been sorted.</li></ul>
+<h2 id="if-the-link-stops">If the link stops</h2>
+<p>The job is finished, or the office has stopped it. Ask the office for a new one.</p></section><section class="manual-page" id="viewer"><h1 id="viewers-angela-and-michael">Viewers (Angela and Michael)</h1>
+<p>You see the Board, Pipeline and every job, and can&#39;t change anything. The tabs are Board · Pipeline · Jobs · More.</p>
+<ul><li><strong>Board</strong>: this week and next, one card per step.</li><li><strong>Pipeline</strong>: every live job in one row, where each is up to.</li><li><strong>Jobs</strong>: every live job on one chart.</li><li><strong>Find a job</strong> in the header: a number, a client&#39;s name or a suburb.</li><li>More → <strong>Spreadsheet</strong> downloads every job, step and rework.</li></ul>
+<p>If you need to tick, flag or move something, ask George or Christine to change your role.</p></section><h1 class="manual-parth">The screens</h1><section class="manual-page" id="board"><h1 id="board">Board</h1>
+<p>The week, one card per step, in rows by area: Drafting for contract, Check measure, Production drawings, Materials, Factory (cut, painting, delivery), Install, Stone, Rework. Day columns are working days; weekends, public holidays and blocked days aren&#39;t shown.</p>
+<h2 id="reading-it">Reading it</h2>
+<ul><li>A faded, dashed card is a <strong>provisional</strong> date: proposed by the hub, not yet confirmed against Buildertrend.</li><li>A red card is <strong>rework</strong>.</li><li>A card with a line through it is done.</li><li>The top tiles count this week: overdue, provisional, rework and the week&#39;s load.</li><li>The office message (Settings → Message) sits at the top.</li><li><strong>This week · Next week · Today</strong> switch the week. <strong>All · Aalbor · Origin</strong> filter by brand.</li></ul>
+<h2 id="doing-things">Doing things</h2>
+<ul><li>Tap a card to open the job on that step.</li><li><strong>Editors: drag a card sideways</strong> to move it to another day. A box asks what happens to the rest of the job: <strong>Move everything after it</strong> (every later step moves by the same working days), <strong>Keep the install date</strong> (only the steps between move, as little as the rules allow) or <strong>Only this one</strong>. <strong>See every date first</strong> opens the Reschedule screen instead. The move saves at once and confirms the dates it changed. If it would put a step before something it waits for, nothing saves and the Reschedule screen opens with the clash.</li><li>On a phone the board is a day list; each card has <strong>Move…</strong>.</li><li>The Suggestions panel shows what the bot is waiting on.</li></ul></section><section class="manual-page" id="pipeline"><h1 id="pipeline">Pipeline</h1>
+<p>Every live job, one row each, soonest install first, one cell per stage: Drafting, Check measure, Drawings, Materials, Factory, Painting, Delivery, Install, Stone, and open rework.</p>
+<h2 id="reading-a-cell">Reading a cell</h2>
+<div class="tbl" tabindex="0"><table><thead><tr><th>Cell</th><th>Means</th></tr></thead><tbody><tr><td>Green, ✓</td><td>Done</td></tr><tr><td>Amber</td><td>On this week</td></tr><tr><td>Grey with a date</td><td>Later</td></tr><tr><td>Red</td><td>Overdue: the date has passed and nobody ticked it</td></tr><tr><td>Dashed, ?</td><td>No date</td></tr><tr><td>–</td><td>Skipped: undated but a later stage is done (the imported jobs never had Drafting ticked)</td></tr><tr><td>Blank</td><td>Not on this job (no painting, no stone)</td></tr></tbody></table></div>
+<p>The <strong>dark outline</strong> is the stage the job is at: the first one not ticked done. The dot on the Materials cell is readiness: green ready to cut, amber on order, red short or on order for after the factory date. The count under each column heading is how many jobs are at that stage.</p>
+<p>Tap a cell to open that step on the job. On a phone each job is a card with its stages as chips.</p></section><section class="manual-page" id="attention"><h1 id="attention">Attention</h1>
+<p>Everything that needs a human, grouped by job, soonest install first. The number on the tab is the count. Doers see it under More.</p>
+<h2 id="in-order">In order</h2>
+<ol><li><strong>Flagged problems</strong>: open flags, who looks after each, <strong>Looking at it</strong> / <strong>Fixed</strong> (with a note) / <strong>Raise rework for this</strong>.</li><li><strong>Short for the factory</strong>: jobs whose materials are short, or on order for after the factory date.</li><li><strong>Per job</strong>: overdue steps (<strong>New date</strong> opens the Reschedule screen; <strong>Done</strong> if it was done and nobody ticked it) and decisions.</li><li><strong>Capacity</strong>: weeks and days with more hours booked than available.</li></ol>
+<h2 id="needs-a-decision">Needs a decision</h2>
+<p>A rule the dates don&#39;t keep: a step before the one it waits for, a pinned date clashed with, an install without a site start, an overbooked week. Each says what the hub would do about it.</p>
+<ul><li><strong>OK as is</strong> records that you looked and the dates are right. The item stays away until those dates change.</li><li><strong>Change dates</strong> opens the dates it&#39;s about.</li></ul>
+<p>Each group folds. Tap the job&#39;s name to open it.</p></section><section class="manual-page" id="my-day"><h1 id="my-day">My day</h1>
+<p>Your steps this week, one <strong>Done</strong> button each. Doers land here when they sign in. &quot;Yours&quot; means a step in one of your areas (set under Settings → People) or with your first name on it.</p>
+<h2 id="sections-top-to-bottom">Sections, top to bottom</h2>
+<ul><li><strong>Needs your sign-off</strong> (site managers): installs an installer has marked finished from their side, with their log and photos. <strong>Done</strong> here is the official sign-off.</li><li><strong>Overdue</strong>, <strong>Today</strong>, <strong>Flags for you</strong> (three, the rest on Attention), <strong>Later this week</strong>, <strong>Next week</strong>.</li></ul>
+<h2 id="done">Done</h2>
+<p>Tap <strong>Done</strong>. The step leaves the list and the office sees it. For ten seconds a line at the top says what you ticked with <strong>Undo</strong>. <strong>Install cabinets</strong> asks two questions first (gaps adjusted? site left clean?) and takes up to three photos.</p>
+<h2 id="flag">Flag</h2>
+<p><strong>Flag</strong> under a step opens a short form: what&#39;s wrong, one line, photos. See <a href="/help/flags">Flags</a>.</p>
+<h2 id="from-the-job-sheet">From the job sheet</h2>
+<p>Scanning the QR code on a job sheet opens that job&#39;s open steps, whoever&#39;s they are, each with Done and Flag. The plans are linked at the top.</p>
+<h2 id="if-it-says-your-areas-aren-t-set">If it says your areas aren&#39;t set</h2>
+<p>You only see steps with your name on them. Ask George or Christine to tick your areas under Settings → People.</p></section><section class="manual-page" id="job"><h1 id="one-job">One job</h1>
+<p>Everything about one job. The strip under the name is the sections; one shows at a time. The address keeps the section, so a link from Attention or My day lands on the right one.</p>
+<h2 id="the-top">The top</h2>
+<p>The job number and site start, the name, the scope, and pills: door finish, painting, stone, brand, anything needing a decision, <strong>Materials</strong> readiness, the current plans, <strong>Drawings folder ↗</strong> and <strong>Job sheet ↗</strong>. <strong>Next up</strong> is the next step with a date.</p>
+<h2 id="steps">Steps</h2>
+<p>Every standard step in order: tick, name, owner, date, pills (Done, Overdue, Confirmed or Provisional, Pinned, Installer finished).</p>
+<ul><li><strong>Tick</strong> a step when it&#39;s done (Doers and Editors). Install cabinets asks about gaps and the site and takes photos.</li><li><strong>Tap the date</strong> to move it: a box with a date picker and the three choices (everything after it, keep the install date, only this one). Saves at once, confirmed. Editors.</li><li><strong>Pin</strong> a promised date: nothing moves it until it&#39;s unpinned, and a clash with it needs a decision.</li><li><strong>Flag</strong> a problem on that step.</li><li><strong>Edit all dates</strong> changes several at once; tick Confirmed as each matches Buildertrend. <strong>Save and confirm all</strong> does both.</li><li><strong>Move the whole job</strong>: −1 day, +1 day, +1 week for every open step; <strong>Work out the provisional dates again</strong> redoes the unconfirmed ones from site start.</li></ul>
+<h2 id="materials">Materials</h2>
+<p>The job&#39;s lines and where each stands. <strong>Source</strong>, <strong>Pick for the factory</strong>, <strong>Add a line</strong>, <strong>Load the Cabinet Vision cut list</strong>. See <a href="/help/materials">Materials for a job</a>.</p>
+<h2 id="files">Files</h2>
+<p>Contract plans, production plans and other files, versioned. <strong>Add a file</strong> (Editors). The current of each class is linked at the top of the job, on the job sheet and on the installer&#39;s site page. Earlier versions fold away as superseded.</p>
+<h2 id="flags">Flags</h2>
+<p>Open and fixed flags on the job. <strong>Flag a problem</strong>.</p>
+<h2 id="site">Site</h2>
+<p>The installer&#39;s log and photos, anything reported missing, and (Editors) the installer links: <strong>Make a link for an installer</strong>, <strong>Stop</strong>. When the installer has marked the install finished, a note says a site manager needs to sign it off.</p>
+<h2 id="tasks-editors">Tasks (Editors)</h2>
+<p>Extra work just this job needs (&quot;Install painted doors&quot;): a name, an area, who, dates. It shows in its area&#39;s row on the Board and moves with that area&#39;s step.</p>
+<h2 id="rework">Rework</h2>
+<p>Rework on this job, each with its tasks. <strong>Raise rework</strong>, <strong>Set dates</strong>, <strong>Add a rework item</strong>, <strong>Close this rework</strong> (with the rough extra hours and material cost). Owners also record who was responsible.</p>
+<h2 id="details-editors-notes-everyone-else">Details (Editors) · Notes (everyone else)</h2>
+<p>Job number, client, suburb, brand, finish, painting, stone, days, scope, notes, status (live, on hold, complete, cancelled), the drawings folder link. <strong>Delete this job</strong> is here, for a job added by mistake only.</p>
+<h2 id="history">History</h2>
+<p>Every change on this job: who, when, before and after. Changes the bot&#39;s suggestions made say &quot;(suggestion #n)&quot;.</p></section><section class="manual-page" id="jobs"><h1 id="jobs-the-chart">Jobs (the chart)</h1>
+<p>Every live job from this week on, one line each, sorted by install, with every dated step as a bar. Orange means a date has passed and nobody ticked it. Week headings and job names stay put while you scroll.</p>
+<ul><li>Tap a job name to open it.</li><li>Tap a bar to pick a date for it on the Reschedule screen.</li><li><strong>Editors, with a mouse: drag a bar</strong> to move it. The same box as the Board asks what happens to the rest of the job, then saves, confirmed.</li><li><strong>All · Aalbor · Origin</strong> filter by brand.</li></ul></section><section class="manual-page" id="rework"><h1 id="rework">Rework</h1>
+<p>More → Rework. Raising, dating and closing rework, and the monthly tally.</p>
+<h2 id="raise-rework">Raise rework</h2>
+<p>The job, the cause (drafting, measure, factory, delivery, install, stone, supplier, client, other), one line on what happened, and tick what needs doing: drawings, factory work (hours), delivery, install (hours). Doers&#39; rework comes in undated; an Editor&#39;s start date fills the dates in order and confirms them. Each task is a red card in its area&#39;s row on the Board.</p>
+<h2 id="open-rework">Open rework</h2>
+<p>Each with its tasks and dates. Editors: <strong>Set dates</strong>, <strong>Edit</strong> (cause, what happened, each task&#39;s name, who, row, hours), <strong>Add a rework item</strong> (a name, a category, hours, dates), <strong>Close this rework</strong> with the rough extra hours and material cost. Owners: <strong>Record who was responsible</strong>.</p>
+<h2 id="monthly-tally">Monthly tally</h2>
+<p>Rework raised per month by cause. Owners also see the tally by person responsible.</p>
+<p>See <a href="/help/rework-flow">Rework, start to finish</a>.</p></section><section class="manual-page" id="load"><h1 id="load">Load</h1>
+<p>More → Load. Six weeks of hours booked against hours available, per day, for the Factory and the Install crew.</p>
+<p>Hours available come from Settings → Capacity (hours a day per weekday, less any leave or shutdown). Hours booked: a kitchen&#39;s factory or install day books the hours in &quot;Hours in a factory or install day&quot; (Settings → Durations); a rework task books its own hours. A red day is overbooked; the jobs on it are listed. Weekends, holidays and blocked days are 0.</p>
+<p>Use it to see where a new job fits; New job shows the same for the weeks it lands in.</p></section><section class="manual-page" id="suggestions"><h1 id="suggestions">Suggestions</h1>
+<p>More → Suggestions. The Buildertrend bot checks Buildertrend each weekday morning and posts what doesn&#39;t match the hub: a date, a status, a note, a job the hub doesn&#39;t have. Nothing changes until an Editor decides. The count waiting is on the More tab.</p>
+<h2 id="deciding-editors">Deciding (Editors)</h2>
+<p>Each suggestion shows the hub&#39;s value and the proposed one, grouped by job, urgent first.</p>
+<ul><li><strong>Accept</strong> applies it. A date is ticked Confirmed. If the hub has changed since the bot looked, it&#39;s marked &quot;Couldn&#39;t apply&quot; and nothing changes; look at the job and decide afresh.</li><li><strong>Decline</strong>: the hub is right as it is.</li><li><strong>Buildertrend is wrong</strong>: the hub is right and Buildertrend needs fixing. Recorded so the bot stops suggesting it.</li><li>Tick several and <strong>Accept selected</strong> or <strong>Decline selected</strong>.</li><li><strong>Supersede all … waiting</strong> clears the queue before the bot rebuilds it.</li></ul>
+<p>A new job from the bot keeps only the fields the hub holds: the suburb, never the street address, phone or email.</p>
+<p>Decided suggestions stay on the screen under their status; none are deleted. Changes made by accepting show in the job&#39;s History as &quot;(suggestion #n)&quot;.</p>
+<p>The email address the bot&#39;s batches go to, and the API tokens it signs in with, are under Settings → Buildertrend bot.</p></section><section class="manual-page" id="new-job"><h1 id="new-job">New job</h1>
+<p>More → New job (Editors).</p>
+<ol><li><strong>Job type</strong>: polyurethane painted doors or melamine doors. It sets the finish, painting, stone, factory and install days and the weeks from site start to install. Change any of them on the job afterwards.</li><li><strong>Job number</strong> from Buildertrend. Typing it fills the site start from the number (270301 is 1 Mar 2027); change the date if that isn&#39;t right.</li><li>Client, suburb, brand, scope.</li><li><strong>The one date you know</strong>: site start, check measure, drawings start or install start. The hub works every other date from it; a blank site start is worked out backwards.</li><li><strong>Show proposed dates</strong>. The proposal lists every step and where the job lands: the factory and install weeks with hours booked before and after it against hours available. If the week is full, <strong>Use the next week with room</strong> moves the date you worked from and shows the new proposal, without saving.</li><li><strong>Save</strong>. Every date is provisional until it&#39;s confirmed.</li></ol>
+<p>A job can also arrive from the bot as a suggestion; accepting it does the same with the dates Buildertrend has.</p></section><section class="manual-page" id="find-and-more"><h1 id="find-a-job-and-more">Find a job, and More</h1>
+<p><strong>Find a job</strong> in the header takes part of a job number, a client&#39;s name or a suburb. One match opens the job; more than one lists them.</p>
+<p><strong>More</strong> holds whatever your tab row doesn&#39;t: Rework, Load, Stock, Factory TV, Suggestions, New job, Settings, Spreadsheet, and this manual. The tab rows are by role: Editors Board · Pipeline · Attention · Jobs · More; the floor My day · This job · (Stock) · More; Viewers Board · Pipeline · Jobs · More.</p>
+<p><strong>This job</strong> is the job you last opened or scanned on that phone.</p>
+<p><strong>Spreadsheet</strong> downloads every job, step and rework as an Excel file.</p></section><section class="manual-page" id="settings"><h1 id="settings">Settings</h1>
+<p>More → Settings (Editors). A menu of pages, each with a line saying where things stand; a warning in orange means something is set wrong (people with no areas, a flag type with nobody responsible, no Factory TV link).</p>
+<h2 id="people">People</h2>
+<p>One card per person: name, email, role, <strong>Can sign in</strong>, <strong>Gets emails</strong>, <strong>Runs stock</strong>, <strong>Owner</strong> (owners only), and their <strong>areas</strong> as chips. Areas are the Board rows a person works in; they make up My day. Switch someone off rather than deleting them, so history keeps their name. <strong>Add a person</strong> at the bottom. <strong>Installers</strong> who sign in by a job link are listed separately with the jobs their links are on.</p>
+<p>Roles: <strong>Editor</strong> changes anything. <strong>Doer</strong> ticks steps, raises rework, flags, and on the floor counts, receives and picks. <strong>Viewer</strong> looks. The database enforces these, not just the screen.</p>
+<h2 id="capacity">Capacity</h2>
+<p>Hours a day per weekday for the Factory and the Install crew, and periods with different hours (a shutdown is 0, someone on leave is less, an extra pair of hands is more).</p>
+<h2 id="job-types">Job types</h2>
+<p>What a new job gets by default. Changes apply to new jobs only.</p>
+<h2 id="durations-and-limits">Durations and limits</h2>
+<p>The working-day rules behind proposed dates: days for drawings, materials, the factory, painting, and the hours in a factory or install day.</p>
+<h2 id="blocked-days">Blocked days</h2>
+<p>Public holidays (loaded to 2028), shutdowns and clean-outs. &quot;Everyone&quot; days stop every step; &quot;Factory only&quot; days stop factory steps.</p>
+<h2 id="flagged-problems">Flagged problems</h2>
+<p>Each kind of problem and who looks after it. A flag goes to that person and the Editors.</p>
+<h2 id="emails">Emails</h2>
+<p>The 7 am run: what it would send today, the recent runs, and <strong>Send these now</strong>.</p>
+<h2 id="message">Message</h2>
+<p>One line at the top of My day and the Board.</p>
+<h2 id="factory-tv">Factory TV</h2>
+<p>The link for the screen on the wall. <strong>Make a new link</strong> stops the old one.</p>
+<h2 id="buildertrend-bot">Buildertrend bot</h2>
+<p>Where the bot&#39;s batches are emailed. Owners also make and revoke the bot&#39;s API tokens here; a token is shown once.</p></section><section class="manual-page" id="stock"><h1 id="stock-need-and-supply">Stock: Need and supply</h1>
+<p>More → Stock. The first screen is the six-week view: what jobs need, by the week of their factory date, against what we have.</p>
+<h2 id="the-tiles">The tiles</h2>
+<p><strong>Short</strong> (lines the next six weeks need and we don&#39;t have), <strong>Running low</strong> (standing lines at or under their minimum with nothing on order), <strong>Jobs short</strong> (can&#39;t cut yet), <strong>To order</strong> (on the order list).</p>
+<h2 id="need-against-supply">Need against supply</h2>
+<p>One row per item: the quantity needed each of the next six weeks, on hand, spoken for (allocated to jobs and not yet picked), free, on order and when it&#39;s due, the gap, and by when to order it (the factory date less the supplier&#39;s lead days). <strong>Put the gaps on the order list</strong> adds every gap as a line. &quot;Late&quot; means the order-by date has passed.</p>
+<h2 id="running-low">Running low</h2>
+<p>The standing lines at or under minimum. <strong>Add to the list</strong> puts the reorder quantity on the order list.</p>
+<h2 id="jobs-short-for-the-factory">Jobs short for the factory</h2>
+<p>Live jobs with materials loaded that aren&#39;t ready: which lines and why. <strong>Open</strong> goes to the job&#39;s Materials.</p>
+<h2 id="covered">Covered</h2>
+<p>The lines jobs need that are on hand or on order, folded away.</p>
+<p>On hand is always the sum of the ledger: opening balances from the July stocktake, then every count, receipt, pick and offcut. Nobody types an on-hand figure.</p></section><section class="manual-page" id="stock-items"><h1 id="stock-items">Stock: Items</h1>
+<p>More → Stock → Items. The catalogue: name, code, unit, supplier, category, standing (always kept) or bought to order, minimum and reorder quantity, bin, lead days.</p>
+<ul><li>Search by name, code, supplier or bin; filter by kind or standing lines only.</li><li><strong>Add an item</strong>, <strong>Edit the item</strong>, <strong>Import or update from a spreadsheet</strong> (a CSV matched by code or name), <strong>Bin labels ↗</strong> (QR labels for the standing lines).</li><li>An item&#39;s page: on hand, spoken for, free, on order; the <strong>ledger</strong> (every move, newest first); <strong>Record the count</strong> and <strong>Move stock</strong> (a correcting move, with a reason); its orders, offcuts, other codes the cut list uses for it, and the jobs that need it.</li></ul>
+<p>Editors and anyone with the Stock tick change items. Doers count and move.</p></section><section class="manual-page" id="order-list"><h1 id="stock-order-list">Stock: Order list</h1>
+<p>More → Stock → Order list. Open lines grouped by supplier, each saying what it&#39;s for (a job, running low, a gap).</p>
+<ul><li><strong>Ordered</strong>: when the order is placed, with the expected date. The line goes amber and the jobs waiting on it show &quot;on order&quot;.</li><li><strong>In</strong>: when it arrives, with the quantity. A partial stays on order for the rest. Stock received for a job marks that job&#39;s line as on hand.</li><li><strong>Drop</strong>: a line that shouldn&#39;t be ordered.</li><li><strong>Add a line</strong> for anything else.</li><li><strong>Received and dropped</strong> folds away at the bottom.</li></ul>
+<p>Christine runs the list. The factory can mark lines <strong>In</strong> as deliveries arrive.</p></section><section class="manual-page" id="count-and-offcuts"><h1 id="stock-count-and-offcuts">Stock: Count and Offcuts</h1>
+<h2 id="count">Count</h2>
+<p>More → Stock → Count. The standing lines (or <strong>Everything</strong> for a stocktake), grouped by category, with the bin, the last count and what the hub says is there. Type what&#39;s on the shelf; leave a box empty to skip it. <strong>Save the count</strong>. Each difference becomes a count move with your name, and the item page shows it in the ledger. Lines marked <strong>check</strong> were doubtful in Notion and haven&#39;t been counted since.</p>
+<p>The factory counts on Fridays.</p>
+<h2 id="offcuts">Offcuts</h2>
+<p>More → Stock → Offcuts. Pieces over half a sheet of colours we don&#39;t keep. <strong>Log an offcut</strong>: the colour, length and width, where it is. <strong>Used</strong> when it&#39;s gone. The Need and supply screen mentions offcuts when that colour is next needed, so check here before cutting a fresh sheet.</p></section><section class="manual-page" id="bins"><h1 id="stock-bins">Stock: Bins</h1>
+<p>Every standing line can have a bin with a QR label (More → Stock → Items → <strong>Bin labels ↗</strong>, printed on A4). Scanning a label on a phone opens that bin&#39;s page with one button, <strong>Running low</strong>, which puts the item&#39;s reorder quantity on the order list. A second scan says it&#39;s already listed.</p>
+<p>Minimums, reorder quantities and bins are set on each item. Notion had none, so they are empty until someone sets them; Running low only checks standing lines with a minimum.</p></section><section class="manual-page" id="site-page"><h1 id="the-site-page-installers">The site page (installers)</h1>
+<p>What an installer sees from a job link: one job, no sign-in to the rest. The office makes the link on the job&#39;s Site section and sends it to the installer. See <a href="/help/installer">Installers</a> for the installer&#39;s side.</p>
+<p>For the office and site managers, everything they write appears on the job&#39;s <strong>Site</strong> section: daily log entries with photos, anything reported missing (also a flag, &quot;Missing on site&quot;, to Gus), and &quot;finished from the installer&#39;s side&quot;, which puts the job under <strong>Needs your sign-off</strong> on the site managers&#39; My day.</p>
+<p><strong>Stop</strong> a link when the crew changes. Switching an installer off (Settings → People → Installers) stops every link they have. Either signs their phone out at once.</p></section><section class="manual-page" id="job-sheet"><h1 id="the-job-sheet">The job sheet</h1>
+<p><strong>Job sheet ↗</strong> on a job prints one page for the trolley: number, client, suburb, finish, days, scope, every standard step with a tick box, the current plans by name, and a QR code. Scanning the code on a phone opens that job&#39;s open steps on My day, each with Done and Flag, whoever scanned it. The hub holds no cabinet count, so the sheet has none.</p></section><section class="manual-page" id="factory-tv"><h1 id="factory-tv">Factory TV</h1>
+<p>A screen on the wall opens the factory&#39;s week with a link instead of a sign-in: rows for Materials in, Factory (cut, painting, delivery) and Install, this week by day and next week as a list, the office message, and the overdue count. It refreshes every two minutes. Read only.</p>
+<p>Settings → Factory TV makes the link; making a new one stops the old. Keep it to the factory. A signed-in person can open More → Factory TV without the link.</p></section><h1 class="manual-parth">How things are done</h1><section class="manual-page" id="signing-in"><h1 id="signing-in">Signing in</h1>
+<p>Go to the hub&#39;s address and type your email. If it&#39;s on the list, a link arrives within a minute (check junk mail). The link works for twenty minutes and once; after that, ask for another. You stay signed in on that phone or PC for weeks. <strong>Sign out</strong> is in the header.</p>
+<p>Only addresses under Settings → People can sign in. Five links in twenty minutes is the limit; wait and use the newest.</p>
+<p>Installers don&#39;t sign in; they get a link to one job. The factory TV opens with its own link.</p>
+<p>Add the hub to your phone&#39;s home screen (Share → Add to Home Screen on an iPhone, the browser menu on Android); it then opens like an app.</p></section><section class="manual-page" id="job-start-to-finish"><h1 id="a-job-from-start-to-finish">A job from start to finish</h1>
+<ol><li><strong>Sold.</strong> Christine adds it (More → New job) with the job type, number and the one date known. Every date is provisional. Or the bot suggests it from Buildertrend and she accepts.</li><li><strong>Plans.</strong> Contract plans go on the job&#39;s Files. Drafting for contract is ticked when the drafting is done.</li><li><strong>Check measure.</strong> The site manager ticks it on My day. Anything the measure changes is flagged as a drawing query.</li><li><strong>Production drawings.</strong> Christine ticks it when the production plans are signed off and adds them to Files; they become the current plans everywhere.</li><li><strong>Materials.</strong> The cut list is loaded on the job&#39;s Materials and sourced; what&#39;s short goes on the order list by its order-by date. Christine ticks <strong>Materials ordered</strong> once the order is placed. The factory ticks <strong>Materials in</strong> when it lands; the factory email goes out.</li><li><strong>Confirmed dates.</strong> As each date matches Buildertrend, it&#39;s ticked Confirmed (moving a date confirms it). The bot flags any that don&#39;t match.</li><li><strong>Factory.</strong> The factory picks the materials, cuts, edges and assembles, and ticks <strong>Cut, edge and assemble</strong>. Polyurethane doors go to the painter and come back: <strong>Doors to painting</strong>, <strong>Doors back from painting</strong>.</li><li><strong>Delivery.</strong> The factory ticks it.</li><li><strong>Install.</strong> The installer logs each day on the site page and marks it finished from their side. The site manager inspects and ticks <strong>Install cabinets</strong> done with the two answers and photos: that is the completion.</li><li><strong>Stone.</strong> Stone measure, then stone install, each the next working day or later.</li><li><strong>Complete.</strong> Christine sets the status to Complete on the job&#39;s Details. It leaves the Board and Pipeline; History keeps everything.</li></ol>
+<p>Where a date slips, see <a href="/help/moving-dates">Moving dates</a>. Where something goes wrong, <a href="/help/flags">Flags</a> and <a href="/help/rework-flow">Rework</a>.</p></section><section class="manual-page" id="moving-dates"><h1 id="moving-dates">Moving dates</h1>
+<p>Dates depend on each other: check measure → drawings → materials ordered (soft) → materials in → factory → painting → delivery → install → stone measure → stone install. A move that breaks a hard rule needs a decision. Done steps never move. Pinned dates never move.</p>
+<h2 id="three-ways-to-move-one-date">Three ways to move one date</h2>
+<ul><li><strong>On the Board</strong>, drag the card to another day (Editors, desktop). On a phone, <strong>Move…</strong> on the card.</li><li><strong>On the job</strong>, tap the date.</li><li><strong>On Jobs</strong>, drag the bar with a mouse, or tap it.</li></ul>
+<p>Each asks the same question: what happens to the rest of the job?</p>
+<ul><li><strong>Move everything after it</strong>: every later step moves by the same number of working days. The usual answer when the job has slipped.</li><li><strong>Keep the install date</strong>: the steps between this one and the install move only as far as the rules force, using spare days first. For when the client has been promised the install.</li><li><strong>Only this one</strong>: nothing else moves. For a date that was simply wrong.</li><li><strong>See every date first</strong> opens the Reschedule screen with every date editable before anything saves.</li></ul>
+<p>The move saves at once and confirms the dates it changed. If it would put a step before the one it waits for, nothing saves and the Reschedule screen opens with the clash; <strong>Move anyway</strong> if you mean it.</p>
+<p>If someone else moved the step while your page was open, the move is refused and says so; reload and look again.</p>
+<h2 id="the-whole-job">The whole job</h2>
+<p>On the job, <strong>Move the whole job</strong>: −1 day, +1 day, +1 week for every open step. Rework and pinned dates stay.</p>
+<h2 id="a-promised-date">A promised date</h2>
+<p><strong>Pin</strong> it on the job. Nothing moves it, and anything that clashes with it shows under Needs a decision.</p></section><section class="manual-page" id="rework-flow"><h1 id="rework-start-to-finish">Rework, start to finish</h1>
+<ol><li><strong>Raise it.</strong> More → Rework, or <strong>Raise rework</strong> on the job, or <strong>Raise rework for this</strong> on a flag. The job, the cause, one line on what happened, and tick what needs doing: drawings, factory work (hours), delivery, install (hours). Anyone who can tick can raise it.</li><li><strong>Date it.</strong> Editors: a start date on the raise form, or <strong>Set dates</strong> on the rework, fills the dates in order (drawings, then factory work for the hours, then delivery, then install) and confirms them. Each task is a red card in its area&#39;s row on the Board and on My day for whoever does it; the factory hours count against capacity.</li><li><strong>Do it.</strong> Tick each task done as it&#39;s finished, like any step.</li><li><strong>Close it.</strong> <strong>Close this rework</strong> with the rough extra hours and material cost. Owners record who was responsible.</li></ol>
+<p>Moving one task moves the later ones of the same rework by the same working days; the main job never moves because of rework. The monthly tally on the Rework page is by cause.</p></section><section class="manual-page" id="flags"><h1 id="flags">Flags</h1>
+<p>A flag is a problem someone needs to deal with: materials short or wrong, a drawing query, site not ready, something damaged, a machine problem, missing on site, something else. Each kind has a person who looks after it (Settings → Flagged problems).</p>
+<p><strong>Raising one.</strong> <strong>Flag</strong> under a step on My day or the job, or <strong>Flag a problem</strong> on the job: pick the kind, one line, photos. It goes by email to the person responsible and the Editors, shows first on Attention and in the tab&#39;s count, on the job&#39;s Flags section, and under <strong>Flags for you</strong> on My day for the person responsible.</p>
+<p><strong>Dealing with it.</strong> <strong>Looking at it</strong>, then <strong>Fixed</strong> with a note. Whoever raised it, the person responsible, or an Editor. <strong>Raise rework for this</strong> opens the rework form with the flag&#39;s note.</p>
+<p>An installer&#39;s &quot;something missing&quot; on the site page is a flag of the kind Missing on site.</p></section><section class="manual-page" id="materials"><h1 id="materials-for-a-job">Materials for a job</h1>
+<p>On the job&#39;s <strong>Materials</strong> section.</p>
+<ol><li><strong>Load the lines.</strong> <strong>Load the Cabinet Vision cut list</strong> (a CSV: the code in the first column, the quantity in the last number column) or <strong>Add a line</strong> by hand. Codes the hub doesn&#39;t know go to a one-time match page; the match is remembered. Tick &quot;From the nested file&quot; when the sheet counts are the real ones.</li><li><strong>Source.</strong> The hub takes free stock first (leaving what jobs with an earlier factory date still need, unless unticked), then stock already on order (that much of the order becomes this job&#39;s), and lists the rest on the order list for this job, to be ordered by the factory date less the supplier&#39;s lead days.</li><li><strong>Watch the pill.</strong> The job&#39;s top shows Materials: ready to cut, on order (with the expected date, and a warning if that&#39;s after the factory date), or short. The same shows on the Pipeline&#39;s Materials cell and under Short for the factory on Attention and Need and supply.</li><li><strong>Pick.</strong> When the factory starts, <strong>Pick for the factory</strong> takes the allocated lines off the shelf as picked moves.</li></ol>
+<p>Lines can be removed and reloaded; the same code loaded again replaces the line.</p></section><section class="manual-page" id="weekly-stock"><h1 id="the-weekly-stock-cycle">The weekly stock cycle</h1>
+<ul><li><strong>Daily</strong>: deliveries are marked <strong>In</strong> on the order list as they land (quantity; a partial stays on order). The factory <strong>picks</strong> as jobs start, logs offcuts, scans a bin when it&#39;s running low.</li><li><strong>Friday</strong>: the factory counts the standing lines (Stock → Count). Each difference is logged.</li><li><strong>Monday</strong>: Christine opens <strong>Need and supply</strong>: the gaps for the next six weeks and by when to order each, then <strong>Order list</strong> grouped by supplier, places the orders and marks them <strong>Ordered</strong> with the expected dates.</li><li><strong>As jobs get production plans</strong>: their cut lists are loaded and sourced, so the six-week view is real.</li></ul>
+<p>Minimums, reorder quantities, lead days and bins live on each item and were empty at the start; set them as you go.</p></section><section class="manual-page" id="monday-morning"><h1 id="monday-morning">Monday morning</h1>
+<ol><li>Read the Monday email: everyone&#39;s week, and the installs finished last week with their photos.</li><li><strong>Attention</strong>: clear what&#39;s red before the meeting.</li><li><strong>Suggestions</strong>: decide what the bot found over the weekend.</li><li><strong>Pipeline</strong> for the meeting: where every job is. <strong>Load</strong> for the next six weeks.</li><li><strong>Stock → Order list</strong>: place the week&#39;s orders.</li><li>The office message (Settings → Message) for anything the floor should know this week.</li></ol></section><section class="manual-page" id="emails"><h1 id="the-emails">The emails</h1>
+<p>Four fixed ones; there is no email builder.</p>
+<div class="tbl" tabindex="0"><table><thead><tr><th>When</th><th>Who</th><th>What</th></tr></thead><tbody><tr><td>Weekdays 7 am</td><td>Whoever owns a step that went overdue since the last working day</td><td>Your overdue steps</td></tr><tr><td>Mondays 7 am</td><td>Everyone with steps</td><td>Your week; Editors also get the installs finished last week</td></tr><tr><td>As it happens</td><td>The person responsible and the Editors</td><td>A flag</td></tr><tr><td>As it happens</td><td>The factory</td><td>Materials in, ticked</td></tr></tbody></table></div>
+<p>&quot;Owns&quot; means in your areas or with your name on it. Untick <strong>Gets emails</strong> on a person to leave them out. Settings → Emails shows what today&#39;s run would send and can send it now. On the preview copy every email goes to the office address instead, saying who it was for.</p></section><section class="manual-page" id="words"><h1 id="words-the-hub-uses">Words the hub uses</h1>
+<div class="tbl" tabindex="0"><table><thead><tr><th>Word</th><th>Means</th></tr></thead><tbody><tr><td>Provisional</td><td>A date the hub proposed; nobody has confirmed it. Drawn faded and dashed.</td></tr><tr><td>Confirmed</td><td>A date someone set on purpose, or that matches Buildertrend.</td></tr><tr><td>Pinned</td><td>A promised date. Nothing moves it.</td></tr><tr><td>Overdue</td><td>The date has passed and nobody ticked the step.</td></tr><tr><td>Needs a decision</td><td>The dates break a rule and someone has to say what to do.</td></tr><tr><td>Done</td><td>Ticked, by whoever did it.</td></tr><tr><td>Step</td><td>One thing on a job with a date: check measure, production drawings, cut, install.</td></tr><tr><td>Task</td><td>Extra work for one job only, or a piece of rework.</td></tr><tr><td>Rework</td><td>Work done again because something went wrong, with its own tasks and hours.</td></tr><tr><td>Flag</td><td>A problem for someone to deal with.</td></tr><tr><td>Area</td><td>A Board row a person works in. Their steps make up My day.</td></tr><tr><td>Spoken for</td><td>Stock allocated to a job and not yet picked.</td></tr><tr><td>Free</td><td>On hand less spoken for.</td></tr><tr><td>Standing line</td><td>Stock always kept, with a minimum.</td></tr><tr><td>Shortfall</td><td>What a job needs that isn&#39;t on hand or on order.</td></tr><tr><td>Suggestion</td><td>Something the Buildertrend bot found that doesn&#39;t match.</td></tr><tr><td>Site link</td><td>An installer&#39;s way into one job.</td></tr><tr><td>Signed off</td><td>The site manager&#39;s Install done tick. The installer&#39;s &quot;finished from our side&quot; isn&#39;t.</td></tr></tbody></table></div></section></div></body></html>
