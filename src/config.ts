@@ -22,4 +22,7 @@ export const config = {
   initialEditorEmail: env.INITIAL_EDITOR_EMAIL ?? '',
   initialEditorName: env.INITIAL_EDITOR_NAME ?? 'George Sowmi',
   production: env.NODE_ENV === 'production',
+  // A preview copy of the hub (George, 7 Nov 2026): a banner on every page and "[Preview]" on every email,
+  // so nobody mistakes it for the real hub. Set HUB_PREVIEW=1 on the preview service only.
+  preview: env.HUB_PREVIEW === '1' || env.HUB_PREVIEW === 'true',
 };

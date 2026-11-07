@@ -1,5 +1,11 @@
 import { html, Html } from '../web/html.js';
 import type { Person } from '../web/auth.js';
+import { config } from '../config.js';
+
+/** Shown at the top of every page of a preview copy, signed in or not. */
+const previewBar = (): Html => config.preview
+  ? html`<div class="preview-bar" role="note">Preview copy of the hub. Try anything here; nothing you change is real. The real hub is <a href="https://hub.aalborkitchens.com.au">hub.aalborkitchens.com.au</a>.</div>`
+  : html``;
 
 /**
  * Changes on every release (Render sets RENDER_GIT_COMMIT), so browsers fetch the new
@@ -12,7 +18,7 @@ const FONTS = 'https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;6
 function head(title: string): Html {
   return html`<!doctype html><html lang="en-AU"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>${title} · Aalbor Hub</title>
+<title>${title} · ${config.preview ? 'Hub preview' : 'Aalbor Hub'}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="${FONTS}">
 <link rel="stylesheet" href="/static/hub.css?v=${ASSET_VERSION}">
 <script src="/static/hub.js?v=${ASSET_VERSION}" defer></script>
@@ -21,7 +27,7 @@ function head(title: string): Html {
 
 /** Page for signed-out screens: sign-in, errors. */
 export function bare(title: string, body: Html): Html {
-  return html`${head(title)}<body><main class="wrap narrow">${body}</main></body></html>`;
+  return html`${head(title)}<body>${previewBar()}<main class="wrap narrow">${body}</main></body></html>`;
 }
 
 export type Tab = 'coming-up' | 'jobs' | 'job' | 'new' | 'rework' | 'suggestions' | 'settings';
@@ -40,7 +46,7 @@ export function page(opts: { title: string; tab: Tab; person: Person; flash?: st
   ];
   if (p.role === 'editor') tabs.push(['new', 'New job', '/jobs/new'], ['settings', 'Settings', '/settings']);
   const flash = opts.flash ? (opts.flash.startsWith('!') ? html`<div class="notice bad" role="alert">${opts.flash.slice(1)}</div>` : html`<div class="notice ok" role="status">${opts.flash}</div>`) : '';
-  return html`${head(opts.title)}<body><div class="wrap">
+  return html`${head(opts.title)}<body>${previewBar()}<div class="wrap">
   <header class="top">
     <div style="display:flex;flex-direction:column;gap:4px;min-width:0">
       <div class="eyebrow">Aalbor Kitchens · Production Hub</div>
