@@ -1,0 +1,36 @@
+<!doctype html><html lang="en-AU"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hub Wall Sheet</title>
+<meta name="description" content="A4 sheet for the factory wall: the hub on your phone in six steps.">
+<style>
+  :root { --fg: #14171C; --muted: #5B6069; --line: #D9DBE0; --bg: #FFFFFF; --accent: #14171C; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --fg: #E8EAED; --muted: #A3A8B3; --line: #2D323C; --bg: #121419; --accent: #E8EAED; } }
+  :root[data-theme="dark"] { --fg: #E8EAED; --muted: #A3A8B3; --line: #2D323C; --bg: #121419; --accent: #E8EAED; }
+  @page { size: A4; margin: 14mm; }
+  html, body { background: var(--bg); color: var(--fg); margin: 0; }
+  body { font: 18px/1.35 -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; padding: 24px 16px; }
+  .sheet { max-width: 720px; margin: 0 auto; }
+  .eyebrow { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+  h1 { font-size: 40px; margin: 4px 0 2px; line-height: 1.05; }
+  .sub { color: var(--muted); margin: 0 0 22px; font-size: 18px; }
+  ol { list-style: none; padding: 0; margin: 0; counter-reset: n; }
+  li { counter-increment: n; display: grid; grid-template-columns: 56px 1fr; gap: 14px; padding: 16px 0; border-top: 2px solid var(--line); align-items: start; }
+  li::before { content: counter(n); font-size: 34px; font-weight: 800; line-height: 1; color: var(--accent); }
+  li b { display: block; font-size: 24px; margin-bottom: 2px; }
+  li span { color: var(--muted); }
+  .foot { border-top: 2px solid var(--line); padding-top: 14px; margin-top: 4px; display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; font-size: 16px; color: var(--muted); }
+  .foot b { color: var(--fg); }
+  @media print { body { padding: 0; font-size: 16px; } h1 { font-size: 34px; } li b { font-size: 21px; } li::before { font-size: 30px; } }
+</style></head><body><div class="sheet">
+  <div class="eyebrow">Aalbor Kitchens · Production Hub</div>
+  <h1>The hub on your phone</h1>
+  <p class="sub">hub.aalborkitchens.com.au · it opens on My day</p>
+  <ol>
+    <li><b>Open it. It's your list.</b><span>Overdue, today, this week, next week. Only your steps.</span></li>
+    <li><b>Finished a step? Tap Done.</b><span>The office sees it straight away. Wrong one? Undo is there for ten seconds.</span></li>
+    <li><b>Something wrong? Tap Flag.</b><span>Materials short, drawing query, damaged, machine. One line, add photos. It goes to the right person.</span></li>
+    <li><b>Install finished? Done asks two questions.</b><span>Gaps adjusted? Site left clean? Add photos. That's the sign-off.</span></li>
+    <li><b>Friday: count the stock.</b><span>More → Stock → Count. Type what's on the shelf. Empty box = skip.</span></li>
+    <li><b>Stuck? More → Manual.</b><span>One page for the factory, one for site. Or ask Christine.</span></li>
+  </ol>
+  <div class="foot"><span><b>The TV</b> shows this week and next.</span><span><b>Add to home screen</b> and it opens like an app.</span></div>
+</div></body></html>
