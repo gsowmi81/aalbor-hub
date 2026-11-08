@@ -39,6 +39,7 @@ migrations/010_*.sql        round two: labour_centres + capacity_adjustments (ho
 migrations/011_*.sql        round three: steps.gaps_adjusted + steps.site_clean and step_photos (install done with photos)
 migrations/012_*.sql        files on a job: job_files (classed, versioned, logged) + job_file_blobs (the bytes, guarded only)
 migrations/014_*.sql        a job with stock moves can be deleted (the cascade may clear the move's job and order pointers)
+migrations/017_*.sql        cutover, 8 Nov 2026: "Gets emails" off for everyone but George and Christine
 migrations/016_saturday.sql Saturdays as working days: settings.saturday_working (0/1) and labour_centres.sat
 migrations/015_site.sql     the site link and the site log: people.link_only, sessions.job_id, steps.site_finished_at/_by, site_links, site_logs (logged) + site_log_photos (guarded), the "Missing on site" flag type
 migrations/013_stock.sql    stock: stock_items (the 183 Notion lines), code_aliases, stock_moves (the ledger, with the 7 Jul 2026 stocktake as the opening balance), offcuts,

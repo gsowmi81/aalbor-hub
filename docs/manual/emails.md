@@ -9,4 +9,4 @@ Four fixed ones; there is no email builder.
 | As it happens | The person responsible and the Editors | A flag |
 | As it happens | The factory | Materials in, ticked |
 
-"Owns" means in your areas or with your name on it. Untick **Gets emails** on a person to leave them out. Settings → Emails shows what today's run would send and can send it now. On the preview copy every email goes to the office address instead, saying who it was for.
+"Owns" means in your areas or with your name on it. Untick **Gets emails** on a person to leave them out. At the cutover (8 Nov 2026) only George and Christine were left on; tick the others on under Settings → People as they're ready. Settings → Emails shows what today's run would send and can send it now. On the preview copy every email goes to the office address instead, saying who it was for.
